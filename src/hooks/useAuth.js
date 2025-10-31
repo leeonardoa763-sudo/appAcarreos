@@ -1,4 +1,4 @@
-// src/hooks/useAuth.js - VERSIÓN COMPLETA
+// src/hooks/useAuth.js
 import { useState, useEffect } from "react";
 import { supabase } from "../config/supabase";
 
@@ -9,33 +9,41 @@ export const useAuth = () => {
   const [profileError, setProfileError] = useState(null);
 
   useEffect(() => {
+    // Obtener sesión inicial
     const getInitialSession = async () => {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
-      if (error) {
-        console.error("Error obteniendo sesión:", error);
-        setLoading(false);
-        return;
-      }
+        if (error) {
+          console.error("❌ Error obteniendo sesión:", error);
+          setLoading(false);
+          return;
+        }
 
-      setUser(session?.user ?? null);
+        setUser(session?.user ?? null);
 
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
-      } else {
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("❌ Error en getInitialSession:", error);
         setLoading(false);
       }
     };
 
     getInitialSession();
 
+    // Escuchar cambios de autenticación
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("🔄 Evento de auth:", event);
+      console.log("🔄 Evento de autenticación:", event);
+
       setUser(session?.user ?? null);
       setProfileError(null);
 
@@ -50,7 +58,7 @@ export const useAuth = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  //  FUNCIÓN QUE TE FALTA - BUSCAR PERFIL EN PERSONA
+  // Función para obtener el perfil del usuario desde la tabla persona
   const fetchUserProfile = async (authUserId) => {
     try {
       console.log("🔍 Buscando perfil para auth_user_id:", authUserId);
@@ -60,8 +68,15 @@ export const useAuth = () => {
         .select(
           `
           *,
-          roles (role),
-          obras (obra)
+          roles:id_role (
+            id_roles,
+            role
+          ),
+          obras:id_current_obra (
+            id_obra,
+            obra,
+            cc
+          )
         `
         )
         .eq("auth_user_id", authUserId)
@@ -69,21 +84,28 @@ export const useAuth = () => {
 
       if (error) {
         console.error("❌ Error cargando perfil:", error);
-        setProfileError(error);
 
-        // Si es error de "no encontrado", mostrar mensaje específico
+        // Error específico: usuario no tiene perfil en persona
         if (error.code === "PGRST116") {
-          setProfileError(
-            new Error("Usuario sin perfil configurado en el sistema")
+          const errorMsg = new Error(
+            "Tu usuario no está registrado en el sistema. Contacta al administrador."
           );
+          errorMsg.code = "NO_PROFILE";
+          setProfileError(errorMsg);
+        } else {
+          setProfileError(error);
         }
-      } else {
-        console.log("✅ Perfil cargado:", data.nombre, data.roles?.role);
+      } else if (data) {
+        console.log("✅ Perfil cargado exitosamente:");
+        console.log("   - Nombre:", data.nombre, data.primer_apellido);
+        console.log("   - Role:", data.roles?.role);
+        console.log("   - Obra actual:", data.obras?.obra);
+
         setUserProfile(data);
         setProfileError(null);
       }
     } catch (error) {
-      console.error("❌ Error en fetchUserProfile:", error);
+      console.error("❌ Error inesperado en fetchUserProfile:", error);
       setProfileError(error);
     } finally {
       setLoading(false);
@@ -91,63 +113,43 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    setProfileError(null);
-    return { error };
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("❌ Error al cerrar sesión:", error);
+        return { error };
+      }
+
+      // Limpiar estados
+      setUser(null);
+      setUserProfile(null);
+      setProfileError(null);
+
+      console.log("✅ Sesión cerrada exitosamente");
+      return { error: null };
+    } catch (error) {
+      console.error("❌ Error inesperado al cerrar sesión:", error);
+      return { error };
+    } finally {
+      setLoading(false);
+    }
   };
 
   return {
     user,
     userProfile,
     loading,
-    profileError, // ← para mostrar errores específicos
+    profileError,
     signOut,
     isAuthenticated: !!user,
     userRole: userProfile?.roles?.role,
-    hasProfile: !!userProfile, // ← para verificar si tiene perfil
+    hasProfile: !!userProfile,
+    // Datos adicionales útiles
+    userName: userProfile
+      ? `${userProfile.nombre} ${userProfile.primer_apellido}`.trim()
+      : null,
+    currentObra: userProfile?.obras?.obra || null,
   };
 };
-
-// // src/hooks/useAuth.js
-// import { useState, useEffect } from "react";
-// import { supabase } from "../config/supabase";
-
-// export const useAuth = () => {
-//   const [user, setUser] = useState(null);
-//   const [loading, setLoading] = useState(true);
-
-//   useEffect(() => {
-//     // Obtener sesión actual al cargar la app
-//     const getInitialSession = async () => {
-//       const {
-//         data: { session },
-//       } = await supabase.auth.getSession();
-//       setUser(session?.user ?? null);
-//       setLoading(false);
-//     };
-
-//     getInitialSession();
-
-//     // Escuchar cambios en la autenticación
-//     const {
-//       data: { subscription },
-//     } = supabase.auth.onAuthStateChange((event, session) => {
-//       setUser(session?.user ?? null);
-//       setLoading(false);
-//     });
-
-//     return () => subscription.unsubscribe();
-//   }, []);
-
-//   const signOut = async () => {
-//     const { error } = await supabase.auth.signOut();
-//     return { error };
-//   };
-
-//   return {
-//     user,
-//     loading,
-//     signOut,
-//     isAuthenticated: !!user,
-//   };
-// };

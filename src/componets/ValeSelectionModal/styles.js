@@ -1,4 +1,5 @@
 import { StyleSheet } from "react-native";
+import { colors } from "../../config/colors";
 
 const styles = StyleSheet.create({
   // Contenedor principal del modal
@@ -10,7 +11,7 @@ const styles = StyleSheet.create({
   },
   // Contenido del modal (cuadro blanco)
   modalContent: {
-    backgroundColor: "white",
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 35,
     alignItems: "center",
@@ -30,12 +31,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 30,
     textAlign: "center",
+    color: colors.textPrimary,
   },
   // Botón de opción (Renta/Material)
   botonOpcion: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8f8f8ac",
+    backgroundColor: colors.background,
     padding: 15,
     borderRadius: 10,
     marginVertical: 10,
@@ -54,7 +56,7 @@ const styles = StyleSheet.create({
   textoOpcion: {
     fontSize: 25,
     fontWeight: "bold",
-    color: "#333",
+    color: colors.textPrimary,
   },
   // Botón cancelar
   botonCerrar: {
@@ -64,7 +66,7 @@ const styles = StyleSheet.create({
   // Texto cancelar
   textoCerrar: {
     fontSize: 16,
-    color: "#e50202ff",
+    color: colors.danger,
     fontWeight: "bold",
   },
 });

@@ -1,8 +1,9 @@
 // src/components/CustomHeader.js
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { colors } from "../config/colors";
 
 const CustomHeader = ({ title, showMenuButton = true }) => {
   const navigation = useNavigation();
@@ -14,7 +15,11 @@ const CustomHeader = ({ title, showMenuButton = true }) => {
           style={styles.menuButton}
           onPress={() => navigation.openDrawer()}
         >
-          <Ionicons name="menu" size={30} color="Black" />
+          <MaterialCommunityIcons
+            name="menu"
+            size={30}
+            color={colors.textPrimary}
+          />
         </TouchableOpacity>
       )}
 
@@ -32,11 +37,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 15,
-    paddingTop: 50, // Ajusta según tu notch/statusbar
+    paddingTop: 50,
     paddingBottom: 15,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: colors.border,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -49,12 +54,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 30,
     fontWeight: "bold",
-    color: "Black",
+    color: colors.textPrimary,
     flex: 1,
     textAlign: "center",
   },
   placeholder: {
-    width: 38, // Mismo ancho que el botón del menú
+    width: 38,
   },
 });
 

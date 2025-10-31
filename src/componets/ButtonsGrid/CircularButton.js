@@ -1,21 +1,26 @@
 // components/CircularButton.js
 import React from "react";
 import { TouchableOpacity, Text, View, StyleSheet } from "react-native";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { colors } from "../../config/colors";
 
 const CircularButton = ({
   onPress,
   iconName,
   iconSize = 70,
   buttonText,
-  backgroundColor = "#035798ff",
+  backgroundColor = colors.primary,
   iconColor = "white",
-  textColor = "#333",
+  textColor = colors.textPrimary,
 }) => {
   return (
     <TouchableOpacity style={styles.botonCircular} onPress={onPress}>
       <View style={[styles.iconoBotonContainer, { backgroundColor }]}>
-        <Icon name={iconName} size={iconSize} color={iconColor} />
+        <MaterialCommunityIcons
+          name={iconName}
+          size={iconSize}
+          color={iconColor}
+        />
       </View>
       <Text style={[styles.textoBoton, { color: textColor }]}>
         {buttonText}
@@ -30,24 +35,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   iconoBotonContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 10,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
   },
   textoBoton: {
     fontSize: 16,
     fontWeight: "bold",
+    textAlign: "center",
   },
 });
 

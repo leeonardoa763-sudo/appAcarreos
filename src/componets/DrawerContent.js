@@ -2,11 +2,12 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { DrawerContentScrollView } from "@react-navigation/drawer";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { colors } from "../config/colors";
 import { useAuth } from "../hooks/useAuth";
 
 const DrawerContent = (props) => {
-  const { user, signOut } = useAuth();
+  const { userProfile, userName, signOut } = useAuth();
 
   const handleLogout = () => {
     Alert.alert("Cerrar Sesión", "¿Estás seguro de que deseas cerrar sesión?", [
@@ -29,29 +30,66 @@ const DrawerContent = (props) => {
       {/* Header del Drawer */}
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <Ionicons name="person-circle" size={80} color="#fff" />
+          <MaterialCommunityIcons
+            name="account-circle"
+            size={80}
+            color="#fff"
+          />
         </View>
-        <Text style={styles.userName}>Usuario</Text>
-        <Text style={styles.userEmail}>{user?.email || "Sin email"}</Text>
+        <Text style={styles.userName}>{userName || "Usuario"}</Text>
+        <Text style={styles.userEmail}>
+          {userProfile?.current_email || userProfile?.email || "Sin email"}
+        </Text>
+        {userProfile?.roles?.role && (
+          <View style={styles.roleBadge}>
+            <MaterialCommunityIcons
+              name="shield-account"
+              size={14}
+              color="#fff"
+            />
+            <Text style={styles.roleText}>{userProfile.roles.role}</Text>
+          </View>
+        )}
       </View>
 
       {/* Opciones del menú */}
       <View style={styles.menuItems}>
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => props.navigation.navigate("Configuracion")}
+          onPress={() => props.navigation.navigate("MainTabs")}
         >
-          <Ionicons name="settings-outline" size={24} color="#2c3e50" />
-          <Text style={styles.menuText}>Configuración</Text>
+          <MaterialCommunityIcons
+            name="home-outline"
+            size={24}
+            color={colors.textPrimary}
+          />
+          <Text style={styles.menuText}>Inicio</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => props.navigation.navigate("MainTabs")}
+          onPress={() => props.navigation.navigate("Configuracion")}
         >
-          <Ionicons name="home-outline" size={24} color="#2c3e50" />
-          <Text style={styles.menuText}>Inicio</Text>
+          <MaterialCommunityIcons
+            name="cog-outline"
+            size={24}
+            color={colors.textPrimary}
+          />
+          <Text style={styles.menuText}>Configuración</Text>
         </TouchableOpacity>
+
+        {userProfile?.obras?.obra && (
+          <TouchableOpacity style={styles.menuItem}>
+            <MaterialCommunityIcons
+              name="office-building"
+              size={24}
+              color={colors.secondary}
+            />
+            <Text style={[styles.menuText, styles.obraText]}>
+              {userProfile.obras.obra}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.divider} />
 
@@ -59,7 +97,11 @@ const DrawerContent = (props) => {
           style={[styles.menuItem, styles.logoutItem]}
           onPress={handleLogout}
         >
-          <Ionicons name="log-out-outline" size={24} color="#e74c3c" />
+          <MaterialCommunityIcons
+            name="logout"
+            size={24}
+            color={colors.danger}
+          />
           <Text style={[styles.menuText, styles.logoutText]}>
             Cerrar Sesión
           </Text>
@@ -77,9 +119,10 @@ const DrawerContent = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.surface,
   },
   header: {
-    backgroundColor: "#3498db",
+    backgroundColor: colors.primary,
     paddingVertical: 40,
     paddingHorizontal: 20,
     alignItems: "center",
@@ -94,8 +137,24 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   userEmail: {
-    color: "#ecf0f1",
+    color: "#fff",
     fontSize: 14,
+    opacity: 0.9,
+  },
+  roleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    marginTop: 10,
+  },
+  roleText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+    marginLeft: 5,
   },
   menuItems: {
     paddingVertical: 20,
@@ -108,12 +167,17 @@ const styles = StyleSheet.create({
   },
   menuText: {
     fontSize: 16,
-    color: "#2c3e50",
+    color: colors.textPrimary,
     marginLeft: 15,
+    fontWeight: "500",
+  },
+  obraText: {
+    color: colors.secondary,
+    fontSize: 14,
   },
   divider: {
     height: 1,
-    backgroundColor: "#ecf0f1",
+    backgroundColor: colors.border,
     marginVertical: 10,
     marginHorizontal: 20,
   },
@@ -121,7 +185,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   logoutText: {
-    color: "#e74c3c",
+    color: colors.danger,
     fontWeight: "600",
   },
   footer: {
@@ -129,10 +193,10 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     alignItems: "center",
     borderTopWidth: 1,
-    borderTopColor: "#ecf0f1",
+    borderTopColor: colors.border,
   },
   footerText: {
-    color: "#95a5a6",
+    color: colors.textSecondary,
     fontSize: 12,
   },
 });

@@ -1,14 +1,13 @@
 import React from "react";
 import { View, Text, TouchableOpacity, Modal } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { colors } from "../../config/colors";
 import ValeOptionButton from "./ValeOptionButton";
 import styles from "./styles";
 
-// Componente principal - ahora mucho más limpio y organizado
 const ValeSelectionModal = () => {
   const navigation = useNavigation();
 
-  // Funciones de navegación
   const handleRenta = () => navigation.navigate("ValeRentaScreen");
   const handleMaterial = () => navigation.navigate("ValeMaterialScreen");
   const handleClose = () => navigation.goBack();
@@ -24,23 +23,23 @@ const ValeSelectionModal = () => {
         <View style={styles.modalContent}>
           <Text style={styles.titulo}>Seleccionar Tipo de Vale</Text>
 
-          {/* Botón para Renta - reutilizando el componente */}
-          <ValeOptionButton
-            iconName="truck-cargo-container"
-            text="Renta"
-            onPress={handleRenta}
-            color="black"
-          />
-
-          {/* Botón para Material - reutilizando el componente */}
+          {/* Botón para Material */}
           <ValeOptionButton
             iconName="terrain"
             text="Material"
             onPress={handleMaterial}
-            color="black"
+            color={colors.primary} // Naranja construcción
           />
 
-          {/* Botón Cancelar (no usa el componente reutilizable porque es diferente) */}
+          {/* Botón para Renta */}
+          <ValeOptionButton
+            iconName="truck-cargo-container"
+            text="Renta"
+            onPress={handleRenta}
+            color={colors.secondary} // Azul oscuro
+          />
+
+          {/* Botón Cancelar */}
           <TouchableOpacity style={styles.botonCerrar} onPress={handleClose}>
             <Text style={styles.textoCerrar}>Cancelar</Text>
           </TouchableOpacity>

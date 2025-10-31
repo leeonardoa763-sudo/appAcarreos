@@ -1,4 +1,4 @@
-// src/components/AuthGuard.js - CORRECCIÓN FINAL
+// src/components/AuthGuard.js
 import React from "react";
 import {
   View,
@@ -7,100 +7,165 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../hooks/useAuth";
 import LoginScreen from "../screens/LoginScreen";
 
 const AuthGuard = ({ children }) => {
-  const { user, isAuthenticated, loading, userProfile, profileError, signOut } =
-    useAuth(); // ← Agregar user aquí
+  const { user, userProfile, loading, profileError, isAuthenticated, signOut } =
+    useAuth();
 
-  const handleBackToLogin = async () => {
-    await signOut();
-  };
-
+  // Loading inicial
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
-        <Text style={{ marginTop: 10 }}>Cargando...</Text>
+        <ActivityIndicator size="large" color="#FF6B35" />
+        <Text style={styles.loadingText}>Cargando...</Text>
       </View>
     );
   }
 
-  // Si hay error de perfil, mostrar opción para volver
-  if (profileError) {
+  // Usuario autenticado pero sin perfil en la base de datos
+  if (isAuthenticated && profileError) {
     return (
       <View style={styles.errorContainer}>
+        <MaterialCommunityIcons
+          name="account-alert"
+          size={80}
+          color="#E74C3C"
+        />
+
         <Text style={styles.errorTitle}>⚠️ Perfil No Encontrado</Text>
+
         <Text style={styles.errorMessage}>
-          El usuario está autenticado pero no tiene perfil en el sistema.
+          {profileError.code === "NO_PROFILE"
+            ? profileError.message
+            : "No se pudo cargar tu perfil de usuario."}
         </Text>
-        <Text style={styles.errorDetails}>User ID: {user?.id}</Text>{" "}
-        {/* ← Ahora user existe */}
-        <TouchableOpacity style={styles.backButton} onPress={handleBackToLogin}>
-          <Text style={styles.backButtonText}>Volver al Inicio de Sesión</Text>
+
+        {user?.email && (
+          <View style={styles.userInfoBox}>
+            <Text style={styles.userInfoLabel}>Email de sesión:</Text>
+            <Text style={styles.userInfoValue}>{user.email}</Text>
+            <Text style={styles.userInfoLabel}>User ID:</Text>
+            <Text style={styles.userInfoValue}>{user.id}</Text>
+          </View>
+        )}
+
+        <Text style={styles.errorHelp}>
+          Contacta al administrador para que vincule tu usuario con un perfil de
+          residente o administrador.
+        </Text>
+
+        <TouchableOpacity style={styles.backButton} onPress={signOut}>
+          <MaterialCommunityIcons
+            name="logout"
+            size={20}
+            color="white"
+            style={{ marginRight: 8 }}
+          />
+          <Text style={styles.backButtonText}>Cerrar Sesión</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
+  // Usuario no autenticado
   if (!isAuthenticated) {
     return <LoginScreen />;
   }
 
+  // Usuario autenticado pero perfil aún cargando
   if (!userProfile) {
     return (
       <View style={styles.centerContainer}>
-        <Text>Cargando perfil de usuario...</Text>
+        <ActivityIndicator size="large" color="#FF6B35" />
+        <Text style={styles.loadingText}>Cargando perfil...</Text>
       </View>
     );
   }
 
+  // Todo OK - mostrar la app
   return children;
 };
 
-// ... los styles permanecen igual
 const styles = StyleSheet.create({
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F5F6FA",
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: "#7F8C8D",
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 30,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F5F6FA",
   },
   errorTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
-    color: "#e74c3c",
+    color: "#E74C3C",
+    marginTop: 20,
     marginBottom: 15,
     textAlign: "center",
   },
   errorMessage: {
     fontSize: 16,
-    color: "#7f8c8d",
+    color: "#2C3E50",
     textAlign: "center",
-    marginBottom: 10,
-    lineHeight: 22,
+    marginBottom: 20,
+    lineHeight: 24,
+    paddingHorizontal: 20,
   },
-  errorDetails: {
+  userInfoBox: {
+    backgroundColor: "#ECF0F1",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+    width: "100%",
+    maxWidth: 350,
+  },
+  userInfoLabel: {
     fontSize: 12,
-    color: "#95a5a6",
+    color: "#7F8C8D",
+    marginTop: 8,
+    fontWeight: "600",
+  },
+  userInfoValue: {
+    fontSize: 14,
+    color: "#2C3E50",
+    marginBottom: 5,
+    fontFamily: "monospace",
+  },
+  errorHelp: {
+    fontSize: 14,
+    color: "#95A5A6",
     textAlign: "center",
     marginBottom: 30,
+    paddingHorizontal: 20,
+    lineHeight: 20,
   },
   backButton: {
-    backgroundColor: "#3498db",
-    paddingHorizontal: 25,
+    backgroundColor: "#FF6B35",
+    paddingHorizontal: 30,
     paddingVertical: 15,
-    borderRadius: 8,
-    minWidth: 200,
+    borderRadius: 10,
+    flexDirection: "row",
     alignItems: "center",
+    minWidth: 200,
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   backButtonText: {
     color: "white",
@@ -110,38 +175,3 @@ const styles = StyleSheet.create({
 });
 
 export default AuthGuard;
-
-// src/components/AuthGuard.js version anterior
-// import React from "react";
-// import { View, ActivityIndicator, StyleSheet } from "react-native";
-// import { useAuth } from "../hooks/useAuth.js";
-// import LoginScreen from "../screens/LoginScreen.js";
-
-// const AuthGuard = ({ children }) => {
-//   const { isAuthenticated, loading } = useAuth();
-
-//   if (loading) {
-//     return (
-//       <View style={styles.loadingContainer}>
-//         <ActivityIndicator size="large" color="#3498db" />
-//       </View>
-//     );
-//   }
-
-//   if (!isAuthenticated) {
-//     return <LoginScreen />;
-//   }
-
-//   return <>{children}</>;
-// };
-
-// const styles = StyleSheet.create({
-//   loadingContainer: {
-//     flex: 1,
-//     justifyContent: "center",
-//     alignItems: "center",
-//     backgroundColor: "#f5f5f5",
-//   },
-// });
-
-// export default AuthGuard;

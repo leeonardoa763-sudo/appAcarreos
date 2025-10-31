@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { colors } from "../config/colors";
 
 // Componentes
 import CustomHeader from "../componets/CustomHeader.js";
@@ -28,7 +29,7 @@ function ValesStack() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        cardStyle: { backgroundColor: "#fff" },
+        cardStyle: { backgroundColor: colors.background },
       }}
     >
       <Stack.Screen name="ValesMain" component={ValesScreen} />
@@ -42,7 +43,7 @@ function ValesStack() {
   );
 }
 
-// Función para el navegador inferior
+// Tabs principales
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -64,11 +65,11 @@ function MainTabs() {
             <MaterialCommunityIcons name={iconName} size={26} color={color} />
           );
         },
-        tabBarActiveTintColor: "#3568ffff", // Naranja activo
-        tabBarInactiveTintColor: "#95a5a6", // Gris inactivo
+        tabBarActiveTintColor: colors.primary, // Naranja construcción
+        tabBarInactiveTintColor: colors.textSecondary, // Gris
         tabBarStyle: {
-          backgroundColor: "#ffffff", // Fondo blanco
-          borderTopColor: "#e0e0e0", // Borde superior
+          backgroundColor: colors.surface, // Blanco
+          borderTopColor: colors.border, // Borde gris claro
           height: 60,
           paddingBottom: 8,
           paddingTop: 8,
@@ -96,7 +97,7 @@ export default function Navigation() {
         drawerPosition: "left",
         drawerType: "slide",
         drawerStyle: {
-          backgroundColor: "#fff",
+          backgroundColor: colors.surface,
         },
       }}
     >
@@ -108,9 +109,9 @@ export default function Navigation() {
           headerShown: true,
           headerTitle: "Configuración",
           headerStyle: {
-            backgroundColor: "#fff",
+            backgroundColor: colors.surface,
           },
-          headerTintColor: "#2c3e50",
+          headerTintColor: colors.textPrimary,
           headerTitleStyle: {
             fontWeight: "bold",
           },

@@ -8,11 +8,12 @@ import {
   Alert,
   SafeAreaView,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { colors } from "../config/colors";
 import { useAuth } from "../hooks/useAuth";
 
 const ConfiguracionScreen = () => {
-  const { signOut, user } = useAuth();
+  const { signOut, userProfile, userName } = useAuth();
 
   const handleLogout = () => {
     Alert.alert("Cerrar Sesión", "¿Estás seguro de que deseas cerrar sesión?", [
@@ -39,46 +40,85 @@ const ConfiguracionScreen = () => {
         {/* Sección de Usuario */}
         <View style={styles.userSection}>
           <View style={styles.avatarContainer}>
-            <Ionicons name="person-circle" size={80} color="#3498db" />
+            <MaterialCommunityIcons
+              name="account-circle"
+              size={80}
+              color={colors.primary}
+            />
           </View>
-          <Text style={styles.userName}>Usuario</Text>
-          <Text style={styles.userEmail}>{user?.email || "Sin email"}</Text>
+          <Text style={styles.userName}>{userName || "Usuario"}</Text>
+          <Text style={styles.userEmail}>
+            {userProfile?.current_email || userProfile?.email || "Sin email"}
+          </Text>
+          {userProfile?.roles?.role && (
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleText}>{userProfile.roles.role}</Text>
+            </View>
+          )}
         </View>
 
         {/* Opciones */}
         <View style={styles.optionsContainer}>
           <TouchableOpacity style={styles.optionItem}>
-            <Ionicons name="person-outline" size={24} color="#2c3e50" />
-            <Text style={styles.optionText}>Mi Perfil</Text>
-            <Ionicons name="chevron-forward" size={24} color="#95a5a6" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.optionItem}>
-            <Ionicons name="notifications-outline" size={24} color="#2c3e50" />
-            <Text style={styles.optionText}>Notificaciones</Text>
-            <Ionicons name="chevron-forward" size={24} color="#95a5a6" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.optionItem}>
-            <Ionicons name="help-circle-outline" size={24} color="#2c3e50" />
-            <Text style={styles.optionText}>Ayuda</Text>
-            <Ionicons name="chevron-forward" size={24} color="#95a5a6" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.optionItem}>
-            <Ionicons
-              name="information-circle-outline"
+            <MaterialCommunityIcons
+              name="account-outline"
               size={24}
-              color="#2c3e50"
+              color={colors.textPrimary}
+            />
+            <Text style={styles.optionText}>Mi Perfil</Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={24}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.optionItem}>
+            <MaterialCommunityIcons
+              name="bell-outline"
+              size={24}
+              color={colors.textPrimary}
+            />
+            <Text style={styles.optionText}>Notificaciones</Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={24}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.optionItem}>
+            <MaterialCommunityIcons
+              name="help-circle-outline"
+              size={24}
+              color={colors.textPrimary}
+            />
+            <Text style={styles.optionText}>Ayuda</Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={24}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.optionItem}>
+            <MaterialCommunityIcons
+              name="information-outline"
+              size={24}
+              color={colors.textPrimary}
             />
             <Text style={styles.optionText}>Acerca de</Text>
-            <Ionicons name="chevron-forward" size={24} color="#95a5a6" />
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={24}
+              color={colors.textSecondary}
+            />
           </TouchableOpacity>
         </View>
 
         {/* Botón de Cerrar Sesión */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="#fff" />
+          <MaterialCommunityIcons name="logout" size={24} color="#fff" />
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
 
@@ -92,7 +132,7 @@ const ConfiguracionScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -101,7 +141,7 @@ const styles = StyleSheet.create({
   userSection: {
     alignItems: "center",
     paddingVertical: 30,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderRadius: 15,
     marginTop: 20,
     marginBottom: 20,
@@ -117,15 +157,28 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#2c3e50",
+    color: colors.textPrimary,
     marginBottom: 5,
   },
   userEmail: {
     fontSize: 14,
-    color: "#7f8c8d",
+    color: colors.textSecondary,
+    marginBottom: 10,
+  },
+  roleBadge: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: 15,
+    paddingVertical: 5,
+    borderRadius: 15,
+    marginTop: 5,
+  },
+  roleText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
   },
   optionsContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderRadius: 15,
     marginBottom: 20,
     shadowColor: "#000",
@@ -140,19 +193,19 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#ecf0f1",
+    borderBottomColor: colors.border,
   },
   optionText: {
     flex: 1,
     fontSize: 16,
-    color: "#2c3e50",
+    color: colors.textPrimary,
     marginLeft: 15,
   },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#e74c3c",
+    backgroundColor: colors.danger,
     paddingVertical: 15,
     borderRadius: 10,
     marginBottom: 20,
@@ -165,7 +218,7 @@ const styles = StyleSheet.create({
   },
   version: {
     textAlign: "center",
-    color: "#95a5a6",
+    color: colors.textSecondary,
     fontSize: 12,
     marginTop: "auto",
     marginBottom: 20,
