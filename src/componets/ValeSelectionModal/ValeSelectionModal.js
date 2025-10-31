@@ -26,18 +26,18 @@ const ValeSelectionModal = () => {
 
           {/* Botón para Renta - reutilizando el componente */}
           <ValeOptionButton
-            iconName="attach-money"
+            iconName="truck-cargo-container"
             text="Renta"
             onPress={handleRenta}
-            color="#4CAF50" // Verde
+            color="black"
           />
 
           {/* Botón para Material - reutilizando el componente */}
           <ValeOptionButton
-            iconName="construction"
+            iconName="terrain"
             text="Material"
             onPress={handleMaterial}
-            color="#2196F3" // Azul
+            color="black"
           />
 
           {/* Botón Cancelar (no usa el componente reutilizable porque es diferente) */}

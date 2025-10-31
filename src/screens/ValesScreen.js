@@ -21,20 +21,6 @@ const ValesScreen = () => {
       buttonText: "Crear Vale",
       backgroundColor: "#035798ff",
     },
-    {
-      onPress: () => console.log("Botón 2 presionado"),
-      iconName: "help",
-      iconSize: 80,
-      buttonText: "Botón",
-      backgroundColor: "#035798ff",
-    },
-    {
-      onPress: () => console.log("Botón 3 presionado"),
-      iconName: "help",
-      iconSize: 80,
-      buttonText: "Botón",
-      backgroundColor: "#035798ff",
-    },
 
     // Puedes agregar más botones fácilmente aquí
   ];

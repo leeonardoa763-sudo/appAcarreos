@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   },
   // Texto de las opciones
   textoOpcion: {
-    fontSize: 18,
+    fontSize: 25,
     fontWeight: "bold",
     color: "#333",
   },

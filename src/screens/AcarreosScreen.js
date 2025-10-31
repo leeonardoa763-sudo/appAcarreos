@@ -4,7 +4,7 @@ import { View, Text } from "react-native";
 const AcarreosScreen = () => {
   return (
     <View>
-      <Text> Pntalla de acarreos</Text>
+      <Text> Pntalla de acarre</Text>
     </View>
   );
 };
