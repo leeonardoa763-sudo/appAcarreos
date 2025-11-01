@@ -40,4 +40,23 @@ export const colors = {
     medium: "rgba(0, 0, 0, 0.25)",
     dark: "rgba(0, 0, 0, 0.4)",
   },
+  // Estados de vales
+  valeStates: {
+    borrador: "#95A5A6", // Gris - En edición
+    enProceso: "#F39C12", // Naranja - Trabajando
+    emitido: "#3498DB", // Azul - Completado
+    verificado: "#27AE60", // Verde - Verificado
+    pagado: "#1A936F", // Verde oscuro - Pagado
+    cancelado: "#E74C3C", // Rojo - Cancelado
+  },
+
+  // Inputs
+  input: {
+    background: "#FFFFFF",
+    border: "#BDC3C7",
+    borderFocused: "#004E89",
+    placeholder: "#95A5A6",
+    text: "#2C3E50",
+    disabled: "#ECEFF1",
+  },
 };
