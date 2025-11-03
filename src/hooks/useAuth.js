@@ -7,11 +7,18 @@ export const useAuth = () => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false); // 🆕 Flag para ignorar sesiones durante logout
 
   useEffect(() => {
     // Obtener sesión inicial
     const getInitialSession = async () => {
       try {
+        // 🆕 Ignorar si estamos haciendo logout
+        if (isLoggingOut) {
+          console.log("⏸️ Ignorando sesión inicial durante logout");
+          return;
+        }
+
         const {
           data: { session },
           error,
@@ -44,6 +51,12 @@ export const useAuth = () => {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("🔄 Evento de autenticación:", event);
 
+      // 🆕 Ignorar TODOS los eventos durante logout
+      if (isLoggingOut) {
+        console.log("⏸️ Ignorando evento durante logout:", event);
+        return;
+      }
+
       setUser(session?.user ?? null);
       setProfileError(null);
 
@@ -56,9 +69,8 @@ export const useAuth = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isLoggingOut]); // 🆕 Dependencia agregada
 
-  // Función para obtener el perfil del usuario desde la tabla persona
   const fetchUserProfile = async (authUserId) => {
     try {
       console.log("🔍 Buscando perfil para auth_user_id:", authUserId);
@@ -85,7 +97,6 @@ export const useAuth = () => {
       if (error) {
         console.error("❌ Error cargando perfil:", error);
 
-        // Error específico: usuario no tiene perfil en persona
         if (error.code === "PGRST116") {
           const errorMsg = new Error(
             "Tu usuario no está registrado en el sistema. Contacta al administrador."
@@ -97,9 +108,6 @@ export const useAuth = () => {
         }
       } else if (data) {
         console.log("✅ Perfil cargado exitosamente:");
-        console.log("   - Nombre:", data.nombre, data.primer_apellido);
-        console.log("   - Role:", data.roles?.role);
-        console.log("   - Obra actual:", data.obras?.obra);
 
         setUserProfile(data);
         setProfileError(null);
@@ -114,26 +122,61 @@ export const useAuth = () => {
 
   const signOut = async () => {
     try {
-      setLoading(true);
-      const { error } = await supabase.auth.signOut();
+      console.log("🚪 Iniciando cierre de sesión...");
 
-      if (error) {
-        console.error("❌ Error al cerrar sesión:", error);
-        return { error };
+      // 🆕 PASO 1: Activar flag de logout PRIMERO
+      setIsLoggingOut(true);
+      setLoading(true);
+
+      // 🆕 PASO 2: Limpiar AsyncStorage ANTES de signOut
+      try {
+        const AsyncStorage =
+          require("@react-native-async-storage/async-storage").default;
+        const allKeys = await AsyncStorage.getAllKeys();
+        const supabaseKeys = allKeys.filter((key) => key.includes("supabase"));
+
+        if (supabaseKeys.length > 0) {
+          await AsyncStorage.multiRemove(supabaseKeys);
+          console.log(
+            "✅ AsyncStorage limpiado:",
+            supabaseKeys.length,
+            "claves eliminadas"
+          );
+        }
+      } catch (storageError) {
+        console.error("❌ Error limpiando AsyncStorage:", storageError);
       }
 
-      // Limpiar estados
+      // 🆕 PASO 3: Limpiar estados
       setUser(null);
       setUserProfile(null);
       setProfileError(null);
 
-      console.log("✅ Sesión cerrada exitosamente");
+      // 🆕 PASO 4: SignOut de Supabase (ahora sin sesión en storage)
+      try {
+        await supabase.auth.signOut();
+        console.log("✅ SignOut de Supabase exitoso");
+      } catch (signOutError) {
+        console.log("ℹ️ Error en signOut (ignorado):", signOutError.message);
+      }
+
+      console.log("✅ Sesión cerrada completamente");
       return { error: null };
     } catch (error) {
-      console.error("❌ Error inesperado al cerrar sesión:", error);
-      return { error };
+      console.error("❌ Error crítico en signOut:", error);
+
+      // Limpiar estados de todas formas
+      setUser(null);
+      setUserProfile(null);
+      setProfileError(null);
+
+      return { error: null };
     } finally {
       setLoading(false);
+      // 🆕 Desactivar flag después de un pequeño delay
+      setTimeout(() => {
+        setIsLoggingOut(false);
+      }, 500);
     }
   };
 
@@ -143,10 +186,9 @@ export const useAuth = () => {
     loading,
     profileError,
     signOut,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && !isLoggingOut, // 🆕 Considerar flag de logout
     userRole: userProfile?.roles?.role,
     hasProfile: !!userProfile,
-    // Datos adicionales útiles
     userName: userProfile
       ? `${userProfile.nombre} ${userProfile.primer_apellido}`.trim()
       : null,

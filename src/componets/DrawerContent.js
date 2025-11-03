@@ -19,7 +19,14 @@ const DrawerContent = (props) => {
         text: "Cerrar Sesión",
         style: "destructive",
         onPress: async () => {
+          // 🆕 Cerrar drawer primero
+          props.navigation.closeDrawer();
+
+          // 🆕 Hacer signOut (ahora con el orden correcto)
           await signOut();
+
+          // 🆕 La navegación a Login la manejará AuthGuard automáticamente
+          console.log("✅ Logout completado, AuthGuard redirigirá a Login");
         },
       },
     ]);

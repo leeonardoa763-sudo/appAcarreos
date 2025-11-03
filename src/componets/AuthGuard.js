@@ -15,6 +15,12 @@ const AuthGuard = ({ children }) => {
   const { user, userProfile, loading, profileError, isAuthenticated, signOut } =
     useAuth();
 
+  // 🆕 CRÍTICO: Si no está autenticado, mostrar Login inmediatamente
+  // Esto previene el parpadeo de la app después del logout
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
+
   // Loading inicial
   if (loading) {
     return (
@@ -26,7 +32,7 @@ const AuthGuard = ({ children }) => {
   }
 
   // Usuario autenticado pero sin perfil en la base de datos
-  if (isAuthenticated && profileError) {
+  if (profileError) {
     return (
       <View style={styles.errorContainer}>
         <MaterialCommunityIcons
@@ -68,11 +74,6 @@ const AuthGuard = ({ children }) => {
         </TouchableOpacity>
       </View>
     );
-  }
-
-  // Usuario no autenticado
-  if (!isAuthenticated) {
-    return <LoginScreen />;
   }
 
   // Usuario autenticado pero perfil aún cargando

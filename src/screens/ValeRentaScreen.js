@@ -17,6 +17,9 @@
  * NAVEGACIÓN:
  * ValesScreen → SeleccionarTipoValeScreen → ValeRentaScreen
  */
+/**
+ * ValeRentaScreen.js (REFACTORIZADO)
+ */
 
 import React, { useState, useEffect } from "react";
 import {
@@ -28,25 +31,49 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { colors } from "../config/colors.js";
-import { supabase } from "../config/supabase.js";
-import { useAuth } from "../hooks/useAuth.js";
+import { colors } from "../config/colors";
+import { supabase } from "../config/supabase";
+import { useAuth } from "../hooks/useAuth";
+import { useCatalogos } from "../hooks/useCatalogos";
+import { useFolioGenerator } from "../hooks/useFolioGenerator";
+import {
+  validateOperadorNombre,
+  validatePlacas,
+  validateCapacidad,
+  validateHoraInicio,
+  validateMaterialId,
+  validateSindicatoId,
+} from "../utils/validations";
 
 // Componentes
-import SectionHeader from "../componets/common/SectionHeader.js";
-import PrimaryButton from "../componets/common/PrimaryButton.js";
-import FormInput from "../componets/forms/FormInput.js";
-import FormPicker from "../componets/forms/FormPicker.js";
-import FormTimePicker from "../componets/forms/FormTimePicker.js";
+import SectionHeader from "../componets/common/SectionHeader";
+import PrimaryButton from "../componets/common/PrimaryButton";
+import FormInput from "../componets/forms/FormInput";
+import FormPicker from "../componets/forms/FormPicker";
+import FormTimePicker from "../componets/forms/FormTimePicker";
+import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 
 const ValeRentaScreen = () => {
   const navigation = useNavigation();
   const { userProfile } = useAuth();
 
+  // Hook para catálogos
+  const {
+    materiales,
+    sindicatos,
+    preciosRenta,
+    loading: loadingCatalogos,
+  } = useCatalogos(["materiales", "sindicatos", "preciosRenta"]);
+
+  // Estados para datos de obra
+  const [obraData, setObraData] = useState(null);
+  const [loadingObra, setLoadingObra] = useState(true);
+
+  // Hook para generar folio
+  const generateFolio = useFolioGenerator(obraData);
+
   // Estados del formulario
   const [formData, setFormData] = useState({
-    obra: userProfile?.obras?.obra || "",
-    empresa: userProfile?.obras?.empresas?.empresa || "",
     materialId: null,
     capacidad: "",
     sindicatoId: null,
@@ -56,151 +83,90 @@ const ValeRentaScreen = () => {
     notasAdicionales: "",
   });
 
-  // Estados de datos de BD
-  const [materiales, setMateriales] = useState([]);
-  const [sindicatos, setSindicatos] = useState([]);
-  const [preciosRenta, setPreciosRenta] = useState([]);
-
-  // Estados de carga
-  const [loadingMateriales, setLoadingMateriales] = useState(true);
-  const [loadingSindicatos, setLoadingSindicatos] = useState(true);
-  const [loadingPrecios, setLoadingPrecios] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-
-  // Estados de validación
   const [errors, setErrors] = useState({});
 
-  // ==========================================
-  // CARGAR DATOS DE SUPABASE
-  // ==========================================
-
-  // Cargar materiales
+  // Cargar datos de obra
   useEffect(() => {
-    const fetchMateriales = async () => {
+    const fetchObraData = async () => {
+      if (!userProfile?.id_current_obra) {
+        console.log("No hay obra asignada al usuario");
+        setLoadingObra(false);
+        return;
+      }
+
       try {
-        setLoadingMateriales(true);
+        setLoadingObra(true);
+
         const { data, error } = await supabase
-          .from("material")
-          .select("id_material, material")
-          .order("material");
+          .from("obras")
+          .select(
+            `
+            id_obra,
+            obra,
+            cc,
+            empresas:id_empresa (
+              id_empresa,
+              empresa,
+              sufijo
+            )
+          `
+          )
+          .eq("id_obra", userProfile.id_current_obra)
+          .single();
 
         if (error) throw error;
-        setMateriales(data || []);
+
+        console.log("Datos de obra cargados:", data);
+        setObraData(data);
       } catch (error) {
-        console.error("Error cargando materiales:", error);
-        Alert.alert("Error", "No se pudieron cargar los materiales");
+        console.error("Error cargando datos de obra:", error);
+        Alert.alert("Error", "No se pudieron cargar los datos de la obra");
       } finally {
-        setLoadingMateriales(false);
+        setLoadingObra(false);
       }
     };
 
-    fetchMateriales();
-  }, []);
+    fetchObraData();
+  }, [userProfile]);
 
-  // Cargar sindicatos
   useEffect(() => {
-    const fetchSindicatos = async () => {
-      try {
-        setLoadingSindicatos(true);
-        const { data, error } = await supabase
-          .from("sindicatos")
-          .select("id_sindicato, sindicato")
-          .order("sindicato");
+    const unsubscribe = navigation.addListener("blur", () => {
+      console.log("Saliendo de ValeRentaScreen, reseteando formulario");
+      resetForm();
+    });
 
-        if (error) throw error;
-        setSindicatos(data || []);
-      } catch (error) {
-        console.error("Error cargando sindicatos:", error);
-        Alert.alert("Error", "No se pudieron cargar los sindicatos");
-      } finally {
-        setLoadingSindicatos(false);
-      }
-    };
+    return unsubscribe;
+  }, [navigation]);
 
-    fetchSindicatos();
-  }, []);
-
-  // Cargar precios de renta
-  useEffect(() => {
-    const fetchPrecios = async () => {
-      try {
-        setLoadingPrecios(true);
-        const { data, error } = await supabase
-          .from("precios_renta")
-          .select("*");
-
-        if (error) throw error;
-        setPreciosRenta(data || []);
-      } catch (error) {
-        console.error("Error cargando precios:", error);
-      } finally {
-        setLoadingPrecios(false);
-      }
-    };
-
-    fetchPrecios();
-  }, []);
-
-  // ==========================================
-  // VALIDACIONES
-  // ==========================================
-
+  // Validaciones
   const validateForm = () => {
     const newErrors = {};
 
-    // Material requerido
-    if (!formData.materialId) {
-      newErrors.materialId = "Debes seleccionar un material";
-    }
+    const errorMaterial = validateMaterialId(formData.materialId);
+    if (errorMaterial) newErrors.materialId = errorMaterial;
 
-    // Capacidad requerida y mayor a 0
-    if (!formData.capacidad) {
-      newErrors.capacidad = "La capacidad es requerida";
-    } else if (parseFloat(formData.capacidad) <= 0) {
-      newErrors.capacidad = "La capacidad debe ser mayor a 0";
-    }
+    const errorCapacidad = validateCapacidad(formData.capacidad);
+    if (errorCapacidad) newErrors.capacidad = errorCapacidad;
 
-    // Sindicato requerido
-    if (!formData.sindicatoId) {
-      newErrors.sindicatoId = "Debes seleccionar un sindicato";
-    }
+    const errorSindicato = validateSindicatoId(formData.sindicatoId);
+    if (errorSindicato) newErrors.sindicatoId = errorSindicato;
 
-    // Hora inicio requerida
-    if (!formData.horaInicio) {
-      newErrors.horaInicio = "La hora de inicio es requerida";
-    }
+    const errorHora = validateHoraInicio(formData.horaInicio);
+    if (errorHora) newErrors.horaInicio = errorHora;
 
-    // Nombre operador requerido
-    if (!formData.operadorNombre.trim()) {
-      newErrors.operadorNombre = "El nombre del operador es requerido";
-    }
+    const errorNombre = validateOperadorNombre(formData.operadorNombre);
+    if (errorNombre) newErrors.operadorNombre = errorNombre;
 
-    // Placas requeridas
-    if (!formData.operadorPlacas.trim()) {
-      newErrors.operadorPlacas = "Las placas del vehículo son requeridas";
-    }
+    const errorPlacas = validatePlacas(formData.operadorPlacas);
+    if (errorPlacas) newErrors.operadorPlacas = errorPlacas;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // ==========================================
-  // GENERAR FOLIO ÚNICO
-  // ==========================================
-
-  const generateFolio = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const timestamp = now.getTime();
-    return `RENT-${year}-${timestamp}`;
-  };
-
-  // ==========================================
-  // CREAR VALE
-  // ==========================================
-
+  // Crear vale
   const handleCrearVale = async () => {
-    // Validar formulario
     if (!validateForm()) {
       Alert.alert(
         "Campos incompletos",
@@ -209,19 +175,37 @@ const ValeRentaScreen = () => {
       return;
     }
 
+    if (!obraData) {
+      Alert.alert("Error", "No se encontraron datos de la obra");
+      return;
+    }
+
     try {
       setSubmitting(true);
 
-      // 1. Crear el vale (cabecera)
-      const folio = generateFolio();
+      console.log("Iniciando creación de vale");
+
+      const folio = await generateFolio();
+
+      console.log("Intentando crear vale con folio:", folio);
+
+      const { data: verificacion } = await supabase
+        .from("vales")
+        .select("folio")
+        .eq("folio", folio)
+        .maybeSingle();
+
+      if (verificacion) {
+        throw new Error(`El folio ${folio} ya existe en la base de datos`);
+      }
 
       const { data: valeData, error: valeError } = await supabase
         .from("vales")
         .insert({
           folio: folio,
           tipo_vale: "renta",
-          id_obra: userProfile.id_current_obra,
-          id_empresa: userProfile.obras.id_empresa,
+          id_obra: obraData.id_obra,
+          id_empresa: obraData.empresas.id_empresa,
           id_persona_creador: userProfile.id_persona,
           operador_nombre: formData.operadorNombre.trim(),
           placas_vehiculo: formData.operadorPlacas.trim().toUpperCase(),
@@ -232,9 +216,8 @@ const ValeRentaScreen = () => {
 
       if (valeError) throw valeError;
 
-      console.log("Vale creado:", valeData);
+      console.log("Vale creado exitosamente");
 
-      // 2. Obtener el precio de renta según el sindicato
       const precioRenta = preciosRenta.find(
         (p) => p.id_sindicato === formData.sindicatoId
       );
@@ -243,7 +226,6 @@ const ValeRentaScreen = () => {
         throw new Error("No se encontró precio para el sindicato seleccionado");
       }
 
-      // 3. Crear el detalle del vale de renta
       const { error: detalleError } = await supabase
         .from("vale_renta_detalle")
         .insert({
@@ -253,21 +235,36 @@ const ValeRentaScreen = () => {
           capacidad_m3: parseFloat(formData.capacidad),
           numero_viajes: 1,
           hora_inicio: formData.horaInicio.toISOString(),
-          hora_fin: null, // Se llenará al completar el vale
+          hora_fin: null,
           id_precios_renta: precioRenta.id_precios_renta,
           notas_adicionales: formData.notasAdicionales.trim() || null,
         });
 
       if (detalleError) throw detalleError;
 
-      // Éxito
+      console.log("Detalle de vale creado exitosamente");
+
+      resetForm();
+
       Alert.alert(
         "Vale Creado",
         `Vale ${folio} creado exitosamente.\n\nEl vale quedó en estado "En Proceso". Podrás completarlo desde la pantalla de Acarreos cuando el operador termine el trabajo.`,
         [
           {
             text: "Ver Acarreos",
-            onPress: () => navigation.navigate("Acarreos"),
+            onPress: () => {
+              // Resetear el formulario primero
+              resetForm();
+
+              // Navegar a Acarreos y resetear el stack de Vales
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "ValesMain" }],
+              });
+
+              // Cambiar al tab de Acarreos
+              navigation.getParent()?.navigate("Acarreos");
+            },
           },
           {
             text: "Crear Otro",
@@ -283,14 +280,8 @@ const ValeRentaScreen = () => {
     }
   };
 
-  // ==========================================
-  // RESET FORM
-  // ==========================================
-
   const resetForm = () => {
     setFormData({
-      obra: userProfile?.obras?.obra || "",
-      empresa: userProfile?.obras?.empresas?.empresa || "",
       materialId: null,
       capacidad: "",
       sindicatoId: null,
@@ -302,11 +293,7 @@ const ValeRentaScreen = () => {
     setErrors({});
   };
 
-  // ==========================================
-  // LOADING INICIAL
-  // ==========================================
-
-  if (loadingMateriales || loadingSindicatos || loadingPrecios) {
+  if (loadingObra || loadingCatalogos) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -315,13 +302,18 @@ const ValeRentaScreen = () => {
     );
   }
 
-  // ==========================================
-  // RENDER
-  // ==========================================
+  if (!obraData) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.errorText}>
+          No tienes una obra asignada. Contacta al administrador.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Renta</Text>
       </View>
@@ -339,23 +331,20 @@ const ValeRentaScreen = () => {
             infoMessage="Información general del vale de renta. Los campos de obra y empresa se llenan automáticamente según tu perfil."
           />
 
-          {/* Obra (pre-llenada, deshabilitada) */}
           <FormInput
             label="Obra"
-            value={formData.obra}
+            value={obraData.obra || "Sin obra"}
             onChangeText={() => {}}
             editable={false}
           />
 
-          {/* Empresa (pre-llenada, deshabilitada) */}
           <FormInput
             label="Empresa"
-            value={formData.empresa}
+            value={obraData.empresas?.empresa || "Sin empresa"}
             onChangeText={() => {}}
             editable={false}
           />
 
-          {/* Material (desplegable) */}
           <FormPicker
             label="Material"
             value={formData.materialId}
@@ -370,7 +359,6 @@ const ValeRentaScreen = () => {
             error={errors.materialId}
           />
 
-          {/* Capacidad (número con sufijo m³) */}
           <FormInput
             label="Capacidad"
             value={formData.capacidad}
@@ -383,7 +371,6 @@ const ValeRentaScreen = () => {
             error={errors.capacidad}
           />
 
-          {/* Sindicato (desplegable) */}
           <FormPicker
             label="Sindicato"
             value={formData.sindicatoId}
@@ -398,7 +385,6 @@ const ValeRentaScreen = () => {
             error={errors.sindicatoId}
           />
 
-          {/* Hora Inicio */}
           <FormTimePicker
             label="Hora Inicio"
             value={formData.horaInicio}
@@ -411,48 +397,23 @@ const ValeRentaScreen = () => {
 
         {/* SECCIÓN: DATOS DE OPERADOR */}
         <View style={styles.section}>
-          <SectionHeader
-            title="Datos de Operador"
-            infoTitle="Datos de Operador"
-            infoMessage="Información del operador que realizará el trabajo. El operador pertenece a otra empresa externa."
-          />
-
-          {/* Nombre del Operador */}
-          <FormInput
-            label="Nombre"
-            value={formData.operadorNombre}
-            onChangeText={(value) =>
+          <DatosOperadorSection
+            operadorNombre={formData.operadorNombre}
+            operadorPlacas={formData.operadorPlacas}
+            notasAdicionales={formData.notasAdicionales}
+            onChangeNombre={(value) =>
               setFormData({ ...formData, operadorNombre: value })
             }
-            placeholder="Ej: Juan Pérez"
-            error={errors.operadorNombre}
-          />
-
-          {/* Placas del Vehículo */}
-          <FormInput
-            label="Placas"
-            value={formData.operadorPlacas}
-            onChangeText={(value) =>
+            onChangePlacas={(value) =>
               setFormData({ ...formData, operadorPlacas: value.toUpperCase() })
             }
-            placeholder="Ej: ABC-123-4"
-            error={errors.operadorPlacas}
-          />
-
-          {/* Notas Adicionales (opcional) */}
-          <FormInput
-            label="Notas Adicionales (Opcional)"
-            value={formData.notasAdicionales}
-            onChangeText={(value) =>
+            onChangeNotas={(value) =>
               setFormData({ ...formData, notasAdicionales: value })
             }
-            placeholder="Observaciones adicionales..."
-            multiline={true}
-            numberOfLines={3}
+            errors={errors}
           />
         </View>
 
-        {/* Botón Crear Vale */}
         <View style={styles.buttonContainer}>
           <PrimaryButton
             title="Crear Vale"
@@ -523,5 +484,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.danger,
+    textAlign: "center",
+    paddingHorizontal: 20,
   },
 });

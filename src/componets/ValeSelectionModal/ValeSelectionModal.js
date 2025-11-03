@@ -8,9 +8,19 @@ import styles from "./styles";
 const ValeSelectionModal = () => {
   const navigation = useNavigation();
 
-  const handleRenta = () => navigation.navigate("ValeRentaScreen");
-  const handleMaterial = () => navigation.navigate("ValeMaterialScreen");
-  const handleClose = () => navigation.goBack();
+  const handleRenta = () => {
+    // CAMBIO: replace en lugar de navigate
+    navigation.replace("ValeRentaScreen");
+  };
+
+  const handleMaterial = () => {
+    // CAMBIO: replace en lugar de navigate
+    navigation.replace("ValeMaterialScreen");
+  };
+
+  const handleClose = () => {
+    navigation.goBack();
+  };
 
   return (
     <Modal
@@ -28,7 +38,7 @@ const ValeSelectionModal = () => {
             iconName="terrain"
             text="Material"
             onPress={handleMaterial}
-            color={colors.primary} // Naranja construcción
+            color={colors.primary}
           />
 
           {/* Botón para Renta */}
@@ -36,7 +46,7 @@ const ValeSelectionModal = () => {
             iconName="truck-cargo-container"
             text="Renta"
             onPress={handleRenta}
-            color={colors.secondary} // Azul oscuro
+            color={colors.secondary}
           />
 
           {/* Botón Cancelar */}
