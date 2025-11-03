@@ -49,8 +49,6 @@ export const useAuth = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("🔄 Evento de autenticación:", event);
-
       // 🆕 Ignorar TODOS los eventos durante logout
       if (isLoggingOut) {
         console.log("⏸️ Ignorando evento durante logout:", event);
@@ -73,8 +71,6 @@ export const useAuth = () => {
 
   const fetchUserProfile = async (authUserId) => {
     try {
-      console.log("🔍 Buscando perfil para auth_user_id:", authUserId);
-
       const { data, error } = await supabase
         .from("persona")
         .select(
@@ -107,8 +103,6 @@ export const useAuth = () => {
           setProfileError(error);
         }
       } else if (data) {
-        console.log("✅ Perfil cargado exitosamente:");
-
         setUserProfile(data);
         setProfileError(null);
       }
@@ -155,12 +149,10 @@ export const useAuth = () => {
       // 🆕 PASO 4: SignOut de Supabase (ahora sin sesión en storage)
       try {
         await supabase.auth.signOut();
-        console.log("✅ SignOut de Supabase exitoso");
       } catch (signOutError) {
         console.log("ℹ️ Error en signOut (ignorado):", signOutError.message);
       }
 
-      console.log("✅ Sesión cerrada completamente");
       return { error: null };
     } catch (error) {
       console.error("❌ Error crítico en signOut:", error);
