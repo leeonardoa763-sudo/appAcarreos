@@ -60,3 +60,51 @@ export const validateSindicatoId = (sindicatoId) => {
   }
   return null;
 };
+
+// ============================================
+// NUEVAS VALIDACIONES PARA VALE DE MATERIAL
+// ============================================
+
+/**
+ * Valida que se haya seleccionado un banco de material
+ * @param {number} bancoId - ID del banco seleccionado
+ * @returns {string|null} - Mensaje de error o null si es válido
+ */
+export const validateBancoId = (bancoId) => {
+  if (!bancoId) {
+    return "Debes seleccionar un banco de material";
+  }
+  return null;
+};
+
+/**
+ * Valida la cantidad solicitada de material
+ * @param {string} cantidad - Cantidad en m³
+ * @returns {string|null} - Mensaje de error o null si es válido
+ */
+export const validateCantidadSolicitada = (cantidad) => {
+  if (!cantidad) {
+    return "La cantidad solicitada es requerida";
+  }
+  const numero = parseFloat(cantidad);
+  if (isNaN(numero) || numero <= 0) {
+    return "La cantidad debe ser mayor a 0";
+  }
+  return null;
+};
+
+/**
+ * Valida que la distancia esté presente
+ * @param {string} distancia - Distancia en Km
+ * @returns {string|null} - Mensaje de error o null si es válido
+ */
+export const validateDistancia = (distancia) => {
+  if (!distancia) {
+    return "La distancia es requerida";
+  }
+  const numero = parseFloat(distancia);
+  if (isNaN(numero) || numero <= 0) {
+    return "La distancia debe ser mayor a 0";
+  }
+  return null;
+};
