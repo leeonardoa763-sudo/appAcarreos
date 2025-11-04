@@ -35,7 +35,7 @@ const ValeSelectionModal = () => {
 
           {/* Botón para Material */}
           <ValeOptionButton
-            iconName="terrain"
+            iconName="cube-outline"
             text="Material"
             onPress={handleMaterial}
             color={colors.primary}

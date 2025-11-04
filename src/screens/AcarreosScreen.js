@@ -34,6 +34,8 @@ import { supabase } from "../config/supabase";
 import { useAuth } from "../hooks/useAuth";
 import ValeCard from "../componets/acarreos/ValeCard";
 import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
+import SearchBar from "../componets/common/SearchBar";
+import CollapsibleSection from "../componets/common/CollapsibleSection";
 
 const AcarreosScreen = () => {
   const { userProfile } = useAuth();
@@ -45,6 +47,7 @@ const AcarreosScreen = () => {
   const [error, setError] = useState(null);
   const [selectedVale, setSelectedVale] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (userProfile?.id_persona) {
@@ -99,30 +102,60 @@ const AcarreosScreen = () => {
     setSelectedVale(null);
   };
 
+  const filterVales = (vales) => {
+    if (!searchQuery.trim()) return vales;
+
+    const query = searchQuery.toLowerCase().trim();
+
+    return vales.filter((vale) => {
+      const folio = vale.folio?.toLowerCase() || "";
+      const operador = vale.operador_nombre?.toLowerCase() || "";
+      const placas = vale.placas_vehiculo?.toLowerCase() || "";
+
+      return (
+        folio.includes(query) ||
+        operador.includes(query) ||
+        placas.includes(query)
+      );
+    });
+  };
+
+  const filteredValesMaterial = filterVales(valesMaterial);
+  const filteredValesRenta = filterVales(valesRenta);
+
+  const separateValesByStatus = (vales, tipo) => {
+    if (tipo === "material") {
+      const enProceso = vales.filter((vale) => {
+        const detalle = vale.vale_material_detalles?.[0];
+        return !detalle?.peso_ton || detalle.peso_ton === 0;
+      });
+      const completados = vales.filter((vale) => {
+        const detalle = vale.vale_material_detalles?.[0];
+        return detalle?.peso_ton && detalle.peso_ton > 0;
+      });
+      return { enProceso, completados };
+    } else if (tipo === "renta") {
+      const enProceso = vales.filter((vale) => {
+        const detalle = vale.vale_renta_detalle?.[0];
+        return !detalle?.hora_fin;
+      });
+      const completados = vales.filter((vale) => {
+        const detalle = vale.vale_renta_detalle?.[0];
+        return detalle?.hora_fin;
+      });
+      return { enProceso, completados };
+    }
+    return { enProceso: [], completados: [] };
+  };
+
+  const materialSeparado = separateValesByStatus(
+    filteredValesMaterial,
+    "material"
+  );
+  const rentaSeparado = separateValesByStatus(filteredValesRenta, "renta");
+
   const renderValeItem = ({ item }) => (
     <ValeCard vale={item} onPress={() => handleOpenVale(item)} />
-  );
-
-  const renderEmptyMaterial = () => (
-    <View style={styles.emptyState}>
-      <MaterialCommunityIcons
-        name="package-variant-closed"
-        size={50}
-        color={colors.textSecondary}
-      />
-      <Text style={styles.emptyText}>No hay vales de material</Text>
-    </View>
-  );
-
-  const renderEmptyRenta = () => (
-    <View style={styles.emptyState}>
-      <MaterialCommunityIcons
-        name="truck-outline"
-        size={50}
-        color={colors.textSecondary}
-      />
-      <Text style={styles.emptyText}>No hay vales de renta</Text>
-    </View>
   );
 
   if (loading && !refreshing) {
@@ -160,56 +193,178 @@ const AcarreosScreen = () => {
         />
       }
     >
+      {/* Barra de Búsqueda Global */}
+      <View style={styles.searchContainer}>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Buscar por folio, operador o placas"
+        />
+        {searchQuery.length > 0 && (
+          <Text style={styles.searchResults}>
+            {materialSeparado.enProceso.length +
+              materialSeparado.completados.length +
+              rentaSeparado.enProceso.length +
+              rentaSeparado.completados.length}{" "}
+            resultado(s)
+          </Text>
+        )}
+      </View>
+
       {/* Sección Material */}
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <MaterialCommunityIcons
-            name="package-variant"
-            size={24}
-            color={colors.primary}
-          />
-          <Text style={styles.sectionTitle}>Material</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{valesMaterial.length}</Text>
+        <Text style={styles.categoryTitle}> Material</Text>
+
+        {/* Material - En Proceso */}
+        <View style={styles.subsection}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons
+              name="progress-clock"
+              size={24}
+              color={colors.warning}
+            />
+            <Text style={styles.sectionTitle}>En Proceso</Text>
+            <View style={[styles.badge, { backgroundColor: colors.warning }]}>
+              <Text style={styles.badgeText}>
+                {materialSeparado.enProceso.length}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.valesContainer}>
+            <FlatList
+              data={materialSeparado.enProceso}
+              renderItem={renderValeItem}
+              keyExtractor={(item) => item.id_vale.toString()}
+              ListEmptyComponent={() => (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons
+                    name="package-variant-closed"
+                    size={50}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.emptyText}>
+                    {searchQuery
+                      ? "No se encontraron vales en proceso"
+                      : "No hay vales de material en proceso"}
+                  </Text>
+                </View>
+              )}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
           </View>
         </View>
 
-        <View style={styles.valesContainer}>
+        {/* Material - Completados (Colapsable) */}
+        <CollapsibleSection
+          title="Completados"
+          icon="check-circle"
+          count={materialSeparado.completados.length}
+          defaultCollapsed={true}
+          iconColor={colors.accent}
+          badgeColor={colors.accent}
+        >
           <FlatList
-            data={valesMaterial}
+            data={materialSeparado.completados}
             renderItem={renderValeItem}
             keyExtractor={(item) => item.id_vale.toString()}
-            ListEmptyComponent={renderEmptyMaterial}
+            ListEmptyComponent={() => (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons
+                  name="package-variant-closed"
+                  size={50}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.emptyText}>
+                  {searchQuery
+                    ? "No se encontraron vales completados"
+                    : "No hay vales de material completados"}
+                </Text>
+              </View>
+            )}
             scrollEnabled={false}
             showsVerticalScrollIndicator={false}
           />
-        </View>
+        </CollapsibleSection>
       </View>
 
       {/* Sección Renta */}
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <MaterialCommunityIcons
-            name="truck-cargo-container"
-            size={24}
-            color={colors.secondary}
-          />
-          <Text style={styles.sectionTitle}>Renta</Text>
-          <View style={[styles.badge, { backgroundColor: colors.secondary }]}>
-            <Text style={styles.badgeText}>{valesRenta.length}</Text>
+        <Text style={styles.categoryTitle}> Renta</Text>
+
+        {/* Renta - En Proceso */}
+        <View style={styles.subsection}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons
+              name="progress-clock"
+              size={24}
+              color={colors.warning}
+            />
+            <Text style={styles.sectionTitle}>En Proceso</Text>
+            <View style={[styles.badge, { backgroundColor: colors.warning }]}>
+              <Text style={styles.badgeText}>
+                {rentaSeparado.enProceso.length}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.valesContainer}>
+            <FlatList
+              data={rentaSeparado.enProceso}
+              renderItem={renderValeItem}
+              keyExtractor={(item) => item.id_vale.toString()}
+              ListEmptyComponent={() => (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons
+                    name="truck-outline"
+                    size={50}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.emptyText}>
+                    {searchQuery
+                      ? "No se encontraron vales en proceso"
+                      : "No hay vales de renta en proceso"}
+                  </Text>
+                </View>
+              )}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
           </View>
         </View>
 
-        <View style={styles.valesContainer}>
+        {/* Renta - Completados (Colapsable) */}
+        <CollapsibleSection
+          title="Completados"
+          icon="check-circle"
+          count={rentaSeparado.completados.length}
+          defaultCollapsed={true}
+          iconColor={colors.accent}
+          badgeColor={colors.accent}
+        >
           <FlatList
-            data={valesRenta}
+            data={rentaSeparado.completados}
             renderItem={renderValeItem}
             keyExtractor={(item) => item.id_vale.toString()}
-            ListEmptyComponent={renderEmptyRenta}
+            ListEmptyComponent={() => (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons
+                  name="truck-outline"
+                  size={50}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.emptyText}>
+                  {searchQuery
+                    ? "No se encontraron vales completados"
+                    : "No hay vales de renta completados"}
+                </Text>
+              </View>
+            )}
             scrollEnabled={false}
             showsVerticalScrollIndicator={false}
           />
-        </View>
+        </CollapsibleSection>
       </View>
 
       {/* Modal de Detalle */}
@@ -261,9 +416,29 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: "center",
   },
+  searchContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  searchResults: {
+    marginTop: 8,
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: "center",
+  },
   section: {
     marginTop: 16,
     paddingHorizontal: 20,
+  },
+  categoryTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  subsection: {
+    marginBottom: 12,
   },
   sectionHeader: {
     flexDirection: "row",
