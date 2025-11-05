@@ -1,5 +1,5 @@
 /**
- * ValeMaterialScreen.js
+ * screens/ValeMaterialScreen.js
  *
  * Pantalla para crear un vale de material (acarreo)
  *
@@ -9,6 +9,7 @@
  * - Calcular distancia automáticamente según banco y obra
  * - Validar campos antes de guardar
  * - Gestionar lógica de copias según tipo de material
+ * - Generar PDF con QR para compartir
  *
  * FLUJO:
  * 1. Usuario llena formulario (datos de vale y operador)
@@ -18,12 +19,13 @@
  *    - Tepetate → Copia ROJA
  *    - Otros materiales → Copia ROJA
  * 4. Se guarda en BD con estado 'emitido'
+ * 5. Genera QR y permite compartir PDF
  *
  * NAVEGACIÓN:
  * ValesScreen → SeleccionarTipoValeScreen → ValeMaterialScreen
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -33,11 +35,17 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+
+// Configuración
 import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
+
+// Hooks
 import { useAuth } from "../hooks/useAuth";
 import { useCatalogos } from "../hooks/useCatalogos";
 import { useFolioGenerator } from "../hooks/useFolioGenerator";
+
+// Validaciones
 import {
   validateOperadorNombre,
   validatePlacas,
@@ -48,11 +56,22 @@ import {
   validateDistancia,
 } from "../utils/validations";
 
-// Componentes reutilizables
+// Utilidades
+import { generateVerificationUrl } from "../utils/qrGenerator";
+
+// Servicios
+import { generateAndSharePDF } from "../services/pdfGenerator";
+
+// Componentes comunes
 import SectionHeader from "../componets/common/SectionHeader";
 import PrimaryButton from "../componets/common/PrimaryButton";
+import QRCodeGenerator from "../componets/common/QRCodeGenerator";
+
+// Componentes de formulario
 import FormInput from "../componets/forms/FormInput";
 import FormPicker from "../componets/forms/FormPicker";
+
+// Componentes de vale
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 
 const ValeMaterialScreen = () => {
@@ -60,7 +79,6 @@ const ValeMaterialScreen = () => {
   const { userProfile } = useAuth();
 
   // Hook para cargar catálogos necesarios
-  // Incluye materiales (con tipo), bancos y sindicatos
   const {
     materiales,
     bancos,
@@ -74,33 +92,40 @@ const ValeMaterialScreen = () => {
   // Hook para generar folios únicos
   const generateFolio = useFolioGenerator(obraData);
 
-  // Estados del formulario - Sección "Datos de Vale"
+  // Estados del formulario
   const [formData, setFormData] = useState({
-    materialId: null, // ID del material seleccionado
-    bancoId: null, // ID del banco de material
-    capacidad: "", // Capacidad del camión en m³
-    cantidadSolicitada: "", // Cantidad de material a acarrear en m³
-    distancia: "", // Distancia banco-obra en Km (calculada automáticamente)
-    operadorNombre: "", // Nombre del operador
-    operadorPlacas: "", // Placas del vehículo
-    notasAdicionales: "", // Notas opcionales
+    materialId: null,
+    bancoId: null,
+    capacidad: "",
+    cantidadSolicitada: "",
+    distancia: "",
+    operadorNombre: "",
+    operadorPlacas: "",
+    notasAdicionales: "",
   });
 
   // Estados para manejar la UI
-  const [submitting, setSubmitting] = useState(false); // Estado de guardado
-  const [errors, setErrors] = useState({}); // Errores de validación
+  const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
 
   // Estados para lógica de copias
   const [materialSeleccionado, setMaterialSeleccionado] = useState(null);
-  const [generarCopiaRoja, setGenerarCopiaRoja] = useState(true); // Por defecto true
+  const [generarCopiaRoja, setGenerarCopiaRoja] = useState(true);
+
+  // Estados para generación de PDF y QR
+  const [valeCreado, setValeCreado] = useState(null);
+  const [qrDataUrl, setQrDataUrl] = useState(null);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
+
+  // 🔥 NUEVO: Flag para controlar si el usuario quiere compartir
+  const [shouldSharePDF, setShouldSharePDF] = useState(false);
+  const isSharing = useRef(false); // Ref para evitar dobles llamadas
 
   /**
    * EFECTO: Cargar datos de la obra del usuario
-   * Se ejecuta una vez al montar el componente
    */
   useEffect(() => {
     const fetchObraData = async () => {
-      // Verificar que el usuario tenga una obra asignada
       if (!userProfile?.id_current_obra) {
         setLoadingObra(false);
         return;
@@ -109,8 +134,6 @@ const ValeMaterialScreen = () => {
       try {
         setLoadingObra(true);
 
-        // Consultar datos de la obra actual del usuario
-        // Incluye información de la empresa asociada
         const { data, error } = await supabase
           .from("obras")
           .select(
@@ -129,7 +152,6 @@ const ValeMaterialScreen = () => {
           .single();
 
         if (error) throw error;
-
         setObraData(data);
       } catch (error) {
         console.error("Error cargando datos de obra:", error);
@@ -144,7 +166,6 @@ const ValeMaterialScreen = () => {
 
   /**
    * EFECTO: Resetear formulario al salir de la pantalla
-   * Previene que los datos persistan al regresar
    */
   useEffect(() => {
     const unsubscribe = navigation.addListener("blur", () => {
@@ -156,18 +177,15 @@ const ValeMaterialScreen = () => {
 
   /**
    * EFECTO: Calcular distancia cuando se selecciona un banco
-   * Busca la distancia en la tabla distancias_banco_obra
    */
   useEffect(() => {
     const fetchDistancia = async () => {
-      // Solo buscar si hay banco y obra seleccionados
       if (!formData.bancoId || !obraData?.id_obra) {
         setFormData((prev) => ({ ...prev, distancia: "" }));
         return;
       }
 
       try {
-        // Consultar la distancia específica para este banco y obra
         const { data, error } = await supabase
           .from("distancias_banco_obra")
           .select("distancia_km")
@@ -177,14 +195,12 @@ const ValeMaterialScreen = () => {
 
         if (error) throw error;
 
-        // Si existe el registro, llenar el campo distancia
         if (data) {
           setFormData((prev) => ({
             ...prev,
             distancia: data.distancia_km.toString(),
           }));
         } else {
-          // Si no existe, limpiar el campo y avisar
           setFormData((prev) => ({ ...prev, distancia: "" }));
           Alert.alert(
             "Distancia no configurada",
@@ -202,7 +218,6 @@ const ValeMaterialScreen = () => {
 
   /**
    * EFECTO: Determinar lógica de copia según tipo de material
-   * Se ejecuta cuando cambia el material seleccionado
    */
   useEffect(() => {
     if (!formData.materialId || materiales.length === 0) {
@@ -211,7 +226,6 @@ const ValeMaterialScreen = () => {
       return;
     }
 
-    // Buscar el material seleccionado en el catálogo
     const material = materiales.find(
       (m) => m.id_material === formData.materialId
     );
@@ -220,31 +234,23 @@ const ValeMaterialScreen = () => {
 
     setMaterialSeleccionado(material);
 
-    // Lógica de copias:
-    // - Materiales tipo 3 (excepto Tepetate) → BLANCA
-    // - Tepetate → ROJA (siempre)
-    // - Otros materiales → ROJA
-
+    // Lógica de copias según tipo de material
     const esTipo3 = material.id_tipo_de_material === 3;
     const esTepetate = material.material?.toLowerCase().includes("tepetate");
 
     if (esTipo3 && !esTepetate) {
-      // Tipo 3 (excepto Tepetate) → Genera copia BLANCA
-      setGenerarCopiaRoja(false);
+      setGenerarCopiaRoja(false); // Tipo 3 (excepto Tepetate) → BLANCA
     } else {
-      // Tepetate u otros materiales → Genera copia ROJA
-      setGenerarCopiaRoja(true);
+      setGenerarCopiaRoja(true); // Tepetate u otros → ROJA
     }
   }, [formData.materialId, materiales]);
 
   /**
    * FUNCIÓN: Validar todos los campos del formulario
-   * @returns {boolean} - true si el formulario es válido
    */
   const validateForm = () => {
     const newErrors = {};
 
-    // Validar cada campo usando las funciones de validación
     const errorMaterial = validateMaterialId(formData.materialId);
     if (errorMaterial) newErrors.materialId = errorMaterial;
 
@@ -268,19 +274,14 @@ const ValeMaterialScreen = () => {
     const errorPlacas = validatePlacas(formData.operadorPlacas);
     if (errorPlacas) newErrors.operadorPlacas = errorPlacas;
 
-    // Actualizar estado de errores
     setErrors(newErrors);
-
-    // Retornar true si no hay errores
     return Object.keys(newErrors).length === 0;
   };
 
   /**
    * FUNCIÓN: Crear el vale de material
-   * Guarda en tabla vales y vale_material_detalles
    */
   const handleCrearVale = async () => {
-    // Validar formulario antes de proceder
     if (!validateForm()) {
       Alert.alert(
         "Campos incompletos",
@@ -289,7 +290,6 @@ const ValeMaterialScreen = () => {
       return;
     }
 
-    // Verificar que existan datos de obra
     if (!obraData) {
       Alert.alert("Error", "No se encontraron datos de la obra");
       return;
@@ -301,7 +301,7 @@ const ValeMaterialScreen = () => {
       // PASO 1: Generar folio único
       const folio = await generateFolio();
 
-      // PASO 2: Verificar que el folio no exista (seguridad adicional)
+      // PASO 2: Verificar que el folio no exista
       const { data: verificacion } = await supabase
         .from("vales")
         .select("folio")
@@ -312,8 +312,11 @@ const ValeMaterialScreen = () => {
         throw new Error(`El folio ${folio} ya existe`);
       }
 
-      // PASO 3: Crear registro en tabla 'vales'
-      const { data: valeCreado, error: errorVale } = await supabase
+      // PASO 3: Generar URL de verificación con QR
+      const verificationUrl = generateVerificationUrl(folio);
+
+      // PASO 4: Crear registro en tabla 'vales' con URL de verificación
+      const { data: valeNuevo, error: errorVale } = await supabase
         .from("vales")
         .insert([
           {
@@ -324,8 +327,9 @@ const ValeMaterialScreen = () => {
             id_persona_creador: userProfile.id_persona,
             operador_nombre: formData.operadorNombre.trim(),
             placas_vehiculo: formData.operadorPlacas.trim().toUpperCase(),
-            estado: "emitido", // Material se emite inmediatamente
-            total_copias_emitidas: 1, // Se emite la copia inicial
+            estado: "emitido",
+            total_copias_emitidas: 1,
+            qr_verification_url: verificationUrl,
           },
         ])
         .select()
@@ -333,31 +337,30 @@ const ValeMaterialScreen = () => {
 
       if (errorVale) throw errorVale;
 
-      // PASO 4: Crear registro en tabla 'vale_material_detalles'
+      // PASO 5: Crear registro en tabla 'vale_material_detalles'
       const { error: errorDetalle } = await supabase
         .from("vale_material_detalles")
         .insert([
           {
-            id_vale: valeCreado.id_vale,
+            id_vale: valeNuevo.id_vale,
             id_material: formData.materialId,
             id_banco: formData.bancoId,
             capacidad_m3: parseFloat(formData.capacidad),
             distancia_km: parseFloat(formData.distancia),
             cantidad_pedida_m3: parseFloat(formData.cantidadSolicitada),
-            peso_ton: null, // Se llenará posteriormente cuando llegue el material
+            peso_ton: null,
           },
         ]);
 
       if (errorDetalle) throw errorDetalle;
 
-      // PASO 5: Registrar la copia inicial en tabla 'vale_copias'
-      // Determinar color según tipo de material
+      // PASO 6: Registrar la copia inicial en tabla 'vale_copias'
       const colorCopia = generarCopiaRoja ? "roja" : "blanca";
       const destinatarioCopia = generarCopiaRoja ? "banco" : "operador";
 
       const { error: errorCopia } = await supabase.from("vale_copias").insert([
         {
-          id_vale: valeCreado.id_vale,
+          id_vale: valeNuevo.id_vale,
           numero_copia: generarCopiaRoja ? 1 : 0,
           color: colorCopia,
           destinatario: destinatarioCopia,
@@ -367,27 +370,62 @@ const ValeMaterialScreen = () => {
 
       if (errorCopia) throw errorCopia;
 
-      // TODO: Aquí iría la generación del PDF con el color correspondiente
+      // PASO 7: Consultar vale completo con todas las relaciones para el PDF
+      const { data: valeCompleto, error: errorConsulta } = await supabase
+        .from("vales")
+        .select(
+          `
+          *,
+          obras:id_obra (
+            id_obra,
+            obra,
+            cc,
+            empresas:id_empresa (
+              id_empresa,
+              empresa,
+              sufijo,
+              logo
+            )
+          ),
+          vale_material_detalles (
+            *,
+            material:id_material (
+              id_material,
+              material
+            ),
+            bancos:id_banco (
+              id_banco,
+              banco
+            )
+          )
+        `
+        )
+        .eq("id_vale", valeNuevo.id_vale)
+        .single();
 
-      // ÉXITO: Mostrar mensaje y navegar
+      if (errorConsulta) throw errorConsulta;
+
+      // PASO 8: Guardar vale creado para generar PDF
+      setValeCreado(valeCompleto);
+
+      // ÉXITO: Mostrar opciones para compartir PDF
       Alert.alert(
-        "Vale creado",
-        `Vale de material ${folio} creado exitosamente.\nCopia ${colorCopia.toUpperCase()} generada.`,
+        "¡Vale creado exitosamente!",
+        `Vale ${folio} creado.\nCopia ${colorCopia.toUpperCase()} lista para compartir.`,
         [
           {
-            text: "Ver Acarreos",
+            text: "Compartir PDF",
             onPress: () => {
-              resetForm();
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "ValesMain" }],
-              });
-              navigation.getParent()?.navigate("Acarreos");
+              // 🔥 Activar flag para compartir cuando QR esté listo
+              setShouldSharePDF(true);
             },
           },
           {
-            text: "Crear Otro",
-            onPress: () => resetForm(),
+            text: "Más Tarde",
+            onPress: () => {
+              navegarAcarreos();
+            },
+            style: "cancel",
           },
         ]
       );
@@ -400,7 +438,78 @@ const ValeMaterialScreen = () => {
   };
 
   /**
-   * FUNCIÓN: Resetear el formulario a su estado inicial
+   * FUNCIÓN: Compartir PDF con QR
+   * Solo se ejecuta cuando el usuario presiona "Compartir PDF" y el QR está listo
+   */
+  const handleCompartirPDF = async () => {
+    // 🔥 Evitar dobles llamadas
+    if (isSharing.current) {
+      return;
+    }
+
+    if (!valeCreado || !qrDataUrl) {
+      Alert.alert("Error", "No se puede generar el PDF en este momento");
+      return;
+    }
+
+    try {
+      isSharing.current = true; // Marcar como en proceso
+      setGeneratingPDF(true);
+
+      const colorCopia = generarCopiaRoja ? "roja" : "blanca";
+
+      // Generar y compartir PDF
+      await generateAndSharePDF(valeCreado, colorCopia, qrDataUrl);
+
+      // Después de compartir exitosamente, navegar a Acarreos
+      setTimeout(() => {
+        navegarAcarreos();
+      }, 1000);
+    } catch (error) {
+      console.error("Error compartiendo PDF:", error);
+      Alert.alert(
+        "Error al compartir",
+        "No se pudo compartir el PDF. Puedes encontrar el vale en la sección Acarreos."
+      );
+
+      // Navegar a Acarreos de todos modos
+      setTimeout(() => {
+        navegarAcarreos();
+      }, 1500);
+    } finally {
+      setGeneratingPDF(false);
+      isSharing.current = false; // Liberar flag
+      setShouldSharePDF(false); // Resetear flag
+    }
+  };
+
+  /**
+   * FUNCIÓN: Callback cuando el QR se genera
+   * Solo comparte si el usuario presionó "Compartir PDF"
+   */
+  const handleQRGenerated = (dataUrl) => {
+    setQrDataUrl(dataUrl);
+
+    // 🔥 Solo compartir si el usuario eligió "Compartir PDF"
+    if (shouldSharePDF && !isSharing.current) {
+      handleCompartirPDF();
+    }
+  };
+
+  /**
+   * FUNCIÓN: Navegar a la sección Acarreos
+   */
+  const navegarAcarreos = () => {
+    resetForm();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "ValesMain" }],
+    });
+    navigation.getParent()?.navigate("Acarreos");
+  };
+
+  /**
+   * FUNCIÓN: Resetear el formulario
    */
   const resetForm = () => {
     setFormData({
@@ -416,9 +525,13 @@ const ValeMaterialScreen = () => {
     setErrors({});
     setMaterialSeleccionado(null);
     setGenerarCopiaRoja(true);
+    setValeCreado(null);
+    setQrDataUrl(null);
+    setShouldSharePDF(false);
+    isSharing.current = false;
   };
 
-  // RENDERIZADO: Mostrar loading mientras se cargan datos
+  // RENDERIZADO: Loading
   if (loadingObra || loadingCatalogos) {
     return (
       <View style={styles.loadingContainer}>
@@ -428,7 +541,7 @@ const ValeMaterialScreen = () => {
     );
   }
 
-  // RENDERIZADO: Mostrar error si no hay obra asignada
+  // RENDERIZADO: Error sin obra
   if (!obraData) {
     return (
       <View style={styles.loadingContainer}>
@@ -442,7 +555,16 @@ const ValeMaterialScreen = () => {
   // RENDERIZADO PRINCIPAL
   return (
     <View style={styles.container}>
-      {/* Header fijo */}
+      {/* Componente invisible para generar QR cuando se crea un vale */}
+      {valeCreado && valeCreado.qr_verification_url && (
+        <QRCodeGenerator
+          value={valeCreado.qr_verification_url}
+          onGenerated={handleQRGenerated}
+          size={200}
+        />
+      )}
+
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Material</Text>
       </View>
@@ -460,7 +582,6 @@ const ValeMaterialScreen = () => {
             infoMessage="Información del material a acarrear. Los campos de obra y empresa se llenan automáticamente según tu perfil."
           />
 
-          {/* Campo: Obra (bloqueado) */}
           <FormInput
             label="Obra"
             value={obraData.obra || "Sin obra"}
@@ -468,7 +589,6 @@ const ValeMaterialScreen = () => {
             editable={false}
           />
 
-          {/* Campo: Empresa (bloqueado) */}
           <FormInput
             label="Empresa"
             value={obraData.empresas?.empresa || "Sin empresa"}
@@ -476,7 +596,6 @@ const ValeMaterialScreen = () => {
             editable={false}
           />
 
-          {/* Campo: Material (picker) */}
           <FormPicker
             label="Material"
             value={formData.materialId}
@@ -491,7 +610,6 @@ const ValeMaterialScreen = () => {
             error={errors.materialId}
           />
 
-          {/* Campo: Banco de Material (picker) */}
           <FormPicker
             label="Banco de Material"
             value={formData.bancoId}
@@ -506,7 +624,6 @@ const ValeMaterialScreen = () => {
             error={errors.bancoId}
           />
 
-          {/* Campo: Cantidad Solicitada */}
           <FormInput
             label="Cantidad Solicitada"
             value={formData.cantidadSolicitada}
@@ -519,7 +636,6 @@ const ValeMaterialScreen = () => {
             error={errors.cantidadSolicitada}
           />
 
-          {/* Campo: Capacidad */}
           <FormInput
             label="Capacidad"
             value={formData.capacidad}
@@ -532,7 +648,6 @@ const ValeMaterialScreen = () => {
             error={errors.capacidad}
           />
 
-          {/* Campo: Distancia (bloqueado, calculado automáticamente) */}
           <FormInput
             label="Distancia"
             value={formData.distancia}
@@ -583,7 +698,7 @@ const ValeMaterialScreen = () => {
           <PrimaryButton
             title="Crear Vale"
             onPress={handleCrearVale}
-            loading={submitting}
+            loading={submitting || generatingPDF}
             icon="check-circle"
             backgroundColor={colors.accent}
           />
@@ -596,8 +711,6 @@ const ValeMaterialScreen = () => {
 export default ValeMaterialScreen;
 
 // Estilos del componente
-// Reemplaza la sección de estilos al final del archivo
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -629,7 +742,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   section: {
-    backgroundColor: colors.surface, // Fondo blanco para las secciones
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -660,7 +773,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   infoCopiasContainer: {
-    backgroundColor: colors.accent + "20", // Fondo semi-transparente
+    backgroundColor: colors.accent + "20",
     padding: 12,
     borderRadius: 8,
     marginTop: 0,

@@ -9,6 +9,13 @@
  * - Mensajes de error consistentes
  */
 
+// ============================================
+// VALIDACIONES COMUNES (Renta y Material)
+// ============================================
+
+/**
+ * Valida el nombre del operador
+ */
 export const validateOperadorNombre = (nombre) => {
   if (!nombre || !nombre.trim()) {
     return "El nombre del operador es requerido";
@@ -19,6 +26,9 @@ export const validateOperadorNombre = (nombre) => {
   return null;
 };
 
+/**
+ * Valida las placas del vehículo
+ */
 export const validatePlacas = (placas) => {
   if (!placas || !placas.trim()) {
     return "Las placas del vehículo son requeridas";
@@ -29,6 +39,9 @@ export const validatePlacas = (placas) => {
   return null;
 };
 
+/**
+ * Valida la capacidad del vehículo (en m³)
+ */
 export const validateCapacidad = (capacidad) => {
   if (!capacidad) {
     return "La capacidad es requerida";
@@ -40,13 +53,9 @@ export const validateCapacidad = (capacidad) => {
   return null;
 };
 
-export const validateHoraInicio = (hora) => {
-  if (!hora) {
-    return "La hora de inicio es requerida";
-  }
-  return null;
-};
-
+/**
+ * Valida que se haya seleccionado un material
+ */
 export const validateMaterialId = (materialId) => {
   if (!materialId) {
     return "Debes seleccionar un material";
@@ -54,6 +63,23 @@ export const validateMaterialId = (materialId) => {
   return null;
 };
 
+// ============================================
+// VALIDACIONES ESPECÍFICAS PARA RENTA
+// ============================================
+
+/**
+ * Valida la hora de inicio
+ */
+export const validateHoraInicio = (hora) => {
+  if (!hora) {
+    return "La hora de inicio es requerida";
+  }
+  return null;
+};
+
+/**
+ * Valida que se haya seleccionado un sindicato
+ */
 export const validateSindicatoId = (sindicatoId) => {
   if (!sindicatoId) {
     return "Debes seleccionar un sindicato";
@@ -62,13 +88,11 @@ export const validateSindicatoId = (sindicatoId) => {
 };
 
 // ============================================
-// NUEVAS VALIDACIONES PARA VALE DE MATERIAL
+// VALIDACIONES ESPECÍFICAS PARA MATERIAL
 // ============================================
 
 /**
  * Valida que se haya seleccionado un banco de material
- * @param {number} bancoId - ID del banco seleccionado
- * @returns {string|null} - Mensaje de error o null si es válido
  */
 export const validateBancoId = (bancoId) => {
   if (!bancoId) {
@@ -78,9 +102,7 @@ export const validateBancoId = (bancoId) => {
 };
 
 /**
- * Valida la cantidad solicitada de material
- * @param {string} cantidad - Cantidad en m³
- * @returns {string|null} - Mensaje de error o null si es válido
+ * Valida la cantidad solicitada de material (en m³)
  */
 export const validateCantidadSolicitada = (cantidad) => {
   if (!cantidad) {
@@ -94,9 +116,7 @@ export const validateCantidadSolicitada = (cantidad) => {
 };
 
 /**
- * Valida que la distancia esté presente
- * @param {string} distancia - Distancia en Km
- * @returns {string|null} - Mensaje de error o null si es válido
+ * Valida que la distancia esté presente (en Km)
  */
 export const validateDistancia = (distancia) => {
   if (!distancia) {
