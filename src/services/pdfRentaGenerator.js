@@ -1,10 +1,10 @@
 /**
- * services/pdfGenerator.js
+ * services/pdfRentaGenerator.js
  *
- * Servicio para generar PDFs de vales de MATERIAL con formato específico
+ * Servicio para generar PDFs de vales de RENTA con formato específico
  *
  * PROPÓSITO:
- * - Generar PDF de vale de material con todos los datos
+ * - Generar PDF de vale de renta con todos los datos
  * - Incluir código QR de verificación
  * - Aplicar formato según tipo de copia (color de fondo)
  * - Compartir PDF generado
@@ -24,26 +24,47 @@ import {
 } from "../utils/pdfHelpers";
 
 /**
- * Genera el HTML del vale de MATERIAL con el formato especificado
+ * Genera el HTML del vale de RENTA con el formato especificado
  * @param {object} valeData - Datos completos del vale
  * @param {string} colorCopia - Color de la copia (blanco, roja, verde, etc.)
  * @param {string} qrDataUrl - QR en formato base64 (data:image/png;base64,...)
  * @returns {string} - HTML formateado
  */
-const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
+const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
   const { bgColor, destinatario } = getCopiaInfo(colorCopia);
 
   const fechaFormateada = formatearFecha(valeData.fecha_creacion);
   const horaFormateada = formatearHora(valeData.fecha_creacion);
 
-  // Extraer datos del vale de MATERIAL
-  const detalle = valeData.vale_material_detalles?.[0] || {};
+  // Extraer datos del vale de RENTA
+  const detalle = valeData.vale_renta_detalle?.[0] || {};
   const material = detalle.material?.material || "N/A";
-  const banco = detalle.bancos?.banco || "N/A";
+  const sindicato = detalle.sindicatos?.sindicato || "N/A";
   const capacidad = detalle.capacidad_m3 || "N/A";
-  const distancia = detalle.distancia_km || "N/A";
-  const cantidadPedida = detalle.cantidad_pedida_m3 || "N/A";
-  const peso = detalle.peso_ton || "Pendiente";
+  const numeroViajes = detalle.numero_viajes || 1;
+
+  // Formatear horas
+  const horaInicio = detalle.hora_inicio
+    ? formatearHora(detalle.hora_inicio)
+    : "N/A";
+
+  const horaFin = detalle.hora_fin ? formatearHora(detalle.hora_fin) : "Pendiente";
+
+  const totalHoras = detalle.total_horas || "N/A";
+  const totalDias = detalle.total_dias || "N/A";
+
+  // Obtener tarifas
+  const precioRenta = detalle.precios_renta || {};
+  const tarifaHora = precioRenta.costo_hr
+    ? `$${parseFloat(precioRenta.costo_hr).toFixed(2)}`
+    : "N/A";
+  const tarifaDia = precioRenta.costo_dia
+    ? `$${parseFloat(precioRenta.costo_dia).toFixed(2)}`
+    : "N/A";
+
+  const costoTotal = detalle.costo_total
+    ? `$${parseFloat(detalle.costo_total).toFixed(2)} MXN`
+    : "Pendiente";
 
   // Extraer datos de obra y empresa
   const obra = valeData.obras?.obra || "N/A";
@@ -55,14 +76,14 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
     valeData.qr_verification_url ||
     `https://verify.app/vale/${valeData.folio}`;
 
-  // Generar HTML completo del vale de MATERIAL
+  // Generar HTML completo del vale de RENTA
   return `
     <!DOCTYPE html>
     <html lang="es">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Vale ${valeData.folio}</title>
+      <title>Vale de Renta ${valeData.folio}</title>
       <style>
         ${getValeBaseCSS(bgColor)}
       </style>
@@ -83,7 +104,7 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
         <!-- HEADER -->
         <div class="header">
           <h1>${empresa}</h1>
-          <h2>VALE DE MATERIAL - ACARREO</h2>
+          <h2>VALE DE RENTA - SERVICIO</h2>
         </div>
         
         <!-- DATOS PRINCIPALES -->
@@ -104,17 +125,17 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
             <span class="info-label">Obra: </span>
             <span class="info-value">${obra}</span>
           </div>
-          <div class="info-full">
-            <span class="info-label">Banco: </span>
-            <span class="info-value">${banco}</span>
+          <div class="info-row">
+            <span class="info-label">Sindicato</span>
+            <span class="info-value">${sindicato}</span>
           </div>
         </div>
         
-        <!-- DATOS DE VALE -->
-        <div class="section-title">DATOS DE VALE</div>
+        <!-- SERVICIO DE RENTA -->
+        <div class="section-title">SERVICIO DE RENTA</div>
         <div class="info-section">
           <div class="info-row">
-            <span class="info-label">Material</span>
+            <span class="info-label">Material Movido</span>
             <span class="info-value">${material}</span>
           </div>
           <div class="info-row">
@@ -122,17 +143,38 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
             <span class="info-value">${capacidad} m³</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Distancia</span>
-            <span class="info-value">${distancia} Km</span>
+            <span class="info-label">Núm. Viajes</span>
+            <span class="info-value">${numeroViajes}</span>
           </div>
           <div class="divider"></div>
           <div class="info-row">
-            <span class="info-label">Cantidad Pedida</span>
-            <span class="info-value">${cantidadPedida} m³</span>
+            <span class="info-label">Hora Inicio</span>
+            <span class="info-value">${horaInicio}</span>
           </div>
           <div class="info-row">
-            <span class="info-label" style="font-size: 12px;">Peso</span>
-            <span class="info-value" style="font-size: 12px; font-weight: bold;">${peso} Ton</span>
+            <span class="info-label">Hora Fin</span>
+            <span class="info-value">${horaFin}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Total Horas</span>
+            <span class="info-value">${totalHoras} hrs</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Total Días</span>
+            <span class="info-value">${totalDias}</span>
+          </div>
+          <div class="divider"></div>
+          <div class="info-row">
+            <span class="info-label">Tarifa/Hora</span>
+            <span class="info-value">${tarifaHora}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Tarifa/Día</span>
+            <span class="info-value">${tarifaDia}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label" style="font-size: 12px;">Costo Total</span>
+            <span class="info-value" style="font-size: 12px; font-weight: bold;">${costoTotal}</span>
           </div>
         </div>
         
@@ -173,15 +215,15 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
 };
 
 /**
- * Genera y comparte el PDF del vale de MATERIAL
+ * Genera y comparte el PDF del vale de RENTA
  * @param {object} valeData - Datos completos del vale desde Supabase
  * @param {string} colorCopia - Color de la copia a generar (blanco, roja, verde, etc.)
  * @param {string} qrDataUrl - Código QR en formato base64
  * @returns {Promise<string>} - URI del archivo PDF generado
  */
-export const generateAndSharePDF = async (
+export const generateAndSharePDFRenta = async (
   valeData,
-  colorCopia = "roja",
+  colorCopia = "blanco",
   qrDataUrl
 ) => {
   try {
@@ -193,7 +235,7 @@ export const generateAndSharePDF = async (
       throw new Error("Código QR no generado");
     }
 
-    const html = generateValeHTML(valeData, colorCopia, qrDataUrl);
+    const html = generateValeRentaHTML(valeData, colorCopia, qrDataUrl);
 
     const { uri } = await Print.printToFileAsync({
       html,
@@ -212,25 +254,29 @@ export const generateAndSharePDF = async (
 
     await Sharing.shareAsync(uri, {
       mimeType: "application/pdf",
-      dialogTitle: `Vale ${valeData.folio} - Copia ${colorCopia.toUpperCase()}`,
+      dialogTitle: `Vale de Renta ${valeData.folio} - Copia ${colorCopia.toUpperCase()}`,
       UTI: "com.adobe.pdf",
     });
 
     return uri;
   } catch (error) {
-    console.error("Error generando/compartiendo PDF:", error);
+    console.error("Error generando/compartiendo PDF de renta:", error);
     throw error;
   }
 };
 
 /**
- * Genera solo el PDF sin compartir (para preview o guardar)
+ * Genera solo el PDF de RENTA sin compartir (para preview o guardar)
  * @param {object} valeData - Datos completos del vale
  * @param {string} colorCopia - Color de la copia
  * @param {string} qrDataUrl - Código QR en formato base64
  * @returns {Promise<string>} - URI del archivo PDF generado
  */
-export const generatePDFOnly = async (valeData, colorCopia, qrDataUrl) => {
+export const generatePDFRentaOnly = async (
+  valeData,
+  colorCopia,
+  qrDataUrl
+) => {
   try {
     if (!valeData || !valeData.folio) {
       throw new Error("Datos del vale incompletos");
@@ -240,7 +286,7 @@ export const generatePDFOnly = async (valeData, colorCopia, qrDataUrl) => {
       throw new Error("Código QR no generado");
     }
 
-    const html = generateValeHTML(valeData, colorCopia, qrDataUrl);
+    const html = generateValeRentaHTML(valeData, colorCopia, qrDataUrl);
 
     const { uri } = await Print.printToFileAsync({
       html,
@@ -251,7 +297,7 @@ export const generatePDFOnly = async (valeData, colorCopia, qrDataUrl) => {
 
     return uri;
   } catch (error) {
-    console.error("Error generando PDF:", error);
+    console.error("Error generando PDF de renta:", error);
     throw error;
   }
 };

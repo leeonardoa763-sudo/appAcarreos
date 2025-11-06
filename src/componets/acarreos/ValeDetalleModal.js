@@ -43,6 +43,7 @@ import { supabase } from "../../config/supabase";
 import StatusBadge from "../common/StatusBadge";
 import FormTimePicker from "../forms/FormTimePicker";
 import PrimaryButton from "../common/PrimaryButton";
+import GenerarPDFButton from "../vale/GenerarPDFButton";
 
 const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
   const [horaFin, setHoraFin] = useState(null);
@@ -410,6 +411,23 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                   loading={saving}
                   icon="check-circle"
                   backgroundColor={colors.accent}
+                />
+              </View>
+            )}
+            
+            {/* Botón para generar PDF (solo si hora_fin ya está capturada) */}
+            {isRenta && detalleRenta?.horaFin && (
+              <View>
+                <Text style= {styles.sectionTitle}>Generar Vale Blanco</Text>
+                <Text style= {styles.sectionSubtitle}>Generar y comparte el PDF blanco del vale completado</Text>
+                <GenerarPDFButton
+                valeData={vale}
+                tipoVale="renta"
+                colorCopia="blanco"
+                onSuccess={() => {
+                  onRefresh();
+                  onClose();
+                }}
                 />
               </View>
             )}
