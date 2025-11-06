@@ -39,11 +39,12 @@ import { useNavigation } from "@react-navigation/native";
 // Configuración
 import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
-
+import { commonStyles } from "../styles/";
 // Hooks
 import { useAuth } from "../hooks/useAuth";
 import { useCatalogos } from "../hooks/useCatalogos";
 import { useFolioGenerator } from "../hooks/useFolioGenerator";
+import { useObraData } from "../hooks/useObraData";
 
 // Validaciones
 import {
@@ -78,16 +79,19 @@ const ValeMaterialScreen = () => {
   const navigation = useNavigation();
   const { userProfile } = useAuth();
 
+  // Hook para obtener datos de la obra del usuario
+  const {
+    obraData,
+    loading: loadingObra,
+    error: errorObra,
+  } = useObraData(userProfile);
+
   // Hook para cargar catálogos necesarios
   const {
     materiales,
     bancos,
     loading: loadingCatalogos,
   } = useCatalogos(["materiales", "bancos"]);
-
-  // Estado para almacenar datos de la obra del usuario
-  const [obraData, setObraData] = useState(null);
-  const [loadingObra, setLoadingObra] = useState(true);
 
   // Hook para generar folios únicos
   const generateFolio = useFolioGenerator(obraData);
@@ -117,52 +121,9 @@ const ValeMaterialScreen = () => {
   const [qrDataUrl, setQrDataUrl] = useState(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
-  // 🔥 NUEVO: Flag para controlar si el usuario quiere compartir
+  // Flag para controlar si el usuario quiere compartir
   const [shouldSharePDF, setShouldSharePDF] = useState(false);
-  const isSharing = useRef(false); // Ref para evitar dobles llamadas
-
-  /**
-   * EFECTO: Cargar datos de la obra del usuario
-   */
-  useEffect(() => {
-    const fetchObraData = async () => {
-      if (!userProfile?.id_current_obra) {
-        setLoadingObra(false);
-        return;
-      }
-
-      try {
-        setLoadingObra(true);
-
-        const { data, error } = await supabase
-          .from("obras")
-          .select(
-            `
-            id_obra,
-            obra,
-            cc,
-            empresas:id_empresa (
-              id_empresa,
-              empresa,
-              sufijo
-            )
-          `
-          )
-          .eq("id_obra", userProfile.id_current_obra)
-          .single();
-
-        if (error) throw error;
-        setObraData(data);
-      } catch (error) {
-        console.error("Error cargando datos de obra:", error);
-        Alert.alert("Error", "No se pudieron cargar los datos de la obra");
-      } finally {
-        setLoadingObra(false);
-      }
-    };
-
-    fetchObraData();
-  }, [userProfile]);
+  const isSharing = useRef(false);
 
   /**
    * EFECTO: Resetear formulario al salir de la pantalla
@@ -416,7 +377,7 @@ const ValeMaterialScreen = () => {
           {
             text: "Compartir PDF",
             onPress: () => {
-              // 🔥 Activar flag para compartir cuando QR esté listo
+              //  Activar flag para compartir cuando QR esté listo
               setShouldSharePDF(true);
             },
           },
@@ -442,7 +403,7 @@ const ValeMaterialScreen = () => {
    * Solo se ejecuta cuando el usuario presiona "Compartir PDF" y el QR está listo
    */
   const handleCompartirPDF = async () => {
-    // 🔥 Evitar dobles llamadas
+    //  Evitar dobles llamadas
     if (isSharing.current) {
       return;
     }
@@ -711,83 +672,4 @@ const ValeMaterialScreen = () => {
 export default ValeMaterialScreen;
 
 // Estilos del componente
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    backgroundColor: colors.surface,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    elevation: 2,
-    shadowColor: colors.shadow.color,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: colors.shadow.color,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  buttonContainer: {
-    marginTop: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  errorText: {
-    fontSize: 16,
-    color: colors.danger,
-    textAlign: "center",
-    paddingHorizontal: 20,
-  },
-  infoCopiasContainer: {
-    backgroundColor: colors.accent + "20",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 0,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.accent,
-  },
-  infoCopiasText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    lineHeight: 20,
-  },
-  infoCopiasDestacado: {
-    fontWeight: "bold",
-    color: colors.accent,
-  },
-});
+const styles = commonStyles;

@@ -32,6 +32,10 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
 import { useAuth } from "../hooks/useAuth";
+
+//Estilos
+import { commonStyles, listScreenStyles } from "../styles";
+
 import ValeCard from "../componets/acarreos/ValeCard";
 import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
 import SearchBar from "../componets/common/SearchBar";
@@ -378,109 +382,9 @@ const AcarreosScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  contentContainer: {
-    paddingBottom: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-    padding: 20,
-  },
-  errorText: {
-    marginTop: 16,
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.danger,
-  },
-  errorSubtext: {
-    marginTop: 8,
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
-  searchContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  searchResults: {
-    marginTop: 8,
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
-  section: {
-    marginTop: 16,
-    paddingHorizontal: 20,
-  },
-  categoryTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-    marginBottom: 12,
-  },
-  subsection: {
-    marginBottom: 12,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-    marginLeft: 8,
-    flex: 1,
-  },
-  badge: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 32,
-    alignItems: "center",
-  },
-  badgeText: {
-    color: colors.surface,
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  valesContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    minHeight: 100,
-  },
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 40,
-  },
-  emptyText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-});
+const styles = {
+  ...commonStyles,
+  ...listScreenStyles,
+};
 
 export default AcarreosScreen;

@@ -34,6 +34,8 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../config/supabase";
 import { colors } from "../config/colors";
+//Estilos
+import { screenStyles, formStyles } from "../styles";
 import {
   promiseWithTimeout,
   TIMEOUT_DURATIONS,
@@ -290,123 +292,10 @@ const LoginScreen = ({ navigation }) => {
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: "center",
-    padding: 20,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 50,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-    marginTop: 15,
-    marginBottom: 5,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: colors.textSecondary,
-  },
-  form: {
-    backgroundColor: colors.surface,
-    padding: 20,
-    borderRadius: 15,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    marginBottom: 15,
-    backgroundColor: colors.background,
-  },
-  inputIcon: {
-    paddingLeft: 15,
-  },
-  input: {
-    flex: 1,
-    padding: 15,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  passwordInput: {
-    paddingRight: 50,
-  },
-  eyeIcon: {
-    position: "absolute",
-    right: 15,
-    padding: 5,
-  },
-  timeoutWarning: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.background,
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 15,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accent,
-  },
-  timeoutWarningText: {
-    marginLeft: 8,
-    fontSize: 13,
-    color: colors.textPrimary,
-    fontWeight: "500",
-  },
-  button: {
-    backgroundColor: colors.primary,
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  buttonDisabled: {
-    backgroundColor: colors.textSecondary,
-    opacity: 0.7,
-  },
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  buttonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  footer: {
-    marginTop: 30,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-  },
-  footerText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-  },
-});
-
+console.log("screenStyles:", screenStyles);
+console.log("formStyles:", formStyles);
+const styles = {
+  ...screenStyles,
+  ...formStyles,
+};
 export default LoginScreen;
