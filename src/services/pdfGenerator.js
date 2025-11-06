@@ -49,7 +49,7 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
   const bgColor = coloresBackground[colorCopia] || "#FFFFFF";
   const destinatario = destinatarios[colorCopia] || "OPERADOR";
 
-  // Formatear fecha y hora de creación del vale
+  // Formatear fecha y hora
   const fechaCreacion = new Date(valeData.fecha_creacion);
   const fechaFormateada = fechaCreacion.toLocaleDateString("es-MX", {
     day: "2-digit",
@@ -61,7 +61,7 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
     minute: "2-digit",
   });
 
-  // Extraer datos específicos del vale de material
+  // Extraer datos del vale
   const detalle = valeData.vale_material_detalles?.[0] || {};
   const material = detalle.material?.material || "N/A";
   const banco = detalle.bancos?.banco || "N/A";
@@ -95,57 +95,48 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
         }
         
         body {
-          font-family: 'Helvetica', 'Arial', sans-serif;
+          font-family: 'Courier New', 'Courier', monospace;
           background-color: ${bgColor};
-          padding: 10px;
-          color: #2C3E50;
+          padding: 0;
+          color: #000;
+          font-size: 11px;
+          height: 100vh;
         }
         
         .container {
-          max-width: 100%;
+          width: 80mm;
+          min-height: 100vh;
           margin: 0 auto;
-          background: white;
-          border: 4px solid #2C3E50;
-          border-radius: 8px;
-          overflow: hidden;
+          background: ${bgColor};
+          border: 2px solid #000;
+          display: flex;
+          flex-direction: column;
         }
         
         .header {
-          background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%);
-          color: white;
-          padding: 20px;
+          background: #000;
+          color: #FFF;
+          padding: 8px 6px;
           text-align: center;
-        }
-        
-        .logo-container {
-          margin-bottom: 10px;
-        }
-        
-        .logo {
-          width: 80px;
-          height: 80px;
-          margin: 0 auto;
-          border-radius: 50%;
-          background: white;
-          padding: 5px;
+          border-bottom: 2px solid #000;
         }
         
         .header h1 {
-          font-size: 22px;
-          margin-bottom: 8px;
+          font-size: 12px;
+          margin-bottom: 2px;
           text-transform: uppercase;
-          letter-spacing: 1px;
+          font-weight: bold;
         }
         
         .header h2 {
-          font-size: 16px;
+          font-size: 10px;
           font-weight: normal;
-          opacity: 0.95;
         }
         
         .section {
-          padding: 15px 20px;
-          border-bottom: 2px solid #E0E0E0;
+          padding: 6px;
+          border-bottom: 1px dashed #000;
+          flex-shrink: 0;
         }
         
         .section:last-child {
@@ -153,122 +144,154 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
         }
         
         .section-title {
-          font-size: 14px;
+          font-size: 10px;
           font-weight: bold;
-          color: #004E89;
-          margin-bottom: 12px;
-          padding-bottom: 6px;
-          border-bottom: 2px solid #004E89;
+          color: #000;
+          margin-bottom: 4px;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          border-bottom: 1px solid #000;
+          padding-bottom: 1px;
         }
         
         .info-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
+          width: 100%;
         }
         
         .info-item {
-          margin-bottom: 8px;
+          margin-bottom: 3px;
+          display: flex;
+          justify-content: space-between;
+          border-bottom: 1px dotted #666;
+          padding-bottom: 1px;
         }
         
         .info-item-full {
-          grid-column: 1 / -1;
+          display: block;
         }
         
         .info-label {
-          font-size: 11px;
-          color: #7F8C8D;
+          font-size: 8px;
+          color: #000;
           text-transform: uppercase;
-          display: block;
-          margin-bottom: 3px;
-          font-weight: 600;
-          letter-spacing: 0.3px;
+          font-weight: bold;
+          display: inline-block;
+          min-width: 45%;
         }
         
         .info-value {
-          font-size: 15px;
+          font-size: 9px;
           font-weight: bold;
-          color: #2C3E50;
-          word-wrap: break-word;
+          color: #000;
+          text-align: right;
+          display: inline-block;
         }
         
         .qr-container {
           text-align: center;
-          padding: 25px;
-          background: #F8F9FA;
+          padding: 8px 6px;
+          background: #FFF;
+          border-top: 2px dashed #000;
+          border-bottom: 2px dashed #000;
+          flex-shrink: 0;
         }
         
         .qr-title {
-          font-size: 14px;
+          font-size: 9px;
           font-weight: bold;
-          color: #004E89;
-          margin-bottom: 15px;
+          color: #000;
+          margin-bottom: 6px;
           text-transform: uppercase;
         }
         
         .qr-image {
-          width: 180px;
-          height: 180px;
-          margin: 0 auto 12px;
-          border: 3px solid #2C3E50;
-          padding: 8px;
+          width: 100px;
+          height: 100px;
+          margin: 0 auto 4px;
+          border: 1px solid #000;
+          padding: 2px;
           background: white;
           display: block;
         }
         
         .qr-text {
-          font-size: 12px;
-          color: #7F8C8D;
-          margin-top: 8px;
-          line-height: 1.4;
+          font-size: 8px;
+          color: #000;
+          margin-top: 3px;
+          line-height: 1.2;
         }
         
         .qr-url {
-          font-size: 10px;
-          color: #95A5A6;
-          margin-top: 5px;
+          font-size: 6px;
+          color: #666;
+          margin-top: 2px;
           word-break: break-all;
         }
         
         .footer {
-          background: ${bgColor};
-          padding: 20px;
+          background: #000;
+          color: #FFF;
+          padding: 6px;
           text-align: center;
-          border-top: 3px solid #2C3E50;
+          border-top: 2px solid #000;
+          margin-top: auto;
+          flex-shrink: 0;
         }
         
         .copia-badge {
-          display: inline-block;
-          padding: 10px 25px;
-          background: #2C3E50;
-          color: white;
-          font-size: 16px;
+          display: block;
+          padding: 4px 8px;
+          background: #FFF;
+          color: #000;
+          font-size: 10px;
           font-weight: bold;
-          border-radius: 6px;
+          border: 1px solid #000;
           text-transform: uppercase;
-          margin-bottom: 8px;
-          letter-spacing: 1px;
+          margin: 0 auto 4px;
+          max-width: 120px;
         }
         
         .copia-destinatario {
-          font-size: 13px;
-          color: #555;
-          margin-top: 5px;
-          font-weight: 600;
+          font-size: 9px;
+          color: #FFF;
+          margin-top: 2px;
+          font-weight: bold;
         }
         
         .emision-info {
-          font-size: 11px;
-          color: #7F8C8D;
-          margin-top: 8px;
+          font-size: 7px;
+          color: #FFF;
+          margin-top: 4px;
+          border-top: 1px solid #FFF;
+          padding-top: 2px;
         }
         
         .divider {
-          height: 2px;
-          background: linear-gradient(to right, transparent, #E0E0E0, transparent);
-          margin: 10px 0;
+          height: 1px;
+          background: #000;
+          margin: 4px 0;
+        }
+        
+        .logo-container {
+          margin-bottom: 4px;
+        }
+        
+        .logo {
+          max-width: 40px;
+          max-height: 30px;
+        }
+
+        /* Estilos específicos para impresión */
+        @media print {
+          body {
+            padding: 0;
+            margin: 0;
+            height: auto;
+          }
+          .container {
+            border: none;
+            height: auto;
+            page-break-after: always;
+          }
         }
       </style>
     </head>
@@ -359,8 +382,8 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
         
         <!-- CÓDIGO QR -->
         <div class="qr-container">
-          <div class="qr-title">⚡ Código de Verificación ⚡</div>
-          <img src="${qrDataUrl}" class="qr-image" alt="Código QR">
+          <div class="qr-title">Codigo de Verificacion</div>
+          <img src="${qrDataUrl}" class="qr-image" alt="Codigo QR">
           <p class="qr-text"><strong>Escanee para verificar autenticidad</strong></p>
           <div class="divider"></div>
           <p class="qr-url">${verificationUrl}</p>
@@ -369,7 +392,7 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
         <!-- FOOTER -->
         <div class="footer">
           <div class="copia-badge">COPIA ${colorCopia.toUpperCase()}</div>
-          <div class="copia-destinatario">📋 ${destinatario}</div>
+          <div class="copia-destinatario">${destinatario}</div>
           <div class="emision-info">
             Emitida: ${fechaFormateada} ${horaFormateada}
           </div>
@@ -379,7 +402,6 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
     </html>
   `;
 };
-
 /**
  * Genera y comparte el PDF del vale
  * @param {object} valeData - Datos completos del vale desde Supabase
@@ -409,6 +431,8 @@ export const generateAndSharePDF = async (
     const { uri } = await Print.printToFileAsync({
       html,
       base64: false,
+      width: 226, // 80mm en puntos (ticket térmico estándar)
+      height: 842, // Altura variable (A4 para desarrollo)
     });
 
     // Verificar si el dispositivo puede compartir archivos
@@ -456,6 +480,8 @@ export const generatePDFOnly = async (valeData, colorCopia, qrDataUrl) => {
     const { uri } = await Print.printToFileAsync({
       html,
       base64: false,
+      width: 226, // 80mm en puntos
+      height: 842, // Altura variable
     });
 
     return uri;

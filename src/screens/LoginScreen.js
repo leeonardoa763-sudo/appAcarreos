@@ -292,8 +292,7 @@ const LoginScreen = ({ navigation }) => {
     </KeyboardAvoidingView>
   );
 };
-console.log("screenStyles:", screenStyles);
-console.log("formStyles:", formStyles);
+
 const styles = {
   ...screenStyles,
   ...formStyles,

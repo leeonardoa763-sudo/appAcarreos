@@ -18,6 +18,13 @@ import { colors } from "../config/colors";
 
 export const commonStyles = StyleSheet.create({
   // Contenedores principales
+  testButtonNote: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

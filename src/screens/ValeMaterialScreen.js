@@ -468,6 +468,94 @@ const ValeMaterialScreen = () => {
     });
     navigation.getParent()?.navigate("Acarreos");
   };
+  /**
+   *  FUNCIÓN TEMPORAL: Generar PDF para prueba en PC
+   */
+  const testGenerarPDFLocal = async () => {
+    // Validar que el formulario esté completo
+    if (!validateForm()) {
+      Alert.alert(
+        "Formulario incompleto",
+        "Completa todos los campos para generar el PDF de prueba"
+      );
+      return;
+    }
+
+    if (!obraData) {
+      Alert.alert("Error", "No hay datos de obra");
+      return;
+    }
+
+    try {
+      setGeneratingPDF(true);
+
+      // Crear datos de vale simulados (sin guardar en BD)
+      const folio = `TEST-${Date.now()}`;
+      const verificationUrl = generateVerificationUrl(folio);
+
+      const valeSimulado = {
+        folio: folio,
+        fecha_creacion: new Date().toISOString(),
+        operador_nombre: formData.operadorNombre,
+        placas_vehiculo: formData.operadorPlacas.toUpperCase(),
+        qr_verification_url: verificationUrl,
+        obras: {
+          obra: obraData.obra,
+          cc: obraData.cc,
+          empresas: {
+            empresa: obraData.empresas.empresa,
+            sufijo: obraData.empresas.sufijo,
+            logo: obraData.empresas.logo || null,
+          },
+        },
+        vale_material_detalles: [
+          {
+            capacidad_m3: parseFloat(formData.capacidad),
+            distancia_km: parseFloat(formData.distancia),
+            cantidad_pedida_m3: parseFloat(formData.cantidadSolicitada),
+            peso_ton: "Pendiente",
+            material: {
+              material:
+                materiales.find((m) => m.id_material === formData.materialId)
+                  ?.material || "N/A",
+            },
+            bancos: {
+              banco:
+                bancos.find((b) => b.id_banco === formData.bancoId)?.banco ||
+                "N/A",
+            },
+          },
+        ],
+      };
+
+      // Generar QR de prueba (base64 de imagen 1x1px transparente)
+      const qrTestUrl = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==`;
+
+      // 🔥 ACTUALIZAR: Usar el servicio actualizado de PDF
+      const colorCopia = generarCopiaRoja ? "roja" : "blanca";
+      const pdfUri = await generateAndSharePDF(
+        valeSimulado,
+        colorCopia,
+        qrTestUrl
+      );
+
+      Alert.alert(
+        "✅ PDF de prueba generado",
+        `Archivo guardado en:\n${pdfUri}\n\nPuedes extraerlo con ADB o compartirlo.`,
+        [
+          {
+            text: "Entendido",
+            style: "default",
+          },
+        ]
+      );
+    } catch (error) {
+      console.error("Error generando PDF de prueba:", error);
+      Alert.alert("Error", `No se pudo generar el PDF: ${error.message}`);
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
 
   /**
    * FUNCIÓN: Resetear el formulario

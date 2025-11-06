@@ -2,7 +2,6 @@ import { StyleSheet } from "react-native";
 import { colors } from "../config/colors";
 
 export const screenStyles = StyleSheet.create({
-  // ESTOS SON LOS NOMBRES ORIGINALES - NO CAMBIAR
   container: {
     flex: 1,
     backgroundColor: colors.background,
