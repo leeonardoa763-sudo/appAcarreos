@@ -151,9 +151,6 @@ export const useAuth = () => {
   const fetchUserProfile = async (authUserId) => {
     // Prevenir múltiples fetches simultáneos del mismo perfil
     if (isFetchingProfile.current) {
-      console.log(
-        "Fetch de perfil ya en progreso, ignorando llamada duplicada"
-      );
       return;
     }
 

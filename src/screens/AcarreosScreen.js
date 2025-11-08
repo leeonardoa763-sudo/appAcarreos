@@ -63,14 +63,34 @@ const AcarreosScreen = () => {
     try {
       setLoading(true);
       setError(null);
-
       const { data: valesData, error: valesError } = await supabase
         .from("vales")
         .select(
           `
           *,
-          vale_material_detalles (*),
-          vale_renta_detalle (*)
+          obras (
+            obra,
+            cc,
+            empresas (
+              empresa,
+              sufijo,
+              logo
+            )
+          ),
+          vale_material_detalles (
+            *,
+            material (material),
+            bancos (banco)
+          ),
+          vale_renta_detalle (
+            *,
+            material (material),
+            sindicatos (sindicato),
+            precios_renta (
+              costo_hr,
+              costo_dia
+            )
+          )
         `
         )
         .eq("id_persona_creador", userProfile.id_persona)

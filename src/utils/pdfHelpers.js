@@ -13,12 +13,12 @@
  * CONSTANTES: Colores de fondo según tipo de copia
  */
 export const COLORES_COPIA = {
-  blanco: "#FFFFFF",
-  roja: "#FFEBEE",
-  verde: "#E8F5E9",
-  azul: "#E3F2FD",
-  amarilla: "#FFFDE7",
-  naranja: "#FFF3E0",
+  blanco: "#FFFFFF", //  Blanco puro
+  roja: "#FFEBEE", // Rojo muy claro (como papel rosa)
+  verde: "#E8F5E8", // Verde muy suave
+  azul: "#E3F2FD", // Azul claro (como papel celeste)
+  amarilla: "#FFFDE7", // Amarillo pastel
+  naranja: "#FFF3E0", // Naranja muy suave
 };
 
 /**
@@ -79,11 +79,11 @@ export const getValeBaseCSS = (bgColor) => {
       padding: 0;
       color: #000;
       font-size: 11px;
-      height: 100vh;
+      height: 105mm;
     }
     
     .container {
-      width: 80mm;
+      width: 67.5mm;
       min-height: 100vh;
       margin: 0 auto;
       background: ${bgColor};
@@ -163,7 +163,7 @@ export const getValeBaseCSS = (bgColor) => {
     }
     
     .qr-container {
-      padding: 10px 6px;
+      padding: 6px 6px;
       text-align: center;
       border-bottom: 2px solid #000;
     }
@@ -176,9 +176,9 @@ export const getValeBaseCSS = (bgColor) => {
     }
     
     .qr-image {
-      width: 150px;
-      height: 150px;
-      margin: 8px auto;
+      width: 120px;
+      height: 120px;
+      margin: 4px auto;
       display: block;
     }
     
@@ -200,7 +200,7 @@ export const getValeBaseCSS = (bgColor) => {
       color: #FFF;
       padding: 8px 6px;
       text-align: center;
-      margin-top: auto;
+      margin-top: 0;
     }
     
     .copia-badge {

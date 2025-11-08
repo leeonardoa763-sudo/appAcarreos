@@ -531,7 +531,7 @@ const ValeMaterialScreen = () => {
       // Generar QR de prueba (base64 de imagen 1x1px transparente)
       const qrTestUrl = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==`;
 
-      // 🔥 ACTUALIZAR: Usar el servicio actualizado de PDF
+      //  ACTUALIZAR: Usar el servicio actualizado de PDF
       const colorCopia = generarCopiaRoja ? "roja" : "blanca";
       const pdfUri = await generateAndSharePDF(
         valeSimulado,
@@ -540,7 +540,7 @@ const ValeMaterialScreen = () => {
       );
 
       Alert.alert(
-        "✅ PDF de prueba generado",
+        " PDF de prueba generado",
         `Archivo guardado en:\n${pdfUri}\n\nPuedes extraerlo con ADB o compartirlo.`,
         [
           {

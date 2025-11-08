@@ -23,6 +23,8 @@ import {
   getCopiaInfo,
 } from "../utils/pdfHelpers";
 
+import { renamePDFWithAutoName } from "./pdfFileHandler";
+
 /**
  * Genera el HTML del vale de MATERIAL con el formato especificado
  * @param {object} valeData - Datos completos del vale
@@ -52,8 +54,7 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
 
   // URL de verificación
   const verificationUrl =
-    valeData.qr_verification_url ||
-    `https://verify.app/vale/${valeData.folio}`;
+    valeData.qr_verification_url || `https://verify.app/vale/${valeData.folio}`;
 
   // Generar HTML completo del vale de MATERIAL
   return `
@@ -201,6 +202,7 @@ export const generateAndSharePDF = async (
       width: 226,
       height: 842,
     });
+    const newUri = await renamePDFWithAutoName(uri, valeData.folio, colorCopia);
 
     const isAvailable = await Sharing.isAvailableAsync();
 
@@ -210,13 +212,13 @@ export const generateAndSharePDF = async (
       );
     }
 
-    await Sharing.shareAsync(uri, {
+    await Sharing.shareAsync(newUri, {
       mimeType: "application/pdf",
       dialogTitle: `Vale ${valeData.folio} - Copia ${colorCopia.toUpperCase()}`,
       UTI: "com.adobe.pdf",
     });
 
-    return uri;
+    return newUri;
   } catch (error) {
     console.error("Error generando/compartiendo PDF:", error);
     throw error;

@@ -57,6 +57,9 @@ import FormPicker from "../componets/forms/FormPicker";
 import FormTimePicker from "../componets/forms/FormTimePicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 
+//Utils
+import { generateVerificationUrl } from "../utils/qrGenerator";
+
 const ValeRentaScreen = () => {
   const navigation = useNavigation();
   const { userProfile } = useAuth();
@@ -147,7 +150,7 @@ const ValeRentaScreen = () => {
 
     try {
       setSubmitting(true);
-
+      console.log("--------------------------");
       console.log("Iniciando creación de vale");
 
       const folio = await generateFolio();
@@ -175,6 +178,7 @@ const ValeRentaScreen = () => {
           operador_nombre: formData.operadorNombre.trim(),
           placas_vehiculo: formData.operadorPlacas.trim().toUpperCase(),
           estado: "en_proceso",
+          qr_verification_url: generateVerificationUrl(folio),
         })
         .select()
         .single();

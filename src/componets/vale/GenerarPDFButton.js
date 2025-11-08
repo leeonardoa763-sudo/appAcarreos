@@ -48,10 +48,25 @@ const GenerarPDFButton = ({
   const isSharing = useRef(false);
 
   const handleGenerarPDF = () => {
-    if (!valeData || !valeData.qr_verification_url) {
-      Alert.alert("Error", "Datos del vale incompletos");
-      return;
-    }
+    // console.log("🔵 [GenerarPDFButton] Iniciando generación de PDF");
+    // console.log(
+    //   " [GenerarPDFButton] valeData completo:",
+    //   JSON.stringify(valeData, null, 2)
+    // );
+    // console.log(" [GenerarPDFButton] QR URL:", valeData?.qr_verification_url);
+    // console.log(" [GenerarPDFButton] Obra:", valeData?.obras);
+    // console.log(" [GenerarPDFButton] Empresa:", valeData?.obras?.empresas);
+    // console.log(
+    //   " [GenerarPDFButton] Detalle Renta:",
+    //   valeData?.vale_renta_detalle?.[0]
+    // );
+    // if (!valeData || !valeData.qr_verification_url) {
+    //   Alert.alert("Error", "Datos del vale incompletos");
+    //   return;
+    // }
+    // console.log(
+    //   "[GenerarPDFButton] Validación pasada, activando generación QR"
+    // );
 
     setShouldShare(true);
   };
@@ -90,10 +105,7 @@ const GenerarPDFButton = ({
       );
     } catch (error) {
       console.error("Error compartiendo PDF:", error);
-      Alert.alert(
-        "Error",
-        "No se pudo generar el PDF. Intenta nuevamente."
-      );
+      Alert.alert("Error", "No se pudo generar el PDF. Intenta nuevamente.");
     } finally {
       setGenerating(false);
       isSharing.current = false;

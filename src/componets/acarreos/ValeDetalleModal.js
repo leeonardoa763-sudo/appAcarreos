@@ -189,7 +189,6 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 size="medium"
               />
             </View>
-
             {/* Información General */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Información General</Text>
@@ -232,7 +231,6 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 </View>
               </View>
             </View>
-
             {/* Detalles específicos de Material */}
             {isMaterial && detalleMaterial && (
               <View style={styles.section}>
@@ -303,7 +301,6 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 )}
               </View>
             )}
-
             {/* Detalles específicos de Renta */}
             {isRenta && detalleRenta && (
               <View style={styles.section}>
@@ -390,7 +387,6 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 )}
               </View>
             )}
-
             {/* Formulario para capturar hora de fin (solo si aplica) */}
             {canCaptureHoraFin && (
               <View style={styles.section}>
@@ -414,23 +410,26 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 />
               </View>
             )}
-            
             {/* Botón para generar PDF (solo si hora_fin ya está capturada) */}
-            {isRenta && detalleRenta?.horaFin && (
-              <View>
-                <Text style= {styles.sectionTitle}>Generar Vale Blanco</Text>
-                <Text style= {styles.sectionSubtitle}>Generar y comparte el PDF blanco del vale completado</Text>
+            {isRenta && detalleRenta?.hora_fin && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Generar Vale Blanco</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Generar y comparte el PDF blanco del vale completado
+                </Text>
                 <GenerarPDFButton
-                valeData={vale}
-                tipoVale="renta"
-                colorCopia="blanco"
-                onSuccess={() => {
-                  onRefresh();
-                  onClose();
-                }}
+                  valeData={vale}
+                  tipoVale="renta"
+                  colorCopia="blanco"
+                  onSuccess={() => {
+                    onRefresh();
+                    onClose();
+                  }}
                 />
               </View>
             )}
+            {/* Espaciador para scroll */}
+            <View style={{ height: 40 }} />
           </ScrollView>
         </View>
       </View>
@@ -491,6 +490,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     padding: 20,
+    paddingBottom: 60,
   },
   section: {
     marginBottom: 24,

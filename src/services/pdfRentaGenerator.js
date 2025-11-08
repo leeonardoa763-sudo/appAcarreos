@@ -16,12 +16,15 @@
 
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system";
 import {
   formatearFecha,
   formatearHora,
   getValeBaseCSS,
   getCopiaInfo,
 } from "../utils/pdfHelpers";
+
+import { renamePDFWithAutoName } from "./pdfFileHandler";
 
 /**
  * Genera el HTML del vale de RENTA con el formato especificado
@@ -31,6 +34,10 @@ import {
  * @returns {string} - HTML formateado
  */
 const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
+  // console.log(" [pdfRentaGenerator] Generando HTML");
+  // console.log(" [pdfRentaGenerator] valeData:", valeData);
+  // console.log(" [pdfRentaGenerator] colorCopia:", colorCopia);
+  // console.log(" [pdfRentaGenerator] qrDataUrl length:", qrDataUrl?.length);
   const { bgColor, destinatario } = getCopiaInfo(colorCopia);
 
   const fechaFormateada = formatearFecha(valeData.fecha_creacion);
@@ -38,8 +45,11 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
 
   // Extraer datos del vale de RENTA
   const detalle = valeData.vale_renta_detalle?.[0] || {};
+  // console.log(" [pdfRentaGenerator] Detalle extraído:", detalle);
   const material = detalle.material?.material || "N/A";
   const sindicato = detalle.sindicatos?.sindicato || "N/A";
+  // console.log(" [pdfRentaGenerator] Material:", material);
+  // console.log(" [pdfRentaGenerator] Sindicato:", sindicato);
   const capacidad = detalle.capacidad_m3 || "N/A";
   const numeroViajes = detalle.numero_viajes || 1;
 
@@ -48,7 +58,9 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
     ? formatearHora(detalle.hora_inicio)
     : "N/A";
 
-  const horaFin = detalle.hora_fin ? formatearHora(detalle.hora_fin) : "Pendiente";
+  const horaFin = detalle.hora_fin
+    ? formatearHora(detalle.hora_fin)
+    : "Pendiente";
 
   const totalHoras = detalle.total_horas || "N/A";
   const totalDias = detalle.total_dias || "N/A";
@@ -73,8 +85,7 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
 
   // URL de verificación
   const verificationUrl =
-    valeData.qr_verification_url ||
-    `https://verify.app/vale/${valeData.folio}`;
+    valeData.qr_verification_url || `https://verify.app/vale/${valeData.folio}`;
 
   // Generar HTML completo del vale de RENTA
   return `
@@ -190,6 +201,20 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
             <span class="info-value">${valeData.placas_vehiculo}</span>
           </div>
         </div>
+
+        <!-- NOTAS (solo si existen) -->
+          ${
+            detalle.notas_adicionales
+              ? `
+        <div class="section-title">NOTAS</div>
+        <div class="info-section">
+          <Text style="font-size: 10px; line-height: 1.4;">
+            ${detalle.notas_adicionales}
+          </Text>
+        </div>
+        `
+              : ""
+          }
         
         <!-- CÓDIGO QR -->
         <div class="qr-container">
@@ -244,6 +269,10 @@ export const generateAndSharePDFRenta = async (
       height: 842,
     });
 
+    //nombre del archivo
+
+    const newUri = await renamePDFWithAutoName(uri, valeData.folio, colorCopia);
+
     const isAvailable = await Sharing.isAvailableAsync();
 
     if (!isAvailable) {
@@ -252,13 +281,15 @@ export const generateAndSharePDFRenta = async (
       );
     }
 
-    await Sharing.shareAsync(uri, {
+    await Sharing.shareAsync(newUri, {
       mimeType: "application/pdf",
-      dialogTitle: `Vale de Renta ${valeData.folio} - Copia ${colorCopia.toUpperCase()}`,
+      dialogTitle: `Vale de Renta ${
+        valeData.folio
+      } - Copia ${colorCopia.toUpperCase()}`,
       UTI: "com.adobe.pdf",
     });
 
-    return uri;
+    return newUri;
   } catch (error) {
     console.error("Error generando/compartiendo PDF de renta:", error);
     throw error;
@@ -272,11 +303,7 @@ export const generateAndSharePDFRenta = async (
  * @param {string} qrDataUrl - Código QR en formato base64
  * @returns {Promise<string>} - URI del archivo PDF generado
  */
-export const generatePDFRentaOnly = async (
-  valeData,
-  colorCopia,
-  qrDataUrl
-) => {
+export const generatePDFRentaOnly = async (valeData, colorCopia, qrDataUrl) => {
   try {
     if (!valeData || !valeData.folio) {
       throw new Error("Datos del vale incompletos");
