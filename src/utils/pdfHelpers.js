@@ -84,7 +84,7 @@ export const getValeBaseCSS = (bgColor) => {
     
     .container {
       width: 67.5mm;
-      min-height: 100vh;
+      // min-height: 100vh;
       margin: 0 auto;
       background: ${bgColor};
       border: 2px solid #000;

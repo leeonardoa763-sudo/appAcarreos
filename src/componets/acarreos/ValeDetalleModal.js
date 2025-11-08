@@ -27,7 +27,7 @@
  * />
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -41,13 +41,22 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
 import StatusBadge from "../common/StatusBadge";
+
 import FormTimePicker from "../forms/FormTimePicker";
+import FormNumberInput from "../forms/FormNumberInput";
+
+import SuccessModal from "../common/SuccessModal";
 import PrimaryButton from "../common/PrimaryButton";
 import GenerarPDFButton from "../vale/GenerarPDFButton";
 
 const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
   const [horaFin, setHoraFin] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [numeroViajes, setNumeroViajes] = useState(1);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successData, setSuccessData] = useState(null);
+  const [triggerPDF, setTriggerPDF] = useState(false);
+  const [updatedVale, setUpdatedVale] = useState(null);
 
   if (!vale) return null;
 
@@ -88,6 +97,11 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
       return;
     }
 
+    if (!numeroViajes || numeroViajes < 1) {
+      Alert.alert("Error", "El número de viajes debe ser al menos 1");
+      return;
+    }
+
     const horaInicio = new Date(detalleRenta.hora_inicio);
     const horaFinDate = new Date(horaFin);
 
@@ -105,31 +119,40 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
       const diffMs = horaFinDate - horaInicio;
       const totalHoras = (diffMs / (1000 * 60 * 60)).toFixed(2);
 
-      const { error } = await supabase
+      const { error, data } = await supabase
         .from("vale_renta_detalle")
         .update({
           hora_fin: horaFin,
           total_horas: parseFloat(totalHoras),
+          numero_viajes: numeroViajes,
         })
-        .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle);
+        .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle)
+        .select();
 
       if (error) throw error;
 
-      Alert.alert(
-        "Éxito",
-        `Hora de fin registrada. Total de horas: ${totalHoras}`,
-        [
+      // Actualizar vale con nuevos datos
+      const valeActualizado = {
+        ...vale,
+        vale_renta_detalle: [
           {
-            text: "OK",
-            onPress: () => {
-              onRefresh();
-              onClose();
-            },
+            ...detalleRenta,
+            hora_fin: horaFin,
+            total_horas: parseFloat(totalHoras),
+            numero_viajes: numeroViajes,
           },
-        ]
-      );
+        ],
+      };
+
+      setUpdatedVale(valeActualizado);
+      setSuccessData({
+        totalHoras,
+        numeroViajes,
+      });
+      setShowSuccessModal(true);
     } catch (error) {
-      Alert.alert("Error", "No se pudo guardar la hora de fin");
+      console.error("Error guardando hora de fin:", error);
+      Alert.alert("Error", "No se pudo completar el vale. Intenta de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -392,7 +415,7 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Completar Vale</Text>
                 <Text style={styles.sectionSubtitle}>
-                  Captura la hora de fin para completar este vale de renta
+                  Captura la hora de fin y el número de viajes realizados
                 </Text>
 
                 <FormTimePicker
@@ -401,8 +424,17 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                   onChange={setHoraFin}
                 />
 
+                <FormNumberInput
+                  label="Número de Viajes"
+                  value={numeroViajes}
+                  onChange={setNumeroViajes}
+                  min={1}
+                  max={99}
+                  step={1}
+                />
+
                 <PrimaryButton
-                  title="Guardar Hora de Fin"
+                  title="Guardar y Completar Vale"
                   onPress={handleGuardarHoraFin}
                   loading={saving}
                   icon="check-circle"
@@ -432,6 +464,50 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
             <View style={{ height: 40 }} />
           </ScrollView>
         </View>
+        {/* Modal de Éxito */}
+        <SuccessModal
+          visible={showSuccessModal}
+          title="Vale Completado"
+          message={`Total de horas: ${successData?.totalHoras} hrs\nNúmero de viajes: ${successData?.numeroViajes}`}
+          primaryAction={{
+            text: "Imprimir Vale",
+            icon: "printer",
+            onPress: () => {
+              setShowSuccessModal(false);
+              setTriggerPDF(true);
+            },
+          }}
+          secondaryAction={{
+            text: "Cerrar",
+            onPress: () => {
+              setShowSuccessModal(false);
+              onRefresh();
+              onClose();
+            },
+          }}
+          onClose={() => {
+            setShowSuccessModal(false);
+            onRefresh();
+            onClose();
+          }}
+        />
+
+        {/* Componente oculto para generar PDF */}
+        {triggerPDF && updatedVale && (
+          <View style={{ position: "absolute", width: 0, height: 0 }}>
+            <GenerarPDFButton
+              valeData={updatedVale}
+              tipoVale="renta"
+              colorCopia="blanco"
+              autoTrigger={true}
+              onSuccess={() => {
+                setTriggerPDF(false);
+                onRefresh();
+                onClose();
+              }}
+            />
+          </View>
+        )}
       </View>
     </Modal>
   );

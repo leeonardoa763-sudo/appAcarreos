@@ -34,10 +34,6 @@ import { renamePDFWithAutoName } from "./pdfFileHandler";
  * @returns {string} - HTML formateado
  */
 const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
-  // console.log(" [pdfRentaGenerator] Generando HTML");
-  // console.log(" [pdfRentaGenerator] valeData:", valeData);
-  // console.log(" [pdfRentaGenerator] colorCopia:", colorCopia);
-  // console.log(" [pdfRentaGenerator] qrDataUrl length:", qrDataUrl?.length);
   const { bgColor, destinatario } = getCopiaInfo(colorCopia);
 
   const fechaFormateada = formatearFecha(valeData.fecha_creacion);
@@ -45,11 +41,8 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
 
   // Extraer datos del vale de RENTA
   const detalle = valeData.vale_renta_detalle?.[0] || {};
-  // console.log(" [pdfRentaGenerator] Detalle extraído:", detalle);
   const material = detalle.material?.material || "N/A";
   const sindicato = detalle.sindicatos?.sindicato || "N/A";
-  // console.log(" [pdfRentaGenerator] Material:", material);
-  // console.log(" [pdfRentaGenerator] Sindicato:", sindicato);
   const capacidad = detalle.capacidad_m3 || "N/A";
   const numeroViajes = detalle.numero_viajes || 1;
 

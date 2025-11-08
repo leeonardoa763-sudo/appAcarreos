@@ -20,7 +20,7 @@
  * - disabled: boolean - Deshabilitar botón
  */
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   TouchableOpacity,
   Text,
@@ -41,33 +41,20 @@ const GenerarPDFButton = ({
   colorCopia = "blanco",
   onSuccess,
   disabled = false,
+  autoTrigger = false, // NUEVO PROP
 }) => {
   const [generating, setGenerating] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState(null);
   const [shouldShare, setShouldShare] = useState(false);
   const isSharing = useRef(false);
 
-  const handleGenerarPDF = () => {
-    // console.log("🔵 [GenerarPDFButton] Iniciando generación de PDF");
-    // console.log(
-    //   " [GenerarPDFButton] valeData completo:",
-    //   JSON.stringify(valeData, null, 2)
-    // );
-    // console.log(" [GenerarPDFButton] QR URL:", valeData?.qr_verification_url);
-    // console.log(" [GenerarPDFButton] Obra:", valeData?.obras);
-    // console.log(" [GenerarPDFButton] Empresa:", valeData?.obras?.empresas);
-    // console.log(
-    //   " [GenerarPDFButton] Detalle Renta:",
-    //   valeData?.vale_renta_detalle?.[0]
-    // );
-    // if (!valeData || !valeData.qr_verification_url) {
-    //   Alert.alert("Error", "Datos del vale incompletos");
-    //   return;
-    // }
-    // console.log(
-    //   "[GenerarPDFButton] Validación pasada, activando generación QR"
-    // );
+  useEffect(() => {
+    if (autoTrigger && !generating && !shouldShare) {
+      handleGenerarPDF();
+    }
+  }, [autoTrigger]);
 
+  const handleGenerarPDF = () => {
     setShouldShare(true);
   };
 
