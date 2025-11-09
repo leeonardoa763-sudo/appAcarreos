@@ -46,17 +46,31 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
   const capacidad = detalle.capacidad_m3 || "N/A";
   const numeroViajes = detalle.numero_viajes || 1;
 
+  console.log("[pdfRentaGenerator] Generando PDF para vale:", valeData.folio);
+  console.log("[pdfRentaGenerator] Detalle:", {
+    total_horas: detalle.total_horas,
+    total_dias: detalle.total_dias,
+    hora_fin: detalle.hora_fin,
+  });
+
+  // Determinar si es renta por día
+  const esRentaPorDia = detalle.total_dias === 1 && detalle.total_horas === 0;
+
+  console.log("[pdfRentaGenerator] Es renta por día:", esRentaPorDia);
+
   // Formatear horas
   const horaInicio = detalle.hora_inicio
     ? formatearHora(detalle.hora_inicio)
     : "N/A";
 
-  const horaFin = detalle.hora_fin
+  const horaFin = esRentaPorDia
+    ? "Día completo"
+    : detalle.hora_fin
     ? formatearHora(detalle.hora_fin)
     : "Pendiente";
 
-  const totalHoras = detalle.total_horas || "N/A";
-  const totalDias = detalle.total_dias || "N/A";
+  const totalHoras = esRentaPorDia ? "N/A" : detalle.total_horas || "N/A";
+  const totalDias = esRentaPorDia ? "1 día" : "N/A";
 
   // Obtener tarifas
   const precioRenta = detalle.precios_renta || {};
@@ -67,9 +81,21 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
     ? `$${parseFloat(precioRenta.costo_dia).toFixed(2)}`
     : "N/A";
 
-  const costoTotal = detalle.costo_total
-    ? `$${parseFloat(detalle.costo_total).toFixed(2)} MXN`
-    : "Pendiente";
+  // Calcular costo total
+  let costoTotal;
+  if (esRentaPorDia && precioRenta.costo_dia) {
+    costoTotal = `$${parseFloat(precioRenta.costo_dia).toFixed(2)} MXN`;
+    console.log("[pdfRentaGenerator] Costo calculado por día:", costoTotal);
+  } else if (!esRentaPorDia && precioRenta.costo_hr && detalle.total_horas) {
+    const costo =
+      parseFloat(precioRenta.costo_hr) * parseFloat(detalle.total_horas);
+    costoTotal = `$${costo.toFixed(2)} MXN`;
+    console.log("[pdfRentaGenerator] Costo calculado por hora:", costoTotal);
+  } else if (detalle.costo_total) {
+    costoTotal = `$${parseFloat(detalle.costo_total).toFixed(2)} MXN`;
+  } else {
+    costoTotal = "Pendiente";
+  }
 
   // Extraer datos de obra y empresa
   const obra = valeData.obras?.obra || "N/A";

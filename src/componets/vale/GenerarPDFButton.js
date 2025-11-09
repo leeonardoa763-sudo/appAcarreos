@@ -49,12 +49,28 @@ const GenerarPDFButton = ({
   const isSharing = useRef(false);
 
   useEffect(() => {
+    console.log("--------------------------------------");
+    console.log("[GenerarPDFButton] useEffect ejecutado:", {
+      autoTrigger,
+      generating,
+      shouldShare,
+      tipoVale,
+      folio: valeData?.folio,
+    });
+
     if (autoTrigger && !generating && !shouldShare) {
+      console.log(
+        "[GenerarPDFButton] Condiciones cumplidas - llamando handleGenerarPDF"
+      );
       handleGenerarPDF();
+    } else {
+      console.log("[GenerarPDFButton] Condiciones NO cumplidas");
     }
   }, [autoTrigger]);
 
   const handleGenerarPDF = () => {
+    console.log("[GenerarPDFButton] handleGenerarPDF ejecutado");
+
     setShouldShare(true);
   };
 
@@ -62,19 +78,30 @@ const GenerarPDFButton = ({
     setQrDataUrl(dataUrl);
 
     if (shouldShare && !isSharing.current) {
+      console.log("-----------------------------------------");
+      console.log("[GenerarPDFButton] Iniciando compartirPDF");
       await compartirPDF(dataUrl);
+    } else {
+      console.log("[GenerarPDFButton] -------------");
     }
   };
-
   const compartirPDF = async (qrUrl) => {
-    if (isSharing.current) return;
+    console.log("[GenerarPDFButton] compartirPDF llamado");
+
+    if (isSharing.current) {
+      console.log("[GenerarPDFButton] Ya está compartiendo - abortando");
+      return;
+    }
 
     try {
+      console.log("[GenerarPDFButton] Iniciando proceso de compartir");
       isSharing.current = true;
       setGenerating(true);
 
       const generarFn =
         tipoVale === "renta" ? generateAndSharePDFRenta : generateAndSharePDF;
+
+      console.log("[GenerarPDFButton] Llamando a generateAndSharePDF...");
 
       await generarFn(valeData, colorCopia, qrUrl);
 

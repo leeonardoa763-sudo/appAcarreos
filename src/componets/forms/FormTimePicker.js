@@ -49,11 +49,13 @@ const FormTimePicker = ({
   value,
   onChange,
   enabled = true,
+  disabled = false,
   error = null,
   minimumDate = null,
   maximumDate = null,
 }) => {
   const [showPicker, setShowPicker] = useState(false);
+  const isEnabled = enabled && !disabled;
 
   // Formatear hora para mostrar (ej: "08:30 AM")
   const formatTime = (date) => {
@@ -88,7 +90,7 @@ const FormTimePicker = ({
 
   // Abrir el picker
   const openPicker = () => {
-    if (enabled) {
+    if (isEnabled) {
       setShowPicker(true);
     }
   };
@@ -107,23 +109,23 @@ const FormTimePicker = ({
       <TouchableOpacity
         style={[
           styles.timeButton,
-          !enabled && styles.timeButtonDisabled,
+          !isEnabled && styles.timeButtonDisabled,
           error && styles.timeButtonError,
         ]}
         onPress={openPicker}
-        disabled={!enabled}
+        disabled={!isEnabled}
         activeOpacity={0.7}
       >
         <MaterialCommunityIcons
           name="clock-outline"
           size={20}
-          color={enabled ? colors.textPrimary : colors.disabled}
+          color={isEnabled ? colors.textPrimary : colors.disabled}
         />
         <Text
           style={[
             styles.timeText,
             !value && styles.timeTextPlaceholder,
-            !enabled && styles.timeTextDisabled,
+            !isEnabled && styles.timeTextDisabled,
           ]}
         >
           {formatTime(value)}
@@ -131,7 +133,7 @@ const FormTimePicker = ({
         <MaterialCommunityIcons
           name="chevron-down"
           size={20}
-          color={enabled ? colors.textSecondary : colors.disabled}
+          color={isEnabled ? colors.textSecondary : colors.disabled} // CAMBIAR
         />
       </TouchableOpacity>
 

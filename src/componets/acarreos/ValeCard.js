@@ -52,18 +52,6 @@ const ValeCard = ({ vale, onPress }) => {
     });
   };
 
-  const getEstadoVale = () => {
-    if (isRenta) {
-      const detalleRenta = vale.vale_renta_detalle?.[0];
-      if (detalleRenta?.hora_fin) {
-        return "completado";
-      } else if (detalleRenta?.hora_inicio) {
-        return "en_proceso";
-      }
-    }
-    return vale.estado || "emitido";
-  };
-
   const getMaterialInfo = () => {
     if (isMaterial && vale.vale_material_detalles?.length > 0) {
       const detalle = vale.vale_material_detalles[0];
@@ -87,7 +75,7 @@ const ValeCard = ({ vale, onPress }) => {
 
   const materialInfo = getMaterialInfo();
   const rentaInfo = getRentaInfo();
-  const estadoActual = getEstadoVale();
+  const estadoActual = vale.estado;
 
   return (
     <TouchableOpacity

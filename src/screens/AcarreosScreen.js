@@ -149,24 +149,12 @@ const AcarreosScreen = () => {
 
   const separateValesByStatus = (vales, tipo) => {
     if (tipo === "material") {
-      const enProceso = vales.filter((vale) => {
-        const detalle = vale.vale_material_detalles?.[0];
-        return !detalle?.peso_ton || detalle.peso_ton === 0;
-      });
-      const completados = vales.filter((vale) => {
-        const detalle = vale.vale_material_detalles?.[0];
-        return detalle?.peso_ton && detalle.peso_ton > 0;
-      });
+      const enProceso = vales.filter((vale) => vale.estado === "en_proceso");
+      const completados = vales.filter((vale) => vale.estado === "emitido");
       return { enProceso, completados };
     } else if (tipo === "renta") {
-      const enProceso = vales.filter((vale) => {
-        const detalle = vale.vale_renta_detalle?.[0];
-        return !detalle?.hora_fin;
-      });
-      const completados = vales.filter((vale) => {
-        const detalle = vale.vale_renta_detalle?.[0];
-        return detalle?.hora_fin;
-      });
+      const enProceso = vales.filter((vale) => vale.estado === "en_proceso");
+      const completados = vales.filter((vale) => vale.estado === "emitido");
       return { enProceso, completados };
     }
     return { enProceso: [], completados: [] };
@@ -178,9 +166,9 @@ const AcarreosScreen = () => {
   );
   const rentaSeparado = separateValesByStatus(filteredValesRenta, "renta");
 
-  const renderValeItem = ({ item }) => (
-    <ValeCard vale={item} onPress={() => handleOpenVale(item)} />
-  );
+  const renderValeItem = ({ item }) => {
+    return <ValeCard vale={item} onPress={() => handleOpenVale(item)} />;
+  };
 
   if (loading && !refreshing) {
     return (

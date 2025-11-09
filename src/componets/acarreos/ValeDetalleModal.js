@@ -44,6 +44,7 @@ import StatusBadge from "../common/StatusBadge";
 
 import FormTimePicker from "../forms/FormTimePicker";
 import FormNumberInput from "../forms/FormNumberInput";
+import FormCheckbox from "../forms/FormCheckbox";
 
 import SuccessModal from "../common/SuccessModal";
 import PrimaryButton from "../common/PrimaryButton";
@@ -57,6 +58,7 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
   const [successData, setSuccessData] = useState(null);
   const [triggerPDF, setTriggerPDF] = useState(false);
   const [updatedVale, setUpdatedVale] = useState(null);
+  const [esRentaPorDia, setEsRentaPorDia] = useState(false);
 
   if (!vale) return null;
 
@@ -64,6 +66,10 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
   const isRenta = vale.tipo_vale === "renta";
   const detalleRenta = isRenta ? vale.vale_renta_detalle?.[0] : null;
   const detalleMaterial = isMaterial ? vale.vale_material_detalles?.[0] : null;
+  // Para determinar el tipo de renta
+  const esRentaPorDia = detalleRenta?.total_dias > 0;
+  const esRentaPorHora =
+    detalleRenta?.total_horas > 0 && detalleRenta?.total_dias === 0;
 
   const formatDate = (dateString) => {
     if (!dateString) return "Sin fecha";
@@ -74,6 +80,26 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
       month: "long",
       year: "numeric",
     });
+  };
+
+  const calcularSubtotal = (detalle) => {
+    if (!detalle.precios_renta) return "No disponible";
+
+    let subtotal = 0;
+
+    // MISMA LÓGICA QUE EN EL PDF
+    const esRentaPorDia = detalle.total_dias === 1 && detalle.total_horas === 0;
+
+    if (esRentaPorDia) {
+      // RENTA POR DÍA: 1 día × tarifa_dia
+      subtotal = detalle.precios_renta.costo_dia || 0;
+    } else {
+      // RENTA POR HORA: horas × tarifa_hora
+      subtotal =
+        (detalle.total_horas || 0) * (detalle.precios_renta.costo_hr || 0);
+    }
+
+    return `$${subtotal.toFixed(2)}`;
   };
 
   const formatTime = (dateString) => {
@@ -89,10 +115,16 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
     isRenta &&
     detalleRenta &&
     detalleRenta.hora_inicio &&
-    !detalleRenta.hora_fin;
+    !detalleRenta.hora_fin &&
+    !detalleRenta.total_dias;
 
   const handleGuardarHoraFin = async () => {
-    if (!horaFin) {
+    console.log(
+      "[ValeDetalleModal] handleGuardarHoraFin - esRentaPorDia:",
+      esRentaPorDia
+    );
+
+    if (!esRentaPorDia && !horaFin) {
       Alert.alert("Error", "Debes seleccionar una hora de fin");
       return;
     }
@@ -102,34 +134,71 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
       return;
     }
 
-    const horaInicio = new Date(detalleRenta.hora_inicio);
-    const horaFinDate = new Date(horaFin);
-
-    if (horaFinDate <= horaInicio) {
-      Alert.alert(
-        "Error",
-        "La hora de fin debe ser posterior a la hora de inicio"
-      );
-      return;
-    }
-
     try {
       setSaving(true);
 
-      const diffMs = horaFinDate - horaInicio;
-      const totalHoras = (diffMs / (1000 * 60 * 60)).toFixed(2);
+      let totalHoras = 0;
+      let totalDias = 0;
+      let horaFinFinal = null;
+
+      if (esRentaPorDia) {
+        console.log("[ValeDetalleModal] Guardando como RENTA POR DÍA");
+        totalHoras = 0;
+        totalDias = 1;
+        horaFinFinal = null;
+      } else {
+        console.log("[ValeDetalleModal] Guardando como RENTA POR HORA");
+        const horaInicio = new Date(detalleRenta.hora_inicio);
+        const horaFinDate = new Date(horaFin);
+        const diffMs = horaFinDate - horaInicio;
+        totalHoras = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
+        totalDias = 0;
+        horaFinFinal = horaFin;
+      }
+
+      console.log("[ValeDetalleModal] Datos a guardar:", {
+        hora_fin: horaFinFinal,
+        total_horas: totalHoras,
+        total_dias: totalDias,
+        numero_viajes: numeroViajes,
+      });
 
       const { error, data } = await supabase
         .from("vale_renta_detalle")
         .update({
-          hora_fin: horaFin,
-          total_horas: parseFloat(totalHoras),
+          hora_fin: horaFinFinal,
+          total_horas: totalHoras,
+          total_dias: totalDias,
           numero_viajes: numeroViajes,
         })
         .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle)
         .select();
 
       if (error) throw error;
+      console.log(
+        "[ValeDetalleModal] Actualizando estado del vale a completado"
+      );
+      //-----------------------
+      //Quitar lineas para que no se actulice estado y probar guardar pdf
+      //-----------------------
+      // Actualizar estado del vale a completado
+      const { error: valeError } = await supabase
+        .from("vales")
+        .update({
+          estado: "emitido",
+        })
+        .eq("id_vale", vale.id_vale);
+
+      if (valeError) {
+        console.error(
+          "[ValeDetalleModal] Error actualizando estado:",
+          valeError
+        );
+        throw valeError;
+      }
+      //-----------------------
+      //Quitar lineas para que no se actulice estado y probar guardar pdf
+      //-----------------------
 
       // Actualizar vale con nuevos datos
       const valeActualizado = {
@@ -137,14 +206,16 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
         vale_renta_detalle: [
           {
             ...detalleRenta,
-            hora_fin: horaFin,
-            total_horas: parseFloat(totalHoras),
+            hora_fin: horaFinFinal,
+            total_horas: totalHoras,
+            total_dias: totalDias,
             numero_viajes: numeroViajes,
           },
         ],
       };
 
       setUpdatedVale(valeActualizado);
+
       setSuccessData({
         totalHoras,
         numeroViajes,
@@ -201,16 +272,7 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
             {/* Estado */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Estado</Text>
-              <StatusBadge
-                estado={
-                  isRenta && detalleRenta?.hora_fin
-                    ? "completado"
-                    : isRenta && detalleRenta?.hora_inicio
-                    ? "en_proceso"
-                    : vale.estado
-                }
-                size="medium"
-              />
+              <StatusBadge estado={vale.estado} size="medium" />
             </View>
             {/* Información General */}
             <View style={styles.section}>
@@ -345,6 +407,38 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                   </View>
                 )}
 
+                {detalleRenta.material?.material && (
+                  <View style={styles.infoRow}>
+                    <MaterialCommunityIcons
+                      name="package-variant"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                    <View style={styles.infoTextContainer}>
+                      <Text style={styles.infoLabel}>Material</Text>
+                      <Text style={styles.infoValue}>
+                        {detalleRenta.material.material}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {detalleRenta.sindicatos?.sindicato && (
+                  <View style={styles.infoRow}>
+                    <MaterialCommunityIcons
+                      name="account-group"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                    <View style={styles.infoTextContainer}>
+                      <Text style={styles.infoLabel}>Sindicato</Text>
+                      <Text style={styles.infoValue}>
+                        {detalleRenta.sindicatos.sindicato}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
                 {detalleRenta.hora_inicio && (
                   <View style={styles.infoRow}>
                     <MaterialCommunityIcons
@@ -361,32 +455,139 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                   </View>
                 )}
 
-                {detalleRenta.hora_fin && (
+                {/* NUEVA SECCIÓN: SOLO PARA VALES EMITIDOS */}
+                {vale.estado === "emitido" && (
                   <>
+                    {/* HORA FIN Y TIEMPO TOTAL */}
+                    {detalleRenta.hora_fin && (
+                      <>
+                        <View style={styles.infoRow}>
+                          <MaterialCommunityIcons
+                            name="clock-end"
+                            size={20}
+                            color={colors.textSecondary}
+                          />
+                          <View style={styles.infoTextContainer}>
+                            <Text style={styles.infoLabel}>Hora de fin</Text>
+                            <Text style={styles.infoValue}>
+                              {formatTime(detalleRenta.hora_fin)}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.infoRow}>
+                          <MaterialCommunityIcons
+                            name="clock-outline"
+                            size={20}
+                            color={colors.textSecondary}
+                          />
+                          <View style={styles.infoTextContainer}>
+                            <Text style={styles.infoLabel}>Total de horas</Text>
+                            <Text style={styles.infoValue}>
+                              {detalleRenta.total_horas} hrs
+                            </Text>
+                          </View>
+                        </View>
+                      </>
+                    )}
+
+                    {/* DIAS TOTALES */}
+                    {detalleRenta.total_dias > 0 && (
+                      <View style={styles.infoRow}>
+                        <MaterialCommunityIcons
+                          name="calendar"
+                          size={20}
+                          color={colors.textSecondary}
+                        />
+                        <View style={styles.infoTextContainer}>
+                          <Text style={styles.infoLabel}>Total de días</Text>
+                          <Text style={styles.infoValue}>
+                            {detalleRenta.total_dias} días
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* VIAJES */}
                     <View style={styles.infoRow}>
                       <MaterialCommunityIcons
-                        name="clock-end"
+                        name="repeat"
                         size={20}
                         color={colors.textSecondary}
                       />
                       <View style={styles.infoTextContainer}>
-                        <Text style={styles.infoLabel}>Hora de fin</Text>
+                        <Text style={styles.infoLabel}>Número de viajes</Text>
                         <Text style={styles.infoValue}>
-                          {formatTime(detalleRenta.hora_fin)}
+                          {detalleRenta.numero_viajes}
                         </Text>
                       </View>
                     </View>
 
+                    {/* PRECIOS - MOSTRAR SEGÚN TIPO */}
+                    {detalleRenta.precios_renta && (
+                      <View style={styles.infoRow}>
+                        <MaterialCommunityIcons
+                          name="cash"
+                          size={20}
+                          color={colors.textSecondary}
+                        />
+                        <View style={styles.infoTextContainer}>
+                          <Text style={styles.infoLabel}>
+                            {esRentaPorDia
+                              ? "Tarifa por día"
+                              : "Tarifa por hora"}
+                          </Text>
+                          <Text style={styles.infoValue}>
+                            {esRentaPorDia
+                              ? `$${detalleRenta.precios_renta.costo_dia?.toFixed(
+                                  2
+                                )}`
+                              : `$${detalleRenta.precios_renta.costo_hr?.toFixed(
+                                  2
+                                )} / hr`}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* CÁLCULO DE SUBTOTAL */}
+                    {(detalleRenta.total_horas > 0 ||
+                      detalleRenta.total_dias > 0) &&
+                      detalleRenta.precios_renta && (
+                        <View style={styles.infoRow}>
+                          <MaterialCommunityIcons
+                            name="calculator"
+                            size={20}
+                            color={colors.textSecondary}
+                          />
+                          <View style={styles.infoTextContainer}>
+                            <Text style={styles.infoLabel}>Subtotal</Text>
+                            <Text
+                              style={[styles.infoValue, styles.subtotalText]}
+                            >
+                              {calcularSubtotal(detalleRenta)}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+
+                    {/* FECHA DE EMISIÓN */}
                     <View style={styles.infoRow}>
                       <MaterialCommunityIcons
-                        name="clock-outline"
+                        name="file-document-outline"
                         size={20}
                         color={colors.textSecondary}
                       />
                       <View style={styles.infoTextContainer}>
-                        <Text style={styles.infoLabel}>Total de horas</Text>
+                        <Text style={styles.infoLabel}>Emitido el</Text>
                         <Text style={styles.infoValue}>
-                          {detalleRenta.total_horas} hrs
+                          {formatDate(
+                            vale.fecha_actualizacion || vale.fecha_creacion
+                          )}{" "}
+                          a las{" "}
+                          {formatTime(
+                            vale.fecha_actualizacion || vale.fecha_creacion
+                          )}
                         </Text>
                       </View>
                     </View>
@@ -418,10 +619,17 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                   Captura la hora de fin y el número de viajes realizados
                 </Text>
 
+                <FormCheckbox
+                  label="Renta por día completo"
+                  value={esRentaPorDia}
+                  onChange={setEsRentaPorDia}
+                />
+
                 <FormTimePicker
                   label="Hora de Fin"
                   value={horaFin}
                   onChange={setHoraFin}
+                  disabled={esRentaPorDia}
                 />
 
                 <FormNumberInput
@@ -472,9 +680,13 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
           primaryAction={{
             text: "Imprimir Vale",
             icon: "printer",
+
             onPress: () => {
               setShowSuccessModal(false);
-              setTriggerPDF(true);
+              setTimeout(() => {
+                console.log("[ValeDetalleModal] Activando triggerPDF");
+                setTriggerPDF(true);
+              }, 300);
             },
           }}
           secondaryAction={{

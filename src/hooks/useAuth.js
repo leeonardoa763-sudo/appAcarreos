@@ -111,8 +111,6 @@ export const useAuth = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Evento de autenticación:", event);
-
       // Ignorar eventos durante logout
       if (isLoggingOut) {
         console.log("Ignorando evento durante logout:", event);
@@ -156,7 +154,6 @@ export const useAuth = () => {
 
     try {
       isFetchingProfile.current = true;
-      console.log("Buscando perfil para auth_user_id:", authUserId);
 
       // CRÍTICO: Cancelar timeout anterior si existe
       if (profileFetchTimeoutRef.current) {
@@ -226,7 +223,6 @@ export const useAuth = () => {
           setProfileError(error);
         }
       } else if (data) {
-        console.log("Perfil cargado exitosamente");
         setUserProfile(data);
         setProfileError(null);
         setTimeoutError(null);
