@@ -66,9 +66,11 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
   const isRenta = vale.tipo_vale === "renta";
   const detalleRenta = isRenta ? vale.vale_renta_detalle?.[0] : null;
   const detalleMaterial = isMaterial ? vale.vale_material_detalles?.[0] : null;
-  // Para determinar el tipo de renta
-  const esRentaPorDia = detalleRenta?.total_dias > 0;
-  const esRentaPorHora =
+
+  // Determinar tipo de renta DESPUÉS de que el vale está emitido
+  const esRentaPorDiaEmitido =
+    detalleRenta?.total_dias === 1 && detalleRenta?.total_horas === 0;
+  const esRentaPorHoraEmitido =
     detalleRenta?.total_horas > 0 && detalleRenta?.total_dias === 0;
 
   const formatDate = (dateString) => {
@@ -87,14 +89,11 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
 
     let subtotal = 0;
 
-    // MISMA LÓGICA QUE EN EL PDF
     const esRentaPorDia = detalle.total_dias === 1 && detalle.total_horas === 0;
 
     if (esRentaPorDia) {
-      // RENTA POR DÍA: 1 día × tarifa_dia
       subtotal = detalle.precios_renta.costo_dia || 0;
     } else {
-      // RENTA POR HORA: horas × tarifa_hora
       subtotal =
         (detalle.total_horas || 0) * (detalle.precios_renta.costo_hr || 0);
     }
@@ -111,19 +110,16 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
     });
   };
 
+  // Condición para mostrar formulario de captura
   const canCaptureHoraFin =
     isRenta &&
+    vale.estado === "en_proceso" &&
     detalleRenta &&
     detalleRenta.hora_inicio &&
     !detalleRenta.hora_fin &&
-    !detalleRenta.total_dias;
+    (detalleRenta.total_dias === 0 || detalleRenta.total_dias === null);
 
   const handleGuardarHoraFin = async () => {
-    console.log(
-      "[ValeDetalleModal] handleGuardarHoraFin - esRentaPorDia:",
-      esRentaPorDia
-    );
-
     if (!esRentaPorDia && !horaFin) {
       Alert.alert("Error", "Debes seleccionar una hora de fin");
       return;
@@ -142,12 +138,10 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
       let horaFinFinal = null;
 
       if (esRentaPorDia) {
-        console.log("[ValeDetalleModal] Guardando como RENTA POR DÍA");
         totalHoras = 0;
         totalDias = 1;
         horaFinFinal = null;
       } else {
-        console.log("[ValeDetalleModal] Guardando como RENTA POR HORA");
         const horaInicio = new Date(detalleRenta.hora_inicio);
         const horaFinDate = new Date(horaFin);
         const diffMs = horaFinDate - horaInicio;
@@ -155,13 +149,6 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
         totalDias = 0;
         horaFinFinal = horaFin;
       }
-
-      console.log("[ValeDetalleModal] Datos a guardar:", {
-        hora_fin: horaFinFinal,
-        total_horas: totalHoras,
-        total_dias: totalDias,
-        numero_viajes: numeroViajes,
-      });
 
       const { error, data } = await supabase
         .from("vale_renta_detalle")
@@ -175,13 +162,8 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
         .select();
 
       if (error) throw error;
-      console.log(
-        "[ValeDetalleModal] Actualizando estado del vale a completado"
-      );
-      //-----------------------
-      //Quitar lineas para que no se actulice estado y probar guardar pdf
-      //-----------------------
-      // Actualizar estado del vale a completado
+
+      // Actualizar estado del vale a emitido
       const { error: valeError } = await supabase
         .from("vales")
         .update({
@@ -189,20 +171,12 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
         })
         .eq("id_vale", vale.id_vale);
 
-      if (valeError) {
-        console.error(
-          "[ValeDetalleModal] Error actualizando estado:",
-          valeError
-        );
-        throw valeError;
-      }
-      //-----------------------
-      //Quitar lineas para que no se actulice estado y probar guardar pdf
-      //-----------------------
+      if (valeError) throw valeError;
 
       // Actualizar vale con nuevos datos
       const valeActualizado = {
         ...vale,
+        estado: "emitido",
         vale_renta_detalle: [
           {
             ...detalleRenta,
@@ -218,7 +192,9 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
 
       setSuccessData({
         totalHoras,
+        totalDias,
         numeroViajes,
+        esRentaPorDia,
       });
       setShowSuccessModal(true);
     } catch (error) {
@@ -274,6 +250,7 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
               <Text style={styles.sectionTitle}>Estado</Text>
               <StatusBadge estado={vale.estado} size="medium" />
             </View>
+
             {/* Información General */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Información General</Text>
@@ -316,6 +293,7 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 </View>
               </View>
             </View>
+
             {/* Detalles específicos de Material */}
             {isMaterial && detalleMaterial && (
               <View style={styles.section}>
@@ -386,6 +364,7 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 )}
               </View>
             )}
+
             {/* Detalles específicos de Renta */}
             {isRenta && detalleRenta && (
               <View style={styles.section}>
@@ -455,11 +434,11 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                   </View>
                 )}
 
-                {/* NUEVA SECCIÓN: SOLO PARA VALES EMITIDOS */}
+                {/* INFORMACIÓN DIFERENTE SEGÚN ESTADO Y TIPO DE RENTA */}
                 {vale.estado === "emitido" && (
                   <>
-                    {/* HORA FIN Y TIEMPO TOTAL */}
-                    {detalleRenta.hora_fin && (
+                    {/* SI ES RENTA POR HORA: Mostrar hora de fin y total de horas */}
+                    {esRentaPorHoraEmitido && (
                       <>
                         <View style={styles.infoRow}>
                           <MaterialCommunityIcons
@@ -491,24 +470,22 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                       </>
                     )}
 
-                    {/* DIAS TOTALES */}
-                    {detalleRenta.total_dias > 0 && (
+                    {/* SI ES RENTA POR DÍA: Solo mostrar 1 día */}
+                    {esRentaPorDiaEmitido && (
                       <View style={styles.infoRow}>
                         <MaterialCommunityIcons
-                          name="calendar"
+                          name="calendar-today"
                           size={20}
                           color={colors.textSecondary}
                         />
                         <View style={styles.infoTextContainer}>
-                          <Text style={styles.infoLabel}>Total de días</Text>
-                          <Text style={styles.infoValue}>
-                            {detalleRenta.total_dias} días
-                          </Text>
+                          <Text style={styles.infoLabel}>Renta por día</Text>
+                          <Text style={styles.infoValue}>1 día completo</Text>
                         </View>
                       </View>
                     )}
 
-                    {/* VIAJES */}
+                    {/* NÚMERO DE VIAJES (SIEMPRE) */}
                     <View style={styles.infoRow}>
                       <MaterialCommunityIcons
                         name="repeat"
@@ -533,12 +510,12 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                         />
                         <View style={styles.infoTextContainer}>
                           <Text style={styles.infoLabel}>
-                            {esRentaPorDia
+                            {esRentaPorDiaEmitido
                               ? "Tarifa por día"
                               : "Tarifa por hora"}
                           </Text>
                           <Text style={styles.infoValue}>
-                            {esRentaPorDia
+                            {esRentaPorDiaEmitido
                               ? `$${detalleRenta.precios_renta.costo_dia?.toFixed(
                                   2
                                 )}`
@@ -551,25 +528,21 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                     )}
 
                     {/* CÁLCULO DE SUBTOTAL */}
-                    {(detalleRenta.total_horas > 0 ||
-                      detalleRenta.total_dias > 0) &&
-                      detalleRenta.precios_renta && (
-                        <View style={styles.infoRow}>
-                          <MaterialCommunityIcons
-                            name="calculator"
-                            size={20}
-                            color={colors.textSecondary}
-                          />
-                          <View style={styles.infoTextContainer}>
-                            <Text style={styles.infoLabel}>Subtotal</Text>
-                            <Text
-                              style={[styles.infoValue, styles.subtotalText]}
-                            >
-                              {calcularSubtotal(detalleRenta)}
-                            </Text>
-                          </View>
+                    {detalleRenta.precios_renta && (
+                      <View style={styles.infoRow}>
+                        <MaterialCommunityIcons
+                          name="calculator"
+                          size={20}
+                          color={colors.textSecondary}
+                        />
+                        <View style={styles.infoTextContainer}>
+                          <Text style={styles.infoLabel}>Subtotal</Text>
+                          <Text style={[styles.infoValue, styles.subtotalText]}>
+                            {calcularSubtotal(detalleRenta)}
+                          </Text>
                         </View>
-                      )}
+                      </View>
+                    )}
 
                     {/* FECHA DE EMISIÓN */}
                     <View style={styles.infoRow}>
@@ -611,7 +584,8 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 )}
               </View>
             )}
-            {/* Formulario para capturar hora de fin (solo si aplica) */}
+
+            {/* Formulario para capturar hora de fin (SOLO si estado es en_proceso) */}
             {canCaptureHoraFin && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Completar Vale</Text>
@@ -650,41 +624,27 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 />
               </View>
             )}
-            {/* Botón para generar PDF (solo si hora_fin ya está capturada) */}
-            {isRenta && detalleRenta?.hora_fin && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Generar Vale Blanco</Text>
-                <Text style={styles.sectionSubtitle}>
-                  Generar y comparte el PDF blanco del vale completado
-                </Text>
-                <GenerarPDFButton
-                  valeData={vale}
-                  tipoVale="renta"
-                  colorCopia="blanco"
-                  onSuccess={() => {
-                    onRefresh();
-                    onClose();
-                  }}
-                />
-              </View>
-            )}
+
             {/* Espaciador para scroll */}
             <View style={{ height: 40 }} />
           </ScrollView>
         </View>
+
         {/* Modal de Éxito */}
         <SuccessModal
           visible={showSuccessModal}
           title="Vale Completado"
-          message={`Total de horas: ${successData?.totalHoras} hrs\nNúmero de viajes: ${successData?.numeroViajes}`}
+          message={
+            successData?.esRentaPorDia
+              ? `Renta por día: 1 día\nNúmero de viajes: ${successData?.numeroViajes}`
+              : `Total de horas: ${successData?.totalHoras} hrs\nNúmero de viajes: ${successData?.numeroViajes}`
+          }
           primaryAction={{
             text: "Imprimir Vale",
             icon: "printer",
-
             onPress: () => {
               setShowSuccessModal(false);
               setTimeout(() => {
-                console.log("[ValeDetalleModal] Activando triggerPDF");
                 setTriggerPDF(true);
               }, 300);
             },
@@ -735,18 +695,18 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     maxHeight: "90%",
   },
   modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   modalHeaderMaterial: {
     backgroundColor: colors.primary,
@@ -764,7 +724,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: "#FFFFFF",
   },
   modalFolio: {
@@ -774,18 +734,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeButton: {
-    padding: 4,
+    padding: 8,
   },
   modalContent: {
-    padding: 20,
-    paddingBottom: 60,
+    paddingHorizontal: 20,
   },
   section: {
-    marginBottom: 24,
+    marginTop: 24,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: colors.textPrimary,
     marginBottom: 12,
   },
@@ -809,8 +768,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   infoValue: {
-    fontSize: 16,
+    fontSize: 15,
     color: colors.textPrimary,
     fontWeight: "500",
+  },
+  subtotalText: {
+    fontWeight: "700",
+    fontSize: 16,
+    color: colors.accent,
   },
 });

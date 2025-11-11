@@ -221,6 +221,27 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
           </div>
         </div>
 
+        <!-- RESIDENTE EMISOR (NUEVA SECCIÓN) -->
+        ${
+          valeData.persona
+            ? `
+        <div class="section-title">EMITIDO POR</div>
+        <div class="info-section">
+          <div class="info-row">
+            <span class="info-label">Residente</span>
+            <span class="info-value">${valeData.persona.nombre} ${
+                valeData.persona.primer_apellido
+              }${
+                valeData.persona.segundo_apellido
+                  ? " " + valeData.persona.segundo_apellido
+                  : ""
+              }</span>
+          </div>
+        </div>
+        `
+            : ""
+        }
+        
         <!-- NOTAS (solo si existen) -->
           ${
             detalle.notas_adicionales

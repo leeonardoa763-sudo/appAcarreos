@@ -39,12 +39,6 @@ const StatusBadge = ({ estado = "borrador", size = "medium" }) => {
           textColor: "#FFFFFF",
           label: "En proceso",
         };
-      case "completado":
-        return {
-          backgroundColor: colors.accent,
-          textColor: "#FFFFFF",
-          label: "Completado",
-        };
       case "borrador":
         return {
           backgroundColor: "#BDBDBD",

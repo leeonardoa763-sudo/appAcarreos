@@ -77,6 +77,11 @@ const AcarreosScreen = () => {
               logo
             )
           ),
+          persona:id_persona_creador (
+              nombre,
+              primer_apellido,
+              segundo_apellido
+           ),
           vale_material_detalles (
             *,
             material (material),
@@ -95,6 +100,8 @@ const AcarreosScreen = () => {
         )
         .eq("id_persona_creador", userProfile.id_persona)
         .order("fecha_creacion", { ascending: false });
+
+      if (valesError) throw valesError;
 
       if (valesError) throw valesError;
 
@@ -270,7 +277,7 @@ const AcarreosScreen = () => {
 
         {/* Material - Completados (Colapsable) */}
         <CollapsibleSection
-          title="Completados"
+          title="Emitidos"
           icon="check-circle"
           count={materialSeparado.completados.length}
           defaultCollapsed={true}
@@ -348,7 +355,7 @@ const AcarreosScreen = () => {
 
         {/* Renta - Completados (Colapsable) */}
         <CollapsibleSection
-          title="Completados"
+          title="Emitidos"
           icon="check-circle"
           count={rentaSeparado.completados.length}
           defaultCollapsed={true}

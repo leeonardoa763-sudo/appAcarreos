@@ -60,14 +60,38 @@ const FormTimePicker = ({
   // Formatear hora para mostrar (ej: "08:30 AM")
   const formatTime = (date) => {
     if (!date) return "Seleccionar hora";
-
     const hours = date.getHours();
     const minutes = date.getMinutes();
     const ampm = hours >= 12 ? "PM" : "AM";
     const displayHours = hours % 12 || 12;
     const displayMinutes = minutes < 10 ? `0${minutes}` : minutes;
-
     return `${displayHours}:${displayMinutes} ${ampm}`;
+  };
+
+  // Formatear hora para input web (formato HH:mm)
+  const formatTimeForWeb = (date) => {
+    if (!date) return "";
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
+  };
+
+  // Parsear hora desde input web
+  const parseTimeFromWeb = (timeString) => {
+    if (!timeString) return new Date();
+    const [hours, minutes] = timeString.split(":").map(Number);
+    const date = new Date();
+    date.setHours(hours);
+    date.setMinutes(minutes);
+    date.setSeconds(0);
+    date.setMilliseconds(0);
+    return date;
+  };
+
+  const handleWebChange = (event) => {
+    const timeString = event.target.value;
+    const date = parseTimeFromWeb(timeString);
+    onChange(date);
   };
 
   // Manejar cambio de hora
@@ -99,6 +123,38 @@ const FormTimePicker = ({
   const closePicker = () => {
     setShowPicker(false);
   };
+
+  // RENDERIZADO PARA WEB
+  if (Platform.OS === "web") {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.label}>{label}</Text>
+        <View style={[styles.webInputContainer, error && styles.webInputError]}>
+          <MaterialCommunityIcons
+            name="clock-outline"
+            size={20}
+            color={disabled ? colors.textSecondary : colors.primary}
+          />
+          <input
+            type="time"
+            value={formatTimeForWeb(value)}
+            onChange={handleWebChange}
+            disabled={disabled}
+            style={{
+              border: "none",
+              outline: "none",
+              fontSize: 16,
+              padding: 8,
+              flex: 1,
+              backgroundColor: "transparent",
+              color: disabled ? colors.textSecondary : colors.textPrimary,
+            }}
+          />
+        </View>
+        {error && <Text style={styles.errorText}>{error}</Text>}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
