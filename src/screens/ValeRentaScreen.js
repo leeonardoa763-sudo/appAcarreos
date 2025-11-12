@@ -41,8 +41,8 @@ import { useFolioGenerator } from "../hooks/useFolioGenerator";
 import { useObraData } from "../hooks/useObraData";
 //Validaciones
 import {
-  validateOperadorNombre,
-  validatePlacas,
+  validateOperadorId,
+  validateVehiculoId,
   validateCapacidad,
   validateHoraInicio,
   validateMaterialId,
@@ -56,6 +56,7 @@ import FormInput from "../componets/forms/FormInput";
 import FormPicker from "../componets/forms/FormPicker";
 import FormTimePicker from "../componets/forms/FormTimePicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
+import SuccessModal from "../componets/common/SuccessModal";
 
 //Utils
 import { generateVerificationUrl } from "../utils/qrGenerator";
@@ -76,8 +77,16 @@ const ValeRentaScreen = () => {
     materiales,
     sindicatos,
     preciosRenta,
+    operadores,
+    vehiculos,
     loading: loadingCatalogos,
-  } = useCatalogos(["materiales", "sindicatos", "preciosRenta"]);
+  } = useCatalogos([
+    "materiales",
+    "sindicatos",
+    "preciosRenta",
+    "operadores",
+    "vehiculos",
+  ]);
 
   // Hook para generar folio
   const generateFolio = useFolioGenerator(obraData);
@@ -88,13 +97,15 @@ const ValeRentaScreen = () => {
     capacidad: "",
     sindicatoId: null,
     horaInicio: null,
-    operadorNombre: "",
-    operadorPlacas: "",
+    selectedOperador: null,
+    selectedVehiculo: null,
     notasAdicionales: "",
   });
 
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [valeCreado, setValeCreado] = useState(null);
 
   // Cargar datos de obra
 
@@ -123,11 +134,15 @@ const ValeRentaScreen = () => {
     const errorHora = validateHoraInicio(formData.horaInicio);
     if (errorHora) newErrors.horaInicio = errorHora;
 
-    const errorNombre = validateOperadorNombre(formData.operadorNombre);
-    if (errorNombre) newErrors.operadorNombre = errorNombre;
+    const errorOperador = validateOperadorId(
+      formData.selectedOperador?.id_operador
+    );
+    if (errorOperador) newErrors.operadorId = errorOperador;
 
-    const errorPlacas = validatePlacas(formData.operadorPlacas);
-    if (errorPlacas) newErrors.operadorPlacas = errorPlacas;
+    const errorVehiculo = validateVehiculoId(
+      formData.selectedVehiculo?.id_vehiculo
+    );
+    if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -175,8 +190,8 @@ const ValeRentaScreen = () => {
           id_obra: obraData.id_obra,
           id_empresa: obraData.empresas.id_empresa,
           id_persona_creador: userProfile.id_persona,
-          operador_nombre: formData.operadorNombre.trim(),
-          placas_vehiculo: formData.operadorPlacas.trim().toUpperCase(),
+          id_operador: formData.selectedOperador.id_operador,
+          id_vehiculo: formData.selectedVehiculo.id_vehiculo,
           estado: "en_proceso",
           qr_verification_url: generateVerificationUrl(folio),
         })
@@ -215,32 +230,8 @@ const ValeRentaScreen = () => {
 
       resetForm();
 
-      Alert.alert(
-        "Vale Creado",
-        `Vale ${folio} creado exitosamente.\n\nEl vale quedó en estado "En Proceso". Podrás completarlo desde la pantalla de Acarreos cuando el operador termine el trabajo.`,
-        [
-          {
-            text: "Ver Acarreos",
-            onPress: () => {
-              // Resetear el formulario primero
-              resetForm();
-
-              // Navegar a Acarreos y resetear el stack de Vales
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "ValesMain" }],
-              });
-
-              // Cambiar al tab de Acarreos
-              navigation.getParent()?.navigate("Acarreos");
-            },
-          },
-          {
-            text: "Crear Otro",
-            onPress: () => resetForm(),
-          },
-        ]
-      );
+      setValeCreado(folio);
+      setShowSuccessModal(true);
     } catch (error) {
       console.error("Error creando vale:", error);
       Alert.alert("Error", `No se pudo crear el vale: ${error.message}`);
@@ -255,8 +246,8 @@ const ValeRentaScreen = () => {
       capacidad: "",
       sindicatoId: null,
       horaInicio: null,
-      operadorNombre: "",
-      operadorPlacas: "",
+      selectedOperador: null,
+      selectedVehiculo: null,
       notasAdicionales: "",
     });
     setErrors({});
@@ -367,19 +358,22 @@ const ValeRentaScreen = () => {
         {/* SECCIÓN: DATOS DE OPERADOR */}
         <View style={styles.section}>
           <DatosOperadorSection
-            operadorNombre={formData.operadorNombre}
-            operadorPlacas={formData.operadorPlacas}
+            selectedOperador={formData.selectedOperador}
+            selectedVehiculo={formData.selectedVehiculo}
+            onSelectOperador={(operador) =>
+              setFormData({ ...formData, selectedOperador: operador })
+            }
+            onSelectVehiculo={(vehiculo) =>
+              setFormData({ ...formData, selectedVehiculo: vehiculo })
+            }
             notasAdicionales={formData.notasAdicionales}
-            onChangeNombre={(value) =>
-              setFormData({ ...formData, operadorNombre: value })
-            }
-            onChangePlacas={(value) =>
-              setFormData({ ...formData, operadorPlacas: value.toUpperCase() })
-            }
             onChangeNotas={(value) =>
               setFormData({ ...formData, notasAdicionales: value })
             }
             errors={errors}
+            sindicatoId={formData.sindicatoId}
+            operadores={operadores}
+            vehiculos={vehiculos}
           />
         </View>
 
@@ -393,6 +387,32 @@ const ValeRentaScreen = () => {
           />
         </View>
       </ScrollView>
+      <SuccessModal
+        visible={showSuccessModal}
+        title="¡Vale Creado!"
+        message={`Vale ${valeCreado} creado exitosamente.\n\nEl vale quedó en estado "En Proceso". Podrás completarlo desde la pantalla de Acarreos cuando el operador termine el trabajo.`}
+        primaryAction={{
+          text: "Ver Acarreos",
+          icon: "clipboard-list",
+          onPress: () => {
+            setShowSuccessModal(false);
+            resetForm();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "ValesMain" }],
+            });
+            navigation.getParent()?.navigate("Acarreos");
+          },
+        }}
+        secondaryAction={{
+          text: "Crear Otro Vale",
+          onPress: () => {
+            setShowSuccessModal(false);
+            resetForm();
+          },
+        }}
+        onClose={() => setShowSuccessModal(false)}
+      />
     </View>
   );
 };

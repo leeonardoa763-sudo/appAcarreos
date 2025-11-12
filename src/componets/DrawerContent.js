@@ -26,7 +26,9 @@ const DrawerContent = (props) => {
           await signOut();
 
           // 🆕 La navegación a Login la manejará AuthGuard automáticamente
-          console.log("✅ Logout completado, AuthGuard redirigirá a Login");
+          console.log(
+            "[DrawerContent] Logout completado, AuthGuard redirigirá a Login"
+          );
         },
       },
     ]);

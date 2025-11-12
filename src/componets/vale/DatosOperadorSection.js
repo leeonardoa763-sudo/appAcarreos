@@ -4,38 +4,53 @@
  * Sección de formulario para capturar datos del operador
  *
  * PROPÓSITO:
- * - Capturar nombre, placas y notas del operador
- * - Reutilizable en vales de Renta y Material
+ * - Autocompletado de operadores y vehículos desde BD
+ * - Filtrado por sindicato automático
  * - Validaciones incluidas
  *
- * USADO EN:
- * - ValeRentaScreen
- * - ValeMaterialScreen
- *
  * PROPS:
- * - operadorNombre: string
- * - operadorPlacas: string
+ * - selectedOperador: object - Operador seleccionado completo
+ * - selectedVehiculo: object - Vehículo seleccionado completo
+ * - onSelectOperador: function
+ * - onSelectVehiculo: function
  * - notasAdicionales: string
- * - onChangeNombre: function
- * - onChangePlacas: function
  * - onChangeNotas: function
  * - errors: object
+ * - sindicatoId: number - Para filtrar operadores/vehículos
+ * - operadores: array - Lista de operadores
+ * - vehiculos: array - Lista de vehículos
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { View, StyleSheet } from "react-native";
 import SectionHeader from "../common/SectionHeader";
 import FormInput from "../forms/FormInput";
+import FormAutocomplete from "../forms/FormAutocomplete";
 
 const DatosOperadorSection = ({
-  operadorNombre,
-  operadorPlacas,
+  selectedOperador,
+  selectedVehiculo,
+  onSelectOperador,
+  onSelectVehiculo,
   notasAdicionales,
-  onChangeNombre,
-  onChangePlacas,
   onChangeNotas,
   errors = {},
+  sindicatoId,
+  operadores = [],
+  vehiculos = [],
 }) => {
+  // Filtrar operadores por sindicato seleccionado
+  const operadoresFiltrados = useMemo(() => {
+    if (!sindicatoId) return operadores;
+    return operadores.filter((op) => op.id_sindicato === sindicatoId);
+  }, [operadores, sindicatoId]);
+
+  // Filtrar vehículos por sindicato seleccionado
+  const vehiculosFiltrados = useMemo(() => {
+    if (!sindicatoId) return vehiculos;
+    return vehiculos.filter((v) => v.id_sindicato === sindicatoId);
+  }, [vehiculos, sindicatoId]);
+
   return (
     <View style={styles.section}>
       <SectionHeader
@@ -44,20 +59,26 @@ const DatosOperadorSection = ({
         infoMessage="Información del operador que realizará el trabajo. El operador pertenece a otra empresa externa."
       />
 
-      <FormInput
-        label="Nombre"
-        value={operadorNombre}
-        onChangeText={onChangeNombre}
-        placeholder="Ej: Juan Pérez"
-        error={errors.operadorNombre}
+      <FormAutocomplete
+        label="Nombre del Operador"
+        value={selectedOperador?.id_operador}
+        onSelect={onSelectOperador}
+        items={operadoresFiltrados}
+        displayField="nombre_completo"
+        valueField="id_operador"
+        placeholder="Buscar operador..."
+        error={errors.operadorId}
       />
 
-      <FormInput
-        label="Placas"
-        value={operadorPlacas}
-        onChangeText={onChangePlacas}
-        placeholder="Ej: ABC-123-4"
-        error={errors.operadorPlacas}
+      <FormAutocomplete
+        label="Placas del Vehículo"
+        value={selectedVehiculo?.id_vehiculo}
+        onSelect={onSelectVehiculo}
+        items={vehiculosFiltrados}
+        displayField="placas"
+        valueField="id_vehiculo"
+        placeholder="Buscar placas..."
+        error={errors.vehiculoId}
       />
 
       <FormInput

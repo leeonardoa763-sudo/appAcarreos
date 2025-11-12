@@ -27,6 +27,8 @@ export const useCatalogos = (catalogosRequeridos = []) => {
   const [sindicatos, setSindicatos] = useState([]);
   const [bancos, setBancos] = useState([]);
   const [preciosRenta, setPreciosRenta] = useState([]);
+  const [operadores, setOperadores] = useState([]);
+  const [vehiculos, setVehiculos] = useState([]);
 
   // Estados para manejar el estado de carga y errores
   const [loading, setLoading] = useState(true);
@@ -85,6 +87,28 @@ export const useCatalogos = (catalogosRequeridos = []) => {
           promises.push(supabase.from("precios_renta").select("*"));
         }
 
+        // CONSULTA DE OPERADORES
+        if (catalogosRequeridos.includes("operadores")) {
+          promises.push(
+            supabase
+              .from("operadores")
+              .select("id_operador, nombre_completo, id_sindicato")
+              .eq("activo", true)
+              .order("nombre_completo")
+          );
+        }
+
+        // CONSULTA DE VEHICULOS
+        if (catalogosRequeridos.includes("vehiculos")) {
+          promises.push(
+            supabase
+              .from("vehiculos")
+              .select("id_vehiculo, placas, id_sindicato")
+              .eq("activo", true)
+              .order("placas")
+          );
+        }
+
         // Ejecutar todas las consultas en paralelo
         // Promise.all espera a que todas las promesas se resuelvan
         const results = await Promise.all(promises);
@@ -116,6 +140,18 @@ export const useCatalogos = (catalogosRequeridos = []) => {
           setPreciosRenta(results[index].data || []);
           index++;
         }
+
+        if (catalogosRequeridos.includes("operadores")) {
+          if (results[index].error) throw results[index].error;
+          setOperadores(results[index].data || []);
+          index++;
+        }
+
+        if (catalogosRequeridos.includes("vehiculos")) {
+          if (results[index].error) throw results[index].error;
+          setVehiculos(results[index].data || []);
+          index++;
+        }
       } catch (err) {
         console.error("Error cargando catálogos:", err);
         setError(err);
@@ -139,6 +175,8 @@ export const useCatalogos = (catalogosRequeridos = []) => {
     sindicatos,
     bancos,
     preciosRenta,
+    operadores,
+    vehiculos,
     loading,
     error,
   };

@@ -14,27 +14,21 @@
 // ============================================
 
 /**
- * Valida el nombre del operador
+ * Validar que se haya seleccionado un operador
  */
-export const validateOperadorNombre = (nombre) => {
-  if (!nombre || !nombre.trim()) {
-    return "El nombre del operador es requerido";
-  }
-  if (nombre.trim().length < 3) {
-    return "El nombre debe tener al menos 3 caracteres";
+export const validateOperadorId = (operadorId) => {
+  if (!operadorId) {
+    return "Debes seleccionar un operador";
   }
   return null;
 };
 
 /**
- * Valida las placas del vehículo
+ * Validar que se haya seleccionado un vehículo
  */
-export const validatePlacas = (placas) => {
-  if (!placas || !placas.trim()) {
-    return "Las placas del vehículo son requeridas";
-  }
-  if (placas.length < 5) {
-    return "Las placas deben tener al menos 5 caracteres";
+export const validateVehiculoId = (vehiculoId) => {
+  if (!vehiculoId) {
+    return "Debes seleccionar un vehículo";
   }
   return null;
 };
