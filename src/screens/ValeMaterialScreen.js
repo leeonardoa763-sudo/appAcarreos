@@ -48,11 +48,12 @@ import { useObraData } from "../hooks/useObraData";
 
 // Validaciones
 import {
-  validateOperadorNombre,
-  validatePlacas,
+  validateOperadorId,
+  validateVehiculoId,
   validateCapacidad,
   validateMaterialId,
   validateBancoId,
+  validateSindicatoId,
   validateCantidadSolicitada,
   validateDistancia,
 } from "../utils/validations";
@@ -67,6 +68,7 @@ import { generateAndSharePDF } from "../services/pdfGenerator";
 import SectionHeader from "../componets/common/SectionHeader";
 import PrimaryButton from "../componets/common/PrimaryButton";
 import QRCodeGenerator from "../componets/common/QRCodeGenerator";
+import SuccessModal from "../componets/common/SuccessModal";
 
 // Componentes de formulario
 import FormInput from "../componets/forms/FormInput";
@@ -90,8 +92,17 @@ const ValeMaterialScreen = () => {
   const {
     materiales,
     bancos,
+    sindicatos, // ← Debe estar aquí
+    operadores,
+    vehiculos,
     loading: loadingCatalogos,
-  } = useCatalogos(["materiales", "bancos"]);
+  } = useCatalogos([
+    "materiales",
+    "bancos",
+    "sindicatos",
+    "operadores",
+    "vehiculos",
+  ]);
 
   // Hook para generar folios únicos
   const generateFolio = useFolioGenerator(obraData);
@@ -100,11 +111,12 @@ const ValeMaterialScreen = () => {
   const [formData, setFormData] = useState({
     materialId: null,
     bancoId: null,
+    sindicatoId: null,
     capacidad: "",
     cantidadSolicitada: "",
     distancia: "",
-    operadorNombre: "",
-    operadorPlacas: "",
+    selectedOperador: null,
+    selectedVehiculo: null,
     notasAdicionales: "",
   });
 
@@ -124,6 +136,9 @@ const ValeMaterialScreen = () => {
   // Flag para controlar si el usuario quiere compartir
   const [shouldSharePDF, setShouldSharePDF] = useState(false);
   const isSharing = useRef(false);
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [folioCreado, setFolioCreado] = useState(null);
 
   /**
    * EFECTO: Resetear formulario al salir de la pantalla
@@ -210,6 +225,7 @@ const ValeMaterialScreen = () => {
    * FUNCIÓN: Validar todos los campos del formulario
    */
   const validateForm = () => {
+    console.log("[ValeMaterialScreen] Iniciando validación...");
     const newErrors = {};
 
     const errorMaterial = validateMaterialId(formData.materialId);
@@ -229,11 +245,18 @@ const ValeMaterialScreen = () => {
     const errorDistancia = validateDistancia(formData.distancia);
     if (errorDistancia) newErrors.distancia = errorDistancia;
 
-    const errorNombre = validateOperadorNombre(formData.operadorNombre);
-    if (errorNombre) newErrors.operadorNombre = errorNombre;
+    const errorSindicato = validateSindicatoId(formData.sindicatoId);
+    if (errorSindicato) newErrors.sindicatoId = errorSindicato;
 
-    const errorPlacas = validatePlacas(formData.operadorPlacas);
-    if (errorPlacas) newErrors.operadorPlacas = errorPlacas;
+    const errorOperador = validateOperadorId(
+      formData.selectedOperador?.id_operador
+    );
+    if (errorOperador) newErrors.operadorId = errorOperador;
+
+    const errorVehiculo = validateVehiculoId(
+      formData.selectedVehiculo?.id_vehiculo
+    );
+    if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -243,13 +266,19 @@ const ValeMaterialScreen = () => {
    * FUNCIÓN: Crear el vale de material
    */
   const handleCrearVale = async () => {
+    console.log("[ValeMaterialScreen] ========== INICIO CREAR VALE ==========");
+
     if (!validateForm()) {
+      console.log("[ValeMaterialScreen] ❌ Validación falló");
+      console.log("[ValeMaterialScreen] Errores:", errors);
       Alert.alert(
         "Campos incompletos",
         "Por favor completa todos los campos requeridos"
       );
       return;
     }
+
+    console.log("[ValeMaterialScreen] ✅ Validación pasó");
 
     if (!obraData) {
       Alert.alert("Error", "No se encontraron datos de la obra");
@@ -258,6 +287,8 @@ const ValeMaterialScreen = () => {
 
     try {
       setSubmitting(true);
+
+      console.log("[ValeMaterialScreen] Generando folio...");
 
       // PASO 1: Generar folio único
       const folio = await generateFolio();
@@ -286,8 +317,8 @@ const ValeMaterialScreen = () => {
             id_obra: obraData.id_obra,
             id_empresa: obraData.empresas.id_empresa,
             id_persona_creador: userProfile.id_persona,
-            operador_nombre: formData.operadorNombre.trim(),
-            placas_vehiculo: formData.operadorPlacas.trim().toUpperCase(),
+            id_operador: formData.selectedOperador.id_operador,
+            id_vehiculo: formData.selectedVehiculo.id_vehiculo,
             estado: "emitido",
             total_copias_emitidas: 1,
             qr_verification_url: verificationUrl,
@@ -314,22 +345,6 @@ const ValeMaterialScreen = () => {
         ]);
 
       if (errorDetalle) throw errorDetalle;
-
-      // PASO 6: Registrar la copia inicial en tabla 'vale_copias'
-      const colorCopia = generarCopiaRoja ? "roja" : "blanca";
-      const destinatarioCopia = generarCopiaRoja ? "banco" : "operador";
-
-      const { error: errorCopia } = await supabase.from("vale_copias").insert([
-        {
-          id_vale: valeNuevo.id_vale,
-          numero_copia: generarCopiaRoja ? 1 : 0,
-          color: colorCopia,
-          destinatario: destinatarioCopia,
-          emitida_por: userProfile.id_persona,
-        },
-      ]);
-
-      if (errorCopia) throw errorCopia;
 
       // PASO 7: Consultar vale completo con todas las relaciones para el PDF
       const { data: valeCompleto, error: errorConsulta } = await supabase
@@ -370,26 +385,8 @@ const ValeMaterialScreen = () => {
       setValeCreado(valeCompleto);
 
       // ÉXITO: Mostrar opciones para compartir PDF
-      Alert.alert(
-        "¡Vale creado exitosamente!",
-        `Vale ${folio} creado.\nCopia ${colorCopia.toUpperCase()} lista para compartir.`,
-        [
-          {
-            text: "Compartir PDF",
-            onPress: () => {
-              //  Activar flag para compartir cuando QR esté listo
-              setShouldSharePDF(true);
-            },
-          },
-          {
-            text: "Más Tarde",
-            onPress: () => {
-              navegarAcarreos();
-            },
-            style: "cancel",
-          },
-        ]
-      );
+      setFolioCreado(folio);
+      setShowSuccessModal(true);
     } catch (error) {
       console.error("Error creando vale:", error);
       Alert.alert("Error", `No se pudo crear el vale: ${error.message}`);
@@ -567,8 +564,8 @@ const ValeMaterialScreen = () => {
       capacidad: "",
       cantidadSolicitada: "",
       distancia: "",
-      operadorNombre: "",
-      operadorPlacas: "",
+      selectedOperador: null,
+      selectedVehiculo: null,
       notasAdicionales: "",
     });
     setErrors({});
@@ -673,6 +670,20 @@ const ValeMaterialScreen = () => {
             error={errors.bancoId}
           />
 
+          <FormPicker
+            label="Sindicato"
+            value={formData.sindicatoId}
+            onValueChange={(value) =>
+              setFormData({ ...formData, sindicatoId: value })
+            }
+            items={sindicatos.map((s) => ({
+              id: s.id_sindicato,
+              label: s.sindicato,
+            }))}
+            placeholder="Selecciona el sindicato"
+            error={errors.sindicatoId}
+          />
+
           <FormInput
             label="Cantidad Solicitada"
             value={formData.cantidadSolicitada}
@@ -712,19 +723,22 @@ const ValeMaterialScreen = () => {
         {/* SECCIÓN: DATOS DE OPERADOR */}
         <View style={styles.section}>
           <DatosOperadorSection
-            operadorNombre={formData.operadorNombre}
-            operadorPlacas={formData.operadorPlacas}
+            selectedOperador={formData.selectedOperador}
+            selectedVehiculo={formData.selectedVehiculo}
+            onSelectOperador={(operador) =>
+              setFormData({ ...formData, selectedOperador: operador })
+            }
+            onSelectVehiculo={(vehiculo) =>
+              setFormData({ ...formData, selectedVehiculo: vehiculo })
+            }
             notasAdicionales={formData.notasAdicionales}
-            onChangeNombre={(value) =>
-              setFormData({ ...formData, operadorNombre: value })
-            }
-            onChangePlacas={(value) =>
-              setFormData({ ...formData, operadorPlacas: value.toUpperCase() })
-            }
             onChangeNotas={(value) =>
               setFormData({ ...formData, notasAdicionales: value })
             }
             errors={errors}
+            sindicatoId={formData.sindicatoId}
+            operadores={operadores}
+            vehiculos={vehiculos}
           />
         </View>
 
@@ -753,6 +767,22 @@ const ValeMaterialScreen = () => {
           />
         </View>
       </ScrollView>
+      <SuccessModal
+        visible={showSuccessModal}
+        title="¡Vale Creado!"
+        message={`Vale ${folioCreado} creado exitosamente.\n\nSe generó la copia ${
+          generarCopiaRoja ? "ROJA" : "BLANCA"
+        } para ${generarCopiaRoja ? "el banco" : "el operador"}`}
+        primaryAction={{
+          text: "Compartir PDF",
+          icon: "share-variant",
+          onPress: () => {
+            setShowSuccessModal(false);
+            setShouldSharePDF(true);
+          },
+        }}
+        onClose={() => setShowSuccessModal(false)}
+      />
     </View>
   );
 };

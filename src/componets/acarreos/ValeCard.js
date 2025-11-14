@@ -107,7 +107,7 @@ const ValeCard = ({ vale, onPress }) => {
           size={16}
           color={colors.textSecondary}
         />
-        <Text style={styles.infoText}>{vale.operador_nombre}</Text>
+        <Text>{vale.operadores?.nombre_completo || "N/A"}</Text>
       </View>
 
       <View style={styles.row}>
@@ -116,7 +116,7 @@ const ValeCard = ({ vale, onPress }) => {
           size={16}
           color={colors.textSecondary}
         />
-        <Text style={styles.infoText}>{vale.placas_vehiculo}</Text>
+        <Text>{vale.vehiculos?.placas || "N/A"}</Text>
       </View>
 
       {/* Información específica según tipo */}

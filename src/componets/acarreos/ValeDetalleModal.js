@@ -277,7 +277,9 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 />
                 <View style={styles.infoTextContainer}>
                   <Text style={styles.infoLabel}>Operador</Text>
-                  <Text style={styles.infoValue}>{vale.operador_nombre}</Text>
+                  <Text style={styles.infoValue}>
+                    {vale.operadores?.nombre_completo || "N/A"}
+                  </Text>
                 </View>
               </View>
 
@@ -289,7 +291,9 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 />
                 <View style={styles.infoTextContainer}>
                   <Text style={styles.infoLabel}>Placas</Text>
-                  <Text style={styles.infoValue}>{vale.placas_vehiculo}</Text>
+                  <Text style={styles.infoValue}>
+                    {vale.vehiculos?.placas || "N/A"}
+                  </Text>
                 </View>
               </View>
             </View>

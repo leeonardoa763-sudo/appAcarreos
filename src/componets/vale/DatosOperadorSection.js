@@ -41,14 +41,16 @@ const DatosOperadorSection = ({
 }) => {
   // Filtrar operadores por sindicato seleccionado
   const operadoresFiltrados = useMemo(() => {
+    if (!operadores || operadores.length === 0) return [];
     if (!sindicatoId) return operadores;
-    return operadores.filter((op) => op.id_sindicato === sindicatoId);
+    return operadores.filter((op) => op && op.id_sindicato === sindicatoId);
   }, [operadores, sindicatoId]);
 
   // Filtrar vehículos por sindicato seleccionado
   const vehiculosFiltrados = useMemo(() => {
+    if (!vehiculos || vehiculos.length === 0) return [];
     if (!sindicatoId) return vehiculos;
-    return vehiculos.filter((v) => v.id_sindicato === sindicatoId);
+    return vehiculos.filter((v) => v && v.id_sindicato === sindicatoId);
   }, [vehiculos, sindicatoId]);
 
   return (

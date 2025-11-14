@@ -213,11 +213,15 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
         <div class="info-section">
           <div class="info-row">
             <span class="info-label">Operador</span>
-            <span class="info-value">${valeData.operador_nombre}</span>
+            <span class="info-value">${
+              valeData.operadores?.nombre_completo || "N/A"
+            }</span>
           </div>
           <div class="info-row">
             <span class="info-label">Placas</span>
-            <span class="info-value">${valeData.placas_vehiculo}</span>
+            <span class="info-value">${
+              valeData.vehiculos?.placas || "N/A"
+            }</span>
           </div>
         </div>
 

@@ -81,7 +81,13 @@ const AcarreosScreen = () => {
               nombre,
               primer_apellido,
               segundo_apellido
-           ),
+          ),
+          operadores:id_operador (
+            nombre_completo
+          ),
+            vehiculos:id_vehiculo (
+              placas
+          ),
           vale_material_detalles (
             *,
             material (material),

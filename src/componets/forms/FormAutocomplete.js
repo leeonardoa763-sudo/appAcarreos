@@ -22,9 +22,15 @@
  * - error: string - Mensaje de error
  */
 
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet } from "react-native";
-import { AutocompleteDropdown } from "react-native-autocomplete-dropdown";
+import React, { useState, useMemo } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
 import { colors } from "../../config/colors";
 
 const FormAutocomplete = ({
@@ -37,73 +43,75 @@ const FormAutocomplete = ({
   placeholder = "Buscar...",
   error = null,
 }) => {
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [searchText, setSearchText] = useState("");
+  const [showList, setShowList] = useState(false);
 
-  // Convertir items a formato de la librería
-  const dataSet = items.map((item) => ({
-    id: item[valueField]?.toString(),
-    title: item[displayField],
-    originalItem: item,
-  }));
+  // Filtrar items basado en búsqueda
+  const filteredItems = useMemo(() => {
+    if (!searchText) return items;
+    const search = searchText.toLowerCase();
+    return items.filter((item) =>
+      item[displayField]?.toLowerCase().includes(search)
+    );
+  }, [items, searchText, displayField]);
 
-  // Sincronizar cuando cambia el value desde afuera
-  useEffect(() => {
-    if (value) {
-      const item = items.find((i) => i[valueField] === value);
-      if (item) {
-        setSelectedItem({
-          id: item[valueField]?.toString(),
-          title: item[displayField],
-        });
-      }
-    } else {
-      setSelectedItem(null);
-    }
-  }, [value, items]);
+  // Obtener el item seleccionado
+  const selectedItem = items.find((item) => item[valueField] === value);
 
-  const handleSelect = (item) => {
-    if (item && item.id) {
-      setSelectedItem(item);
-      const originalItem = items.find(
-        (i) => i[valueField]?.toString() === item.id
-      );
-      onSelect(originalItem || null);
-    } else {
-      setSelectedItem(null);
-      onSelect(null);
-    }
+  const handleSelectItem = (item) => {
+    setSearchText("");
+    setShowList(false);
+    onSelect(item);
+  };
+
+  const handleClear = () => {
+    setSearchText("");
+    onSelect(null);
   };
 
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
 
-      <View style={[styles.autocompleteContainer, error && styles.errorBorder]}>
-        <AutocompleteDropdown
-          clearOnFocus={false}
-          closeOnBlur={true}
-          closeOnSubmit={false}
-          initialValue={selectedItem}
-          onSelectItem={handleSelect}
-          dataSet={dataSet}
-          textInputProps={{
-            placeholder: placeholder,
-            autoCorrect: false,
-            autoCapitalize: "none",
-            style: styles.input,
-            placeholderTextColor: colors.textSecondary,
+      <View style={[styles.inputContainer, error && styles.errorBorder]}>
+        <TextInput
+          style={styles.input}
+          value={selectedItem ? selectedItem[displayField] : searchText}
+          onChangeText={(text) => {
+            setSearchText(text);
+            setShowList(true);
+            if (!text) onSelect(null);
           }}
-          inputContainerStyle={styles.inputContainer}
-          suggestionsListContainerStyle={styles.suggestionsList}
-          containerStyle={styles.dropdownContainer}
-          renderItem={(item) => (
-            <Text style={styles.suggestionItem}>{item.title}</Text>
-          )}
-          EmptyResultComponent={
-            <Text style={styles.emptyText}>Sin resultados</Text>
-          }
+          onFocus={() => setShowList(true)}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textSecondary}
         />
+        {selectedItem && (
+          <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
+            <Text style={styles.clearText}>✕</Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {showList && filteredItems.length > 0 && (
+        <View style={styles.listContainer}>
+          <ScrollView
+            style={styles.list}
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+          >
+            {filteredItems.map((item) => (
+              <TouchableOpacity
+                key={item[valueField]?.toString()}
+                style={styles.listItem}
+                onPress={() => handleSelectItem(item)}
+              >
+                <Text style={styles.listItemText}>{item[displayField]}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
@@ -115,6 +123,7 @@ export default FormAutocomplete;
 const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
+    zIndex: 1,
   },
   label: {
     fontSize: 14,
@@ -122,45 +131,50 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: 6,
   },
-  autocompleteContainer: {
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.input.background,
     borderWidth: 1,
     borderColor: colors.input.border,
     borderRadius: 8,
-    overflow: "hidden",
+    paddingHorizontal: 12,
   },
   errorBorder: {
     borderColor: colors.danger,
   },
-  dropdownContainer: {
-    flexGrow: 1,
-    flexShrink: 1,
-  },
-  inputContainer: {
-    backgroundColor: "transparent",
-    borderWidth: 0,
-  },
   input: {
+    flex: 1,
     fontSize: 16,
     color: colors.textPrimary,
-    paddingHorizontal: 12,
     paddingVertical: 12,
   },
-  suggestionsList: {
+  clearButton: {
+    padding: 4,
+  },
+  clearText: {
+    fontSize: 20,
+    color: colors.textSecondary,
+  },
+  listContainer: {
+    maxHeight: 200,
     backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.input.border,
     borderRadius: 8,
     marginTop: 4,
   },
-  suggestionItem: {
+  list: {
+    flexGrow: 0,
+  },
+  listItem: {
     padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  listItemText: {
     fontSize: 16,
     color: colors.textPrimary,
-  },
-  emptyText: {
-    padding: 12,
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: "center",
   },
   errorText: {
     marginTop: 4,
