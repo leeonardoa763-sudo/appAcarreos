@@ -52,6 +52,11 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
   const empresa = valeData.obras?.empresas?.empresa || "N/A";
   const logoEmpresa = valeData.obras?.empresas?.logo || null;
 
+  // Extraer datos de operador, vehículo y sindicato
+  const operador = valeData.operadores?.nombre_completo || "N/A";
+  const placas = valeData.vehiculos?.placas || "N/A";
+  const sindicato = valeData.vehiculos?.sindicatos?.sindicato || "N/A";
+
   // URL de verificación
   const verificationUrl =
     valeData.qr_verification_url || `https://verify.app/vale/${valeData.folio}`;
@@ -142,15 +147,15 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
         <div class="info-section">
           <div class="info-row">
             <span class="info-label">Operador</span>
-            <span class="info-value">${
-              valeData.operadores?.nombre_completo || "N/A"
-            }</span>
+            <span class="info-value">${operador}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Placas</span>
-            <span class="info-value">${
-              valeData.vehiculos?.placas || "N/A"
-            }</span>
+            <span class="info-value">${placas}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Sindicato</span>
+            <span class="info-value">${sindicato}</span>
           </div>
         </div>
         

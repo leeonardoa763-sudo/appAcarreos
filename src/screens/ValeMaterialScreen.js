@@ -132,6 +132,7 @@ const ValeMaterialScreen = () => {
   const [valeCreado, setValeCreado] = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [qrGenerated, setQrGenerated] = useState(false);
 
   // Flag para controlar si el usuario quiere compartir
   const [shouldSharePDF, setShouldSharePDF] = useState(false);
@@ -222,6 +223,18 @@ const ValeMaterialScreen = () => {
   }, [formData.materialId, materiales]);
 
   /**
+   * EFECTO: Compartir PDF cuando QR esté listo y usuario haya presionado compartir
+   */
+  useEffect(() => {
+    if (qrDataUrl && shouldSharePDF && !isSharing.current) {
+      console.log(
+        "[ValeMaterialScreen] useEffect detectó: QR listo + usuario quiere compartir"
+      );
+      handleCompartirPDF();
+    }
+  }, [qrDataUrl, shouldSharePDF]);
+
+  /**
    * FUNCIÓN: Validar todos los campos del formulario
    */
   const validateForm = () => {
@@ -293,6 +306,8 @@ const ValeMaterialScreen = () => {
       // PASO 1: Generar folio único
       const folio = await generateFolio();
 
+      console.log("[ValeMaterialScreen] ✅ Folio generado:", folio);
+
       // PASO 2: Verificar que el folio no exista
       const { data: verificacion } = await supabase
         .from("vales")
@@ -304,8 +319,11 @@ const ValeMaterialScreen = () => {
         throw new Error(`El folio ${folio} ya existe`);
       }
 
+      console.log("[ValeMaterialScreen] ✅ Folio verificado");
+
       // PASO 3: Generar URL de verificación con QR
       const verificationUrl = generateVerificationUrl(folio);
+      console.log("[ValeMaterialScreen] ✅ URL generada");
 
       // PASO 4: Crear registro en tabla 'vales' con URL de verificación
       const { data: valeNuevo, error: errorVale } = await supabase
@@ -317,9 +335,9 @@ const ValeMaterialScreen = () => {
             id_obra: obraData.id_obra,
             id_empresa: obraData.empresas.id_empresa,
             id_persona_creador: userProfile.id_persona,
-            id_operador: formData.selectedOperador.id_operador,
-            id_vehiculo: formData.selectedVehiculo.id_vehiculo,
-            estado: "emitido",
+            id_operador: formData.selectedOperador?.id_operador, // ← Agregado ?. por seguridad
+            id_vehiculo: formData.selectedVehiculo?.id_vehiculo, // ← Agregado ?. por seguridad
+            estado: "en_proceso",
             total_copias_emitidas: 1,
             qr_verification_url: verificationUrl,
           },
@@ -327,7 +345,17 @@ const ValeMaterialScreen = () => {
         .select()
         .single();
 
-      if (errorVale) throw errorVale;
+      if (errorVale) {
+        console.error(
+          "[ValeMaterialScreen] Error al insertar vale:",
+          errorVale
+        );
+        throw errorVale;
+      }
+      console.log(
+        "[ValeMaterialScreen] ✅ Vale insertado:",
+        valeNuevo?.id_vale
+      );
 
       // PASO 5: Crear registro en tabla 'vale_material_detalles'
       const { error: errorDetalle } = await supabase
@@ -345,6 +373,7 @@ const ValeMaterialScreen = () => {
         ]);
 
       if (errorDetalle) throw errorDetalle;
+      console.log("[ValeMaterialScreen] ✅ Detalles insertados");
 
       // PASO 7: Consultar vale completo con todas las relaciones para el PDF
       const { data: valeCompleto, error: errorConsulta } = await supabase
@@ -363,6 +392,15 @@ const ValeMaterialScreen = () => {
               logo
             )
           ),
+          operadores:id_operador (
+            nombre_completo
+          ),
+          vehiculos:id_vehiculo (
+            placas,
+            sindicatos:id_sindicato (
+              sindicato
+            )
+          ),
           vale_material_detalles (
             *,
             material:id_material (
@@ -379,10 +417,39 @@ const ValeMaterialScreen = () => {
         .eq("id_vale", valeNuevo.id_vale)
         .single();
 
-      if (errorConsulta) throw errorConsulta;
+      if (errorConsulta) {
+        console.error(
+          "[ValeMaterialScreen] Error consultando vale completo:",
+          errorConsulta
+        );
+        throw errorConsulta;
+      }
+
+      // ✅ VALIDAR que valeCompleto tenga datos mínimos necesarios
+      if (
+        !valeCompleto ||
+        !valeCompleto.obras ||
+        !valeCompleto.vale_material_detalles
+      ) {
+        console.error("[ValeMaterialScreen] Vale incompleto:", valeCompleto);
+        throw new Error("El vale no tiene todos los datos necesarios");
+      }
+
+      console.log("[ValeMaterialScreen] Vale completo consultado:", {
+        folio: valeCompleto.folio,
+        tiene_operador: !!valeCompleto.operadores,
+        tiene_vehiculo: !!valeCompleto.vehiculos,
+        tiene_sindicato: !!valeCompleto.vehiculos?.sindicatos,
+      });
+      console.log("[ValeMaterialScreen] ✅ Vale consultado");
+      console.log(
+        "[ValeMaterialScreen] Estructura del vale:",
+        JSON.stringify(valeCompleto, null, 2)
+      );
 
       // PASO 8: Guardar vale creado para generar PDF
       setValeCreado(valeCompleto);
+      console.log("[ValeMaterialScreen] ✅ Todo completado");
 
       // ÉXITO: Mostrar opciones para compartir PDF
       setFolioCreado(folio);
@@ -446,11 +513,31 @@ const ValeMaterialScreen = () => {
    * Solo comparte si el usuario presionó "Compartir PDF"
    */
   const handleQRGenerated = (dataUrl) => {
-    setQrDataUrl(dataUrl);
+    //  Evitar procesamiento múltiple
+    if (qrGenerated) {
+      console.log("[ValeMaterialScreen] QR ya fue procesado, ignorando...");
+      return;
+    }
 
-    // 🔥 Solo compartir si el usuario eligió "Compartir PDF"
-    if (shouldSharePDF && !isSharing.current) {
-      handleCompartirPDF();
+    try {
+      console.log("[ValeMaterialScreen] QR generado exitosamente");
+      setQrDataUrl(dataUrl);
+      setQrGenerated(true);
+
+      // Solo compartir si el usuario eligió "Compartir PDF"
+      if (shouldSharePDF && !isSharing.current) {
+        console.log(
+          "[ValeMaterialScreen] Usuario quiere compartir - llamando handleCompartirPDF"
+        );
+        handleCompartirPDF();
+      } else {
+        console.log(
+          "[ValeMaterialScreen] QR listo, esperando acción del usuario"
+        );
+      }
+    } catch (error) {
+      console.error("[ValeMaterialScreen] Error en handleQRGenerated:", error);
+      Alert.alert("Error", "Hubo un problema al generar el código QR");
     }
   };
 
@@ -458,13 +545,33 @@ const ValeMaterialScreen = () => {
    * FUNCIÓN: Navegar a la sección Acarreos
    */
   const navegarAcarreos = () => {
+    console.log("[ValeMaterialScreen] Navegando a Acarreos");
     resetForm();
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "ValesMain" }],
-    });
-    navigation.getParent()?.navigate("Acarreos");
+
+    // Opción 1: Navegar directamente sin reset (más seguro)
+    navigation.navigate("ValesMain");
+
+    // Usar setTimeout para dar tiempo a que se complete la navegación
+    setTimeout(() => {
+      try {
+        const parent = navigation.getParent();
+        if (parent && parent.navigate) {
+          console.log("[ValeMaterialScreen] Navegando a tab Acarreos");
+          parent.navigate("Acarreos");
+        } else {
+          console.log(
+            "[ValeMaterialScreen] No se pudo acceder al parent navigator"
+          );
+        }
+      } catch (error) {
+        console.error(
+          "[ValeMaterialScreen] Error navegando a Acarreos:",
+          error
+        );
+      }
+    }, 100);
   };
+
   /**
    *  FUNCIÓN TEMPORAL: Generar PDF para prueba en PC
    */
@@ -561,6 +668,7 @@ const ValeMaterialScreen = () => {
     setFormData({
       materialId: null,
       bancoId: null,
+      sindicatoId: null,
       capacidad: "",
       cantidadSolicitada: "",
       distancia: "",
@@ -574,6 +682,7 @@ const ValeMaterialScreen = () => {
     setValeCreado(null);
     setQrDataUrl(null);
     setShouldSharePDF(false);
+    setQrGenerated(false);
     isSharing.current = false;
   };
 
@@ -602,13 +711,16 @@ const ValeMaterialScreen = () => {
   return (
     <View style={styles.container}>
       {/* Componente invisible para generar QR cuando se crea un vale */}
-      {valeCreado && valeCreado.qr_verification_url && (
-        <QRCodeGenerator
-          value={valeCreado.qr_verification_url}
-          onGenerated={handleQRGenerated}
-          size={200}
-        />
-      )}
+      {valeCreado &&
+        valeCreado.qr_verification_url &&
+        valeCreado.obras &&
+        valeCreado.vale_material_detalles && (
+          <QRCodeGenerator
+            value={valeCreado.qr_verification_url}
+            onGenerated={handleQRGenerated}
+            size={200}
+          />
+        )}
 
       {/* Header */}
       <View style={styles.header}>
@@ -777,11 +889,31 @@ const ValeMaterialScreen = () => {
           text: "Compartir PDF",
           icon: "share-variant",
           onPress: () => {
+            console.log(
+              "[ValeMaterialScreen] Usuario presionó 'Compartir PDF'"
+            );
             setShowSuccessModal(false);
-            setShouldSharePDF(true);
+
+            // Si el QR ya está listo, compartir inmediatamente
+            if (qrDataUrl && !isSharing.current) {
+              console.log(
+                "[ValeMaterialScreen] QR disponible - compartiendo inmediatamente"
+              );
+              handleCompartirPDF();
+            } else {
+              //  Si no, activar flag para compartir cuando se genere el QR
+              console.log(
+                "[ValeMaterialScreen] QR aún no disponible - activando flag shouldSharePDF"
+              );
+              setShouldSharePDF(true);
+            }
           },
         }}
-        onClose={() => setShowSuccessModal(false)}
+        onClose={() => {
+          console.log("[ValeMaterialScreen] Usuario cerró modal sin compartir");
+          setShowSuccessModal(false);
+          navegarAcarreos();
+        }}
       />
     </View>
   );
