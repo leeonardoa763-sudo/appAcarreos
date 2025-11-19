@@ -59,11 +59,7 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
   const notas = detalle.notas_adicionales?.trim() || null;
 
   if (tienePrecio) {
-    console.log("[pdfGenerator] Copia con precio");
-    console.log("[pdfGenerator] Tarifa 1er km:", tarifaPrimerKm);
-    console.log("[pdfGenerator] Tarifa subsecuente:", tarifaSubsecuente);
-    console.log("[pdfGenerator] Precio/m³:", precioM3);
-    console.log("[pdfGenerator] Costo total:", costoTotal);
+    console.log("[pdfGenerator] -----");
   } else {
     console.log("[pdfGenerator] Copia sin precio (preliminar)");
   }

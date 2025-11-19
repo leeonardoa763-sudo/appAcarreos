@@ -1,15 +1,14 @@
 /**
  * screens/ValeMaterialScreen.js
  *
- * Pantalla para crear un vale de material (acarreo) - REFACTORIZADO
- *
- * PROPÓSITO:
- * - Coordinar hooks y componentes
- * - Mantener UI limpia y legible
- * - Delegar lógica a hooks personalizados
+ * CAMBIOS PASO C:
+ * - ✅ Ref isMounted agregado
+ * - ✅ Protección en setState
+ * - ✅ Listener blur protegido
+ * - ✅ Cleanup al desmontar
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
@@ -38,6 +37,9 @@ import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 const ValeMaterialScreen = () => {
   const navigation = useNavigation();
   const { userProfile } = useAuth();
+
+  // Ref para prevenir setState después de unmount
+  const isMounted = useRef(true);
 
   // Datos de obra
   const { obraData, loading: loadingObra } = useObraData(userProfile);
@@ -87,12 +89,25 @@ const ValeMaterialScreen = () => {
     handleQRGenerated,
     navegarAcarreos,
     resetPDFState,
+    setMounted,
   } = useValeMaterialPDF(navigation);
 
   // Estados locales
   const [valeCreado, setValeCreado] = useState(null);
   const [folioCreado, setFolioCreado] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Cleanup al desmontar
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+
+      // Marcar el hook PDF como desmontado también
+      if (typeof setMounted === "function") {
+        setMounted(false);
+      }
+    };
+  }, []);
 
   // Efecto: Actualizar material seleccionado
   useEffect(() => {
@@ -113,10 +128,12 @@ const ValeMaterialScreen = () => {
     }
   }, [qrDataUrl, shouldSharePDF, valeCreado, generarCopiaRoja, compartirPDF]);
 
-  // Efecto: Reset al salir
+  // Efecto: Reset al salir (PROTEGIDO)
   useEffect(() => {
     const unsubscribe = navigation.addListener("blur", () => {
-      resetForm();
+      if (isMounted.current) {
+        resetForm();
+      }
     });
     return unsubscribe;
   }, [navigation]);
@@ -132,8 +149,6 @@ const ValeMaterialScreen = () => {
 
   // Función: Crear vale
   const handleCrearVale = async () => {
-    console.log("[ValeMaterialScreen] Iniciando creación de vale");
-
     if (!validateForm()) {
       Alert.alert(
         "Campos incompletos",
@@ -153,27 +168,36 @@ const ValeMaterialScreen = () => {
         obraData,
         userProfile,
         generateFolio,
-        materiales // ← AGREGAR ESTE PARÁMETRO
+        materiales
       );
 
-      setValeCreado(valeCompleto);
-      setFolioCreado(folio);
-      setShowSuccessModal(true);
-
-      console.log("[ValeMaterialScreen] Vale creado:", folio);
+      // Proteger setState
+      if (isMounted.current) {
+        setValeCreado(valeCompleto);
+        setFolioCreado(folio);
+        setShowSuccessModal(true);
+      }
     } catch (error) {
       console.error("[ValeMaterialScreen] Error:", error);
-      Alert.alert("Error", `No se pudo crear el vale: ${error.message}`);
+
+      if (isMounted.current) {
+        Alert.alert("Error", `No se pudo crear el vale: ${error.message}`);
+      }
     }
   };
 
   // Función: Manejar compartir desde modal
   const handleCompartirDesdeModal = () => {
-    setShowSuccessModal(false);
+    if (isMounted.current) {
+      setShowSuccessModal(false);
+    }
+
     if (qrDataUrl) {
       compartirPDF(valeCreado, generarCopiaRoja);
     } else {
-      setShouldSharePDF(true);
+      if (isMounted.current) {
+        setShouldSharePDF(true);
+      }
     }
   };
 
@@ -367,7 +391,7 @@ const ValeMaterialScreen = () => {
       {/* Modal de éxito */}
       <SuccessModal
         visible={showSuccessModal}
-        title="¡Vale Creado!"
+        title="Vale Creado"
         message={
           generarCopiaRoja
             ? `Vale ${folioCreado} creado exitosamente.\n\n¿Deseas generar la copia ROJA preliminar ahora?`

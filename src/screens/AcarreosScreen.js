@@ -1,24 +1,14 @@
 /**
- * AcarreosScreen.js
+ * AcarreosScreen.js - VERSIÓN FINAL CORREGIDA
  *
- * Pantalla para visualizar todos los vales creados por el usuario
- *
- * PROPÓSITO:
- * - Mostrar vales de Material y Renta en secciones separadas
- * - Permitir ver detalle de cada vale al presionarlo
- * - Permitir capturar hora de salida en vales de renta pendientes
- *
- * FLUJO:
- * 1. Carga vales del usuario desde Supabase
- * 2. Separa por tipo (material/renta)
- * 3. Muestra en dos secciones siempre visibles
- * 4. Al presionar vale → abre modal con detalle
- *
- * NAVEGACIÓN:
- * BottomTabNavigator → AcarreosScreen
+ * CAMBIOS:
+ * - ✅ Protección contra arrays null/undefined
+ * - ✅ Loading inicial en false
+ * - ✅ Verificación de loading sin condición de refreshing
+ * - ✅ Protección en filterVales y separateValesByStatus
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -34,7 +24,7 @@ import { supabase } from "../config/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { useFocusEffect } from "@react-navigation/native";
 
-//Estilos
+// Estilos
 import { commonStyles, listScreenStyles } from "../styles";
 
 import ValeCard from "../componets/acarreos/ValeCard";
@@ -47,16 +37,26 @@ const AcarreosScreen = () => {
 
   const [valesMaterial, setValesMaterial] = useState([]);
   const [valesRenta, setValesRenta] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [selectedVale, setSelectedVale] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Ref para prevenir setState después de unmount
+  const isMounted = useRef(true);
+
+  // Cleanup al desmontar
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   useFocusEffect(
     React.useCallback(() => {
-      if (userProfile?.id_persona) {
+      if (isMounted.current && userProfile?.id_persona) {
         fetchVales();
       }
     }, [userProfile])
@@ -64,8 +64,11 @@ const AcarreosScreen = () => {
 
   const fetchVales = async () => {
     try {
-      setLoading(true);
-      setError(null);
+      if (isMounted.current) {
+        setLoading(true);
+        setError(null);
+      }
+
       const { data: valesData, error: valesError } = await supabase
         .from("vales")
         .select(
@@ -118,33 +121,52 @@ const AcarreosScreen = () => {
       const material = valesData.filter((v) => v.tipo_vale === "material");
       const renta = valesData.filter((v) => v.tipo_vale === "renta");
 
-      setValesMaterial(material);
-      setValesRenta(renta);
+      if (isMounted.current) {
+        setValesMaterial(material);
+        setValesRenta(renta);
+      }
     } catch (error) {
       console.error("[AcarreosScreen] Error fetchVales:", error);
-      setError(error.message);
+      if (isMounted.current) {
+        setError(error.message);
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
   const onRefresh = async () => {
-    setRefreshing(true);
+    if (isMounted.current) {
+      setRefreshing(true);
+    }
     await fetchVales();
-    setRefreshing(false);
+    if (isMounted.current) {
+      setRefreshing(false);
+    }
   };
 
   const handleOpenVale = (vale) => {
-    setSelectedVale(vale);
-    setModalVisible(true);
+    if (isMounted.current) {
+      setSelectedVale(vale);
+      setModalVisible(true);
+    }
   };
 
   const handleCloseModal = () => {
-    setModalVisible(false);
-    setSelectedVale(null);
+    if (isMounted.current) {
+      setModalVisible(false);
+      setSelectedVale(null);
+    }
   };
 
   const filterVales = (vales) => {
+    // Protección contra null/undefined
+    if (!vales || !Array.isArray(vales)) {
+      return [];
+    }
+
     if (!searchQuery.trim()) return vales;
 
     const query = searchQuery.toLowerCase().trim();
@@ -166,6 +188,11 @@ const AcarreosScreen = () => {
   const filteredValesRenta = filterVales(valesRenta);
 
   const separateValesByStatus = (vales, tipo) => {
+    // Protección contra null/undefined
+    if (!vales || !Array.isArray(vales)) {
+      return { enProceso: [], completados: [] };
+    }
+
     if (tipo === "material") {
       const enProceso = vales.filter((vale) => vale.estado === "en_proceso");
       const completados = vales.filter((vale) => vale.estado === "emitido");
@@ -188,11 +215,14 @@ const AcarreosScreen = () => {
     return <ValeCard vale={item} onPress={() => handleOpenVale(item)} />;
   };
 
-  if (loading && !refreshing) {
+  // Mostrar loading siempre que loading=true
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Cargando acarreos...</Text>
+        <Text style={styles.loadingText}>
+          {refreshing ? "Actualizando..." : "Cargando acarreos..."}
+        </Text>
       </View>
     );
   }
@@ -398,6 +428,7 @@ const AcarreosScreen = () => {
           </CollapsibleSection>
         </View>
       </ScrollView>
+
       {/* Modal FUERA del ScrollView */}
       <ValeDetalleModal
         visible={modalVisible}

@@ -2,10 +2,16 @@
  * hooks/useValeMaterialPDF.js
  *
  * Hook para manejar la generación de QR y compartir PDF
+ *
+ * CAMBIOS PASO C:
+ * - ✅ Ref isMounted agregado
+ * - ✅ Navegación robusta con InteractionManager
+ * - ✅ Sin setTimeout arbitrarios
+ * - ✅ Protección setState después de unmount
  */
 
 import { useState, useCallback, useRef } from "react";
-import { Alert } from "react-native";
+import { Alert, InteractionManager } from "react-native";
 import { generateAndSharePDF } from "../services/pdfGenerator";
 
 export const useValeMaterialPDF = (navigation) => {
@@ -15,23 +21,26 @@ export const useValeMaterialPDF = (navigation) => {
   const [shouldSharePDF, setShouldSharePDF] = useState(false);
 
   const isSharing = useRef(false);
+  const isMounted = useRef(true);
 
-  // Función: Navegar a Acarreos
+  // Función: Navegar a Acarreos (MEJORADA)
   const navegarAcarreos = useCallback(() => {
-    console.log("[useValeMaterialPDF] Navegando a Acarreos");
+    if (!isMounted.current) return;
 
-    try {
+    InteractionManager.runAfterInteractions(() => {
+      if (!isMounted.current) return;
+
       navigation.navigate("ValesMain");
 
-      setTimeout(() => {
-        const parent = navigation.getParent();
-        if (parent && parent.navigate) {
-          parent.navigate("Acarreos");
+      requestAnimationFrame(() => {
+        if (!isMounted.current) return;
+
+        const tabNavigator = navigation.getParent();
+        if (tabNavigator && tabNavigator.navigate) {
+          tabNavigator.navigate("Acarreos");
         }
-      }, 100);
-    } catch (error) {
-      console.error("[useValeMaterialPDF] Error en navegación:", error);
-    }
+      });
+    });
   }, [navigation]);
 
   // Función: Compartir PDF
@@ -47,9 +56,14 @@ export const useValeMaterialPDF = (navigation) => {
         return;
       }
 
+      if (!isMounted.current) return;
+
       try {
         isSharing.current = true;
-        setGeneratingPDF(true);
+
+        if (isMounted.current) {
+          setGeneratingPDF(true);
+        }
 
         const colorCopia = generarCopiaRoja ? "roja" : "blanca";
 
@@ -57,21 +71,28 @@ export const useValeMaterialPDF = (navigation) => {
         await generateAndSharePDF(valeData, colorCopia, qrDataUrl);
         console.log("[useValeMaterialPDF] PDF compartido exitosamente");
 
-        // Delay antes de navegar
+        // Esperar que termine la interacción de compartir
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        navegarAcarreos();
+        if (isMounted.current) {
+          navegarAcarreos();
+        }
       } catch (error) {
         console.error("[useValeMaterialPDF] Error compartiendo PDF:", error);
-        Alert.alert(
-          "Error al compartir",
-          "No se pudo compartir el PDF. Puedes encontrar el vale en la sección Acarreos.",
-          [{ text: "OK", onPress: () => navegarAcarreos() }]
-        );
+
+        if (isMounted.current) {
+          Alert.alert(
+            "Error al compartir",
+            "No se pudo compartir el PDF. Puedes encontrar el vale en la sección Acarreos.",
+            [{ text: "OK", onPress: () => navegarAcarreos() }]
+          );
+        }
       } finally {
-        setGeneratingPDF(false);
+        if (isMounted.current) {
+          setGeneratingPDF(false);
+          setShouldSharePDF(false);
+        }
         isSharing.current = false;
-        setShouldSharePDF(false);
       }
     },
     [qrDataUrl, navegarAcarreos]
@@ -85,6 +106,8 @@ export const useValeMaterialPDF = (navigation) => {
         return;
       }
 
+      if (!isMounted.current) return;
+
       console.log("[useValeMaterialPDF] QR generado exitosamente");
       setQrDataUrl(dataUrl);
       setQrGenerated(true);
@@ -94,11 +117,18 @@ export const useValeMaterialPDF = (navigation) => {
 
   // Función: Reset del estado PDF
   const resetPDFState = useCallback(() => {
+    if (!isMounted.current) return;
+
     setQrDataUrl(null);
     setGeneratingPDF(false);
     setQrGenerated(false);
     setShouldSharePDF(false);
     isSharing.current = false;
+  }, []);
+
+  // Función para marcar como desmontado (llamar desde componente padre)
+  const setMounted = useCallback((value) => {
+    isMounted.current = value;
   }, []);
 
   return {
@@ -110,5 +140,6 @@ export const useValeMaterialPDF = (navigation) => {
     handleQRGenerated,
     navegarAcarreos,
     resetPDFState,
+    setMounted,
   };
 };

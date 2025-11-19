@@ -30,6 +30,8 @@ function ValesStack() {
       screenOptions={{
         headerShown: false,
         cardStyle: { backgroundColor: colors.background },
+        // 🆕 Desmontar pantallas cuando pierden foco para resetear estado
+        unmountOnBlur: true,
       }}
     >
       <Stack.Screen name="ValesMain" component={ValesScreen} />
@@ -65,11 +67,11 @@ function MainTabs() {
             <MaterialCommunityIcons name={iconName} size={26} color={color} />
           );
         },
-        tabBarActiveTintColor: colors.primary, // Naranja construcción
-        tabBarInactiveTintColor: colors.textSecondary, // Gris
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: colors.surface, // Blanco
-          borderTopColor: colors.border, // Borde gris claro
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           height: 60,
           paddingBottom: 8,
           paddingTop: 8,

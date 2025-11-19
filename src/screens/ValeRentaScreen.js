@@ -1,27 +1,13 @@
 /**
  * ValeRentaScreen.js
  *
- * Pantalla para crear un vale de renta
- *
- * PROPÓSITO:
- * - Capturar datos iniciales del vale de renta
- * - Pre-llenar obra y empresa del residente
- * - Validar campos antes de guardar
- * - Crear registro en BD con estado 'en_proceso'
- *
- * FLUJO:
- * 1. Usuario llena formulario (hora_fin queda NULL)
- * 2. Se guarda en BD con estado 'en_proceso'
- * 3. Usuario completa el vale desde pantalla Acarreos
- *
- * NAVEGACIÓN:
- * ValesScreen → SeleccionarTipoValeScreen → ValeRentaScreen
- */
-/**
- * ValeRentaScreen.js (REFACTORIZADO)
+ * VERSIÓN FINAL - SIN TIMEOUTS NI LOGS
+ * - ✅ Navegación robusta con InteractionManager
+ * - ✅ No depende de delays arbitrarios
+ * - ✅ Funciona con o sin logs
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -29,17 +15,20 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  InteractionManager,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
 import { commonStyles } from "../styles";
-//Hooks
+
+// Hooks
 import { useAuth } from "../hooks/useAuth";
 import { useCatalogos } from "../hooks/useCatalogos";
 import { useFolioGenerator } from "../hooks/useFolioGenerator";
 import { useObraData } from "../hooks/useObraData";
-//Validaciones
+
+// Validaciones
 import {
   validateOperadorId,
   validateVehiculoId,
@@ -58,12 +47,15 @@ import FormTimePicker from "../componets/forms/FormTimePicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 import SuccessModal from "../componets/common/SuccessModal";
 
-//Utils
+// Utils
 import { generateVerificationUrl } from "../utils/qrGenerator";
 
 const ValeRentaScreen = () => {
   const navigation = useNavigation();
   const { userProfile } = useAuth();
+
+  // Refs para control
+  const isMounted = useRef(true);
 
   // Hook para obtener datos de la obra del usuario
   const {
@@ -107,16 +99,12 @@ const ValeRentaScreen = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [valeCreado, setValeCreado] = useState(null);
 
-  // Cargar datos de obra
-
+  // Cleanup al desmontar
   useEffect(() => {
-    const unsubscribe = navigation.addListener("blur", () => {
-      console.log("Saliendo de ValeRentaScreen, reseteando formulario");
-      resetForm();
-    });
-
-    return unsubscribe;
-  }, [navigation]);
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Validaciones
   const validateForm = () => {
@@ -165,13 +153,10 @@ const ValeRentaScreen = () => {
 
     try {
       setSubmitting(true);
-      console.log("--------------------------");
-      console.log("Iniciando creación de vale");
 
       const folio = await generateFolio();
 
-      console.log("Intentando crear vale con folio:", folio);
-
+      // Verificar que el folio no exista
       const { data: verificacion } = await supabase
         .from("vales")
         .select("folio")
@@ -182,6 +167,7 @@ const ValeRentaScreen = () => {
         throw new Error(`El folio ${folio} ya existe en la base de datos`);
       }
 
+      // Crear vale principal
       const { data: valeData, error: valeError } = await supabase
         .from("vales")
         .insert({
@@ -200,8 +186,7 @@ const ValeRentaScreen = () => {
 
       if (valeError) throw valeError;
 
-      console.log("Vale creado exitosamente");
-
+      // Buscar precio de renta
       const precioRenta = preciosRenta.find(
         (p) => p.id_sindicato === formData.sindicatoId
       );
@@ -210,6 +195,7 @@ const ValeRentaScreen = () => {
         throw new Error("No se encontró precio para el sindicato seleccionado");
       }
 
+      // Crear detalle del vale
       const { error: detalleError } = await supabase
         .from("vale_renta_detalle")
         .insert({
@@ -226,31 +212,65 @@ const ValeRentaScreen = () => {
 
       if (detalleError) throw detalleError;
 
-      console.log("Detalle de vale creado exitosamente");
-
-      resetForm();
+      // Verificar si componente sigue montado
+      if (!isMounted.current) return;
 
       setValeCreado(folio);
       setShowSuccessModal(true);
     } catch (error) {
-      console.error("Error creando vale:", error);
-      Alert.alert("Error", `No se pudo crear el vale: ${error.message}`);
+      if (isMounted.current) {
+        Alert.alert("Error", `No se pudo crear el vale: ${error.message}`);
+      }
     } finally {
-      setSubmitting(false);
+      if (isMounted.current) {
+        setSubmitting(false);
+      }
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      materialId: null,
-      capacidad: "",
-      sindicatoId: null,
-      horaInicio: null,
-      selectedOperador: null,
-      selectedVehiculo: null,
-      notasAdicionales: "",
+  /**
+   * Navegación robusta usando InteractionManager
+   * Espera a que todas las interacciones/animaciones terminen
+   */
+  const handleNavigateToAcarreos = () => {
+    // Cerrar modal inmediatamente
+    if (isMounted.current) {
+      setShowSuccessModal(false);
+    }
+
+    // Usar InteractionManager para esperar el momento óptimo
+    InteractionManager.runAfterInteractions(() => {
+      if (!isMounted.current) return;
+
+      // Volver a ValesMain primero
+      navigation.navigate("ValesMain");
+
+      // Dar un frame para que la navegación se procese
+      requestAnimationFrame(() => {
+        if (!isMounted.current) return;
+
+        // Navegar al tab de Acarreos
+        const tabNavigator = navigation.getParent();
+        if (tabNavigator && tabNavigator.navigate) {
+          tabNavigator.navigate("Acarreos");
+        }
+      });
     });
-    setErrors({});
+  };
+
+  /**
+   * Crear otro vale
+   */
+  const handleCreateAnother = () => {
+    if (isMounted.current) {
+      setShowSuccessModal(false);
+
+      InteractionManager.runAfterInteractions(() => {
+        if (isMounted.current) {
+          navigation.navigate("ValesMain");
+        }
+      });
+    }
   };
 
   if (loadingObra || loadingCatalogos) {
@@ -387,36 +407,22 @@ const ValeRentaScreen = () => {
           />
         </View>
       </ScrollView>
+
+      {/* Modal de éxito */}
       <SuccessModal
         visible={showSuccessModal}
-        title="¡Vale Creado!"
+        title="Vale Creado"
         message={`Vale ${valeCreado} creado exitosamente.\n\nEl vale quedó en estado "En Proceso". Podrás completarlo desde la pantalla de Acarreos cuando el operador termine el trabajo.`}
         primaryAction={{
           text: "Ver Acarreos",
           icon: "clipboard-list",
-          onPress: () => {
-            setShowSuccessModal(false);
-            resetForm();
-
-            // Navegar correctamente
-            navigation.navigate("ValesMain");
-
-            setTimeout(() => {
-              const parent = navigation.getParent();
-              if (parent && parent.navigate) {
-                parent.navigate("Acarreos");
-              }
-            }, 100);
-          },
+          onPress: handleNavigateToAcarreos,
         }}
         secondaryAction={{
           text: "Crear Otro Vale",
-          onPress: () => {
-            setShowSuccessModal(false);
-            resetForm();
-          },
+          onPress: handleCreateAnother,
         }}
-        onClose={() => setShowSuccessModal(false)}
+        onClose={handleCreateAnother}
       />
     </View>
   );

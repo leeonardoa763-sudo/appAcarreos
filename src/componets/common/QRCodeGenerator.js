@@ -47,12 +47,9 @@ const QRCodeGenerator = ({
       return;
     }
 
-    console.log("[QRCodeGenerator] Iniciando generación de QR para:", value);
-
     // Esperar a que el componente se monte y el QR se renderice
     const timer = setTimeout(() => {
       if (hasGenerated.current) {
-        console.log("[QRCodeGenerator] Ya generado, abortando");
         return;
       }
 
@@ -65,12 +62,9 @@ const QRCodeGenerator = ({
       }
 
       try {
-        console.log("[QRCodeGenerator] Convirtiendo QR a base64...");
-
         // Convertir QR a formato base64 (data URL)
         qrRef.current.toDataURL((dataURL) => {
           if (hasGenerated.current) {
-            console.log("[QRCodeGenerator] Callback duplicado, ignorando");
             return;
           }
 
@@ -86,8 +80,6 @@ const QRCodeGenerator = ({
           const fullDataURL = dataURL.startsWith("data:image")
             ? dataURL
             : `data:image/png;base64,${dataURL}`;
-
-          console.log("[QRCodeGenerator] QR generado exitosamente");
 
           hasGenerated.current = true;
 
@@ -117,7 +109,6 @@ const QRCodeGenerator = ({
         size={size}
         getRef={(ref) => {
           qrRef.current = ref;
-          console.log("[QRCodeGenerator] Ref asignada:", !!ref);
         }}
       />
     </View>
