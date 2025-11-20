@@ -1,23 +1,15 @@
 /**
- * components/common/QRCodeGenerator.js (CORREGIDO)
+ * components/common/QRCodeGenerator.js
+ *
+ * VERSIÓN CORREGIDA - EVITA LLAMADAS MÚLTIPLES
  *
  * Componente para generar códigos QR y convertirlos a base64
  *
  * MEJORAS:
- * - Manejo de errores con callback onError
- * - Validación de value antes de generar
- * - Logs más descriptivos
- * - Timeout configurable
- *
- * PROPÓSITO:
- * - Generar código QR a partir de una URL
- * - Convertir QR a formato base64 para incrustar en PDF
- * - Componente invisible que solo genera datos
- *
- * USADO EN:
- * - ValeMaterialScreen
- * - ValeRentaScreen
- * - GenerarPDFButton
+ * - Flag para prevenir generación múltiple
+ * - Solo llama a onGenerated UNA vez
+ * - Mejor manejo de timeout
+ * - Limpieza adecuada de refs
  */
 
 import React, { useRef, useEffect } from "react";
@@ -29,15 +21,13 @@ const QRCodeGenerator = ({
   onGenerated,
   onError,
   size = 200,
-  timeout = 1000,
+  timeout = 500,
 }) => {
   const qrRef = useRef(null);
   const hasGenerated = useRef(false);
+  const timeoutRef = useRef(null);
 
   useEffect(() => {
-    // Resetear flag cuando value cambia
-    hasGenerated.current = false;
-
     // Validar value
     if (!value) {
       console.error("[QRCodeGenerator] Value vacío o indefinido");
@@ -47,9 +37,19 @@ const QRCodeGenerator = ({
       return;
     }
 
+    // Si ya se generó, no volver a generar
+    if (hasGenerated.current) {
+      console.log("[QRCodeGenerator] QR ya generado, ignorando");
+      return;
+    }
+
+    console.log("[QRCodeGenerator] Iniciando generación QR");
+
     // Esperar a que el componente se monte y el QR se renderice
-    const timer = setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
+      // Doble verificación
       if (hasGenerated.current) {
+        console.log("[QRCodeGenerator] Ya generado (en timeout), abortando");
         return;
       }
 
@@ -64,7 +64,11 @@ const QRCodeGenerator = ({
       try {
         // Convertir QR a formato base64 (data URL)
         qrRef.current.toDataURL((dataURL) => {
+          // Triple verificación antes de llamar callback
           if (hasGenerated.current) {
+            console.log(
+              "[QRCodeGenerator] Ya generado (en callback), abortando"
+            );
             return;
           }
 
@@ -81,7 +85,10 @@ const QRCodeGenerator = ({
             ? dataURL
             : `data:image/png;base64,${dataURL}`;
 
+          // Marcar como generado ANTES de llamar al callback
           hasGenerated.current = true;
+
+          console.log("[QRCodeGenerator] ✅ QR generado exitosamente");
 
           // Llamar al callback con el QR en base64
           if (onGenerated) {
@@ -89,15 +96,18 @@ const QRCodeGenerator = ({
           }
         });
       } catch (error) {
-        console.error("[QRCodeGenerator] Error en try-catch:", error);
+        console.error("[QRCodeGenerator] Error generando QR:", error);
         if (onError) {
           onError(error);
         }
       }
     }, timeout);
 
+    // Cleanup function
     return () => {
-      clearTimeout(timer);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, [value, onGenerated, onError, timeout]);
 

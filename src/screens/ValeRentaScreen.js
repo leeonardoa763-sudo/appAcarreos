@@ -46,6 +46,7 @@ import FormPicker from "../componets/forms/FormPicker";
 import FormTimePicker from "../componets/forms/FormTimePicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 import SuccessModal from "../componets/common/SuccessModal";
+import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
 
 // Utils
 import { generateVerificationUrl } from "../utils/qrGenerator";
@@ -294,11 +295,7 @@ const ValeRentaScreen = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Renta</Text>
-      </View>
-
-      <ScrollView
+      <KeyboardAvoidingScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -406,7 +403,7 @@ const ValeRentaScreen = () => {
             backgroundColor={colors.accent}
           />
         </View>
-      </ScrollView>
+      </KeyboardAvoidingScrollView>
 
       {/* Modal de éxito */}
       <SuccessModal

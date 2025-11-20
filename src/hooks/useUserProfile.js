@@ -11,16 +11,21 @@
  * USO:
  * const { userProfile, profileError, loadProfile, refreshProfile } = useUserProfile();
  */
-
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { supabase } from "../config/supabase";
 
 export const useUserProfile = () => {
   const [userProfile, setUserProfile] = useState(null);
   const [profileError, setProfileError] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
-
   const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   /**
    * Carga el perfil del usuario desde la BD
@@ -31,6 +36,11 @@ export const useUserProfile = () => {
   const loadProfile = async (authUserId) => {
     if (!authUserId) {
       console.error("[useUserProfile] authUserId es requerido");
+      return null;
+    }
+
+    if (!isMounted.current) {
+      console.log("[useUserProfile] Componente desmontado, abortando");
       return null;
     }
 
@@ -59,21 +69,20 @@ export const useUserProfile = () => {
         .eq("auth_user_id", authUserId)
         .single();
 
+      if (!isMounted.current) return null;
+
       if (error) {
         console.error("[useUserProfile] Error cargando perfil:", error);
-
         if (error.code === "PGRST116") {
           const errorMsg = new Error(
             "Tu usuario no está registrado en el sistema. Contacta al administrador."
           );
           errorMsg.code = "NO_PROFILE";
-
           if (isMounted.current) {
             setProfileError(errorMsg);
           }
           return null;
         }
-
         if (isMounted.current) {
           setProfileError(error);
         }
@@ -88,8 +97,9 @@ export const useUserProfile = () => {
 
       return null;
     } catch (error) {
-      console.error("[useUserProfile] Error inesperado:", error);
+      if (!isMounted.current) return null;
 
+      console.error("[useUserProfile] Error inesperado:", error);
       if (isMounted.current) {
         setProfileError(error);
       }

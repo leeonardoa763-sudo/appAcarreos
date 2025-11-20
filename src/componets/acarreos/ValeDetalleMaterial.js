@@ -21,6 +21,7 @@ import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
 
 import { calcularCostoValeMaterial } from "../../utils/preciosMaterial";
+import KeyboardAvoidingScrollView from "../common//KeyboardAvoidingScrollView";
 
 import StatusBadge from "../common/StatusBadge";
 import FormDecimalInput from "../forms/FormDecimalInput";
@@ -353,7 +354,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
   return (
     <>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Estado */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Estado</Text>
@@ -492,7 +496,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         )}
 
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </KeyboardAvoidingScrollView>
 
       {/* Modal de Éxito */}
       <SuccessModal
@@ -552,7 +556,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   section: {
-    marginTop: 20,
     marginBottom: 12,
   },
   sectionTitle: {

@@ -1,5 +1,6 @@
 // src/navigation/BottomTabNavigator.js
 import React from "react";
+import { Platform } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
@@ -28,19 +29,61 @@ function ValesStack() {
   return (
     <Stack.Navigator
       screenOptions={{
+        // Header por defecto oculto
         headerShown: false,
         cardStyle: { backgroundColor: colors.background },
-        // 🆕 Desmontar pantallas cuando pierden foco para resetear estado
         unmountOnBlur: true,
+        // Configuración global del header cuando se muestra
+        headerStyle: {
+          backgroundColor: colors.surface,
+          elevation: 2,
+          shadowColor: colors.shadow.color,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
+        },
+        headerTintColor: colors.primary,
+        headerTitleStyle: {
+          fontWeight: "bold",
+          fontSize: 18,
+          color: colors.textPrimary,
+        },
+        headerBackTitleVisible: false, // En iOS no mostrar texto "Atrás"
+        headerBackTitleStyle: {
+          fontSize: 12, // ← Tamaño de fuente del texto "Atrás"
+        },
       }}
     >
+      {/* Pantalla principal de Vales - SIN header */}
       <Stack.Screen name="ValesMain" component={ValesScreen} />
+
+      {/* Seleccionar tipo - SIN header */}
       <Stack.Screen
         name="SeleccionarTipoVale"
         component={SeleccionarTipoValeScreen}
       />
-      <Stack.Screen name="ValeRentaScreen" component={ValeRentaScreen} />
-      <Stack.Screen name="ValeMaterialScreen" component={ValeMaterialScreen} />
+
+      {/* Pantalla de Renta - CON header */}
+      <Stack.Screen
+        name="ValeRentaScreen"
+        component={ValeRentaScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Nuevo Vale de Renta",
+          headerBackVisible: true, // Mostrar botón de atrás nativo
+        }}
+      />
+
+      {/* Pantalla de Material - CON header */}
+      <Stack.Screen
+        name="ValeMaterialScreen"
+        component={ValeMaterialScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Nuevo Vale de Material",
+          headerBackVisible: true, // Mostrar botón de atrás nativo
+        }}
+      />
     </Stack.Navigator>
   );
 }
@@ -72,9 +115,21 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          height: 60,
-          paddingBottom: 8,
+          // Altura dinámica según plataforma
+          height: Platform.select({
+            ios: 85, // iPhone con n otch/isla dinámica
+            android: 65, // Android estándar
+          }),
+          paddingBottom: Platform.select({
+            ios: 25, // Espacio para el área segura en iOS
+            android: 8,
+          }),
           paddingTop: 8,
+          elevation: 8,
+          shadowColor: colors.shadow.color,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
         },
         header: ({ route }) => {
           let title = route.name;

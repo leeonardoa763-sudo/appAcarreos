@@ -33,6 +33,7 @@ import SuccessModal from "../componets/common/SuccessModal";
 import FormInput from "../componets/forms/FormInput";
 import FormPicker from "../componets/forms/FormPicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
+import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
 
 const ValeMaterialScreen = () => {
   const navigation = useNavigation();
@@ -187,17 +188,18 @@ const ValeMaterialScreen = () => {
   };
 
   // Función: Manejar compartir desde modal
-  const handleCompartirDesdeModal = () => {
-    if (isMounted.current) {
-      setShowSuccessModal(false);
-    }
+  const handleCompartirDesdeModal = async () => {
+    // ✅ Cerrar modal PRIMERO
+    setShowSuccessModal(false);
 
+    // ✅ Esperar a que el modal se cierre completamente
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // ✅ Ahora compartir
     if (qrDataUrl) {
       compartirPDF(valeCreado, generarCopiaRoja);
     } else {
-      if (isMounted.current) {
-        setShouldSharePDF(true);
-      }
+      setShouldSharePDF(true);
     }
   };
 
@@ -233,12 +235,7 @@ const ValeMaterialScreen = () => {
         />
       )}
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Material</Text>
-      </View>
-
-      <ScrollView
+      <KeyboardAvoidingScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -386,23 +383,25 @@ const ValeMaterialScreen = () => {
             backgroundColor={colors.accent}
           />
         </View>
-      </ScrollView>
+      </KeyboardAvoidingScrollView>
 
-      {/* Modal de éxito */}
       <SuccessModal
         visible={showSuccessModal}
         title="Vale Creado"
-        message={
+        message={`Vale ${folioCreado} creado exitosamente${
           generarCopiaRoja
-            ? `Vale ${folioCreado} creado exitosamente.\n\n¿Deseas generar la copia ROJA preliminar ahora?`
-            : `Vale ${folioCreado} creado exitosamente.\n\n¿Deseas generar la copia BLANCA ahora?`
-        }
+            ? "\n\nSe generó la copia ROJA preliminar"
+            : "\n\nSe generó la copia BLANCA definitiva"
+        }`}
         primaryAction={{
-          text: generarCopiaRoja ? "Generar PDF Rojo" : "Generar PDF Blanco",
+          text: "Compartir PDF",
           icon: "file-pdf-box",
-          onPress: handleCompartirDesdeModal,
+          onPress: handleCompartirDesdeModal, // ← Usar la nueva función
         }}
-        onClose={handleCompartirDesdeModal}
+        onClose={() => {
+          setShowSuccessModal(false);
+          navegarAcarreos();
+        }}
       />
     </View>
   );

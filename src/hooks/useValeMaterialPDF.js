@@ -91,6 +91,7 @@ export const useValeMaterialPDF = (navigation) => {
         if (isMounted.current) {
           setGeneratingPDF(false);
           setShouldSharePDF(false);
+          setQrGenerated(false);
         }
         isSharing.current = false;
       }
@@ -101,14 +102,30 @@ export const useValeMaterialPDF = (navigation) => {
   // Callback: Cuando se genera el QR
   const handleQRGenerated = useCallback(
     (dataUrl) => {
+      console.log("[useValeMaterialPDF] handleQRGenerated llamado");
+      console.log("[useValeMaterialPDF] qrGenerated actual:", qrGenerated);
+      console.log("[useValeMaterialPDF] dataUrl recibido:", !!dataUrl);
+
       if (qrGenerated) {
-        console.log("[useValeMaterialPDF] QR ya fue procesado, ignorando...");
+        console.log(
+          "[useValeMaterialPDF] ⚠️ QR ya fue procesado, ignorando..."
+        );
         return;
       }
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {
+        console.log(
+          "[useValeMaterialPDF] ⚠️ Componente desmontado, ignorando..."
+        );
+        return;
+      }
 
-      console.log("[useValeMaterialPDF] QR generado exitosamente");
+      if (!dataUrl) {
+        console.error("[useValeMaterialPDF] ❌ dataUrl vacío");
+        return;
+      }
+
+      console.log("[useValeMaterialPDF] ✅ QR generado exitosamente");
       setQrDataUrl(dataUrl);
       setQrGenerated(true);
     },

@@ -279,7 +279,13 @@ export const generateAndSharePDF = async (
   colorCopia = "roja",
   qrDataUrl
 ) => {
+  let newUri = null; // ✅ Declarar aquí
+
   try {
+    console.log("[pdfGenerator] === INICIO generateAndSharePDF ===");
+    console.log("[pdfGenerator] colorCopia:", colorCopia);
+    console.log("[pdfGenerator] Tiene QR:", !!qrDataUrl);
+
     if (!valeData || !valeData.folio) {
       throw new Error("Datos del vale incompletos");
     }
@@ -288,39 +294,66 @@ export const generateAndSharePDF = async (
       throw new Error("Código QR no generado");
     }
 
+    console.log("[pdfGenerator] Generando HTML...");
     const html = generateValeHTML(valeData, colorCopia, qrDataUrl);
 
+    console.log("[pdfGenerator] Convirtiendo a PDF...");
     const { uri } = await Print.printToFileAsync({
       html,
       base64: false,
       width: 226,
       height: 842,
     });
+    console.log("[pdfGenerator] PDF generado en:", uri);
 
-    const newUri = await renamePDFWithAutoName(uri, valeData.folio, colorCopia);
+    console.log("[pdfGenerator] Renombrando archivo...");
+    newUri = await renamePDFWithAutoName(uri, valeData.folio, colorCopia); // ✅ Sin const
+    console.log("[pdfGenerator] Archivo renombrado:", newUri);
 
+    console.log("[pdfGenerator] Verificando disponibilidad de compartir...");
     const isAvailable = await Sharing.isAvailableAsync();
+    console.log("[pdfGenerator] Sharing disponible:", isAvailable);
 
     if (!isAvailable) {
-      throw new Error(
-        "La función de compartir no está disponible en este dispositivo"
-      );
+      throw new Error("La función de compartir no está disponible");
     }
 
-    await Sharing.shareAsync(newUri, {
-      mimeType: "application/pdf",
-      dialogTitle: `Vale ${valeData.folio} - Copia ${colorCopia.toUpperCase()}`,
-      UTI: "com.adobe.pdf",
-    });
+    console.log("[pdfGenerator] Compartiendo PDF...");
 
+    await Promise.race([
+      Sharing.shareAsync(newUri, {
+        mimeType: "application/pdf",
+        dialogTitle: `Vale ${
+          valeData.folio
+        } - Copia ${colorCopia.toUpperCase()}`,
+        UTI: "com.adobe.pdf",
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout compartiendo")), 15000)
+      ),
+    ]);
+
+    console.log("[pdfGenerator] ✅ PDF compartido exitosamente");
     return newUri;
   } catch (error) {
-    console.error("Error generando/compartiendo PDF:", error);
+    console.error("[pdfGenerator] ❌ ERROR:", error.message);
+
+    if (error.message === "Timeout compartiendo" && newUri) {
+      console.log("[pdfGenerator] Timeout pero archivo creado:", newUri);
+      // ⚠️ El archivo existe pero sharing falló
+      // Retornar success de todos modos
+      return newUri;
+    }
+
     throw error;
   }
 };
 
 export const generatePDFOnly = async (valeData, colorCopia, qrDataUrl) => {
+  console.log("[pdfGenerator] === generateValeHTML llamado ===");
+  console.log("[pdfGenerator] Folio:", valeData?.folio);
+  console.log("[pdfGenerator] Color:", colorCopia);
+  console.log("[pdfGenerator] QR length:", qrDataUrl?.length);
   try {
     if (!valeData || !valeData.folio) {
       throw new Error("Datos del vale incompletos");

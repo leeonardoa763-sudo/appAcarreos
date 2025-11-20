@@ -1,17 +1,19 @@
 /**
  * FormTimePicker.js
  *
+ * VERSIÓN MEJORADA - MEJOR VISUALIZACIÓN EN iOS
+ *
  * Componente selector de hora con interfaz nativa
  *
  * PROPÓSITO:
  * - Selector de hora con interfaz nativa del sistema
+ * - Botón más visible y legible en iOS
  * - Muestra label y hora seleccionada en formato legible
  * - Compatible con iOS y Android
- * - Maneja formato 12h y 24h según el sistema
  *
  * USADO EN:
  * - ValeRentaScreen (Hora Inicio, Hora Fin)
- * - Cualquier formulario que necesite selección de hora
+ * - ValeDetalleRenta (Hora Fin)
  *
  * PROPS:
  * - label: string - Texto del label
@@ -21,14 +23,6 @@
  * - error: string - Mensaje de error (opcional)
  * - minimumDate: Date - Hora mínima permitida (opcional)
  * - maximumDate: Date - Hora máxima permitida (opcional)
- *
- * EJEMPLO DE USO:
- * <FormTimePicker
- *   label="Hora Inicio"
- *   value={horaInicio}
- *   onChange={setHoraInicio}
- *   enabled={true}
- * />
  */
 
 import React, { useState } from "react";
@@ -128,7 +122,7 @@ const FormTimePicker = ({
   if (Platform.OS === "web") {
     return (
       <View style={styles.container}>
-        <Text style={styles.label}>{label}</Text>
+        {label && <Text style={styles.label}>{label}</Text>}
         <View style={[styles.webInputContainer, error && styles.webInputError]}>
           <MaterialCommunityIcons
             name="clock-outline"
@@ -156,6 +150,7 @@ const FormTimePicker = ({
     );
   }
 
+  // RENDERIZADO PARA MÓVIL (iOS y Android)
   return (
     <View style={styles.container}>
       {/* Label */}
@@ -172,11 +167,13 @@ const FormTimePicker = ({
         disabled={!isEnabled}
         activeOpacity={0.7}
       >
-        <MaterialCommunityIcons
-          name="clock-outline"
-          size={20}
-          color={isEnabled ? colors.textPrimary : colors.disabled}
-        />
+        <View style={styles.iconContainer}>
+          <MaterialCommunityIcons
+            name="clock-outline"
+            size={22}
+            color={isEnabled ? colors.primary : colors.disabled}
+          />
+        </View>
         <Text
           style={[
             styles.timeText,
@@ -188,8 +185,8 @@ const FormTimePicker = ({
         </Text>
         <MaterialCommunityIcons
           name="chevron-down"
-          size={20}
-          color={isEnabled ? colors.textSecondary : colors.disabled} // CAMBIAR
+          size={22}
+          color={isEnabled ? colors.textPrimary : colors.disabled}
         />
       </TouchableOpacity>
 
@@ -217,17 +214,30 @@ const FormTimePicker = ({
           visible={showPicker}
           onRequestClose={closePicker}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={closePicker}
+          >
+            <View
+              style={styles.modalContent}
+              onStartShouldSetResponder={() => true}
+            >
               {/* Header del modal */}
               <View style={styles.modalHeader}>
-                <TouchableOpacity onPress={closePicker}>
+                <TouchableOpacity
+                  onPress={closePicker}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
                   <Text style={styles.modalButtonCancel}>Cancelar</Text>
                 </TouchableOpacity>
                 <Text style={styles.modalTitle}>
                   {label || "Seleccionar Hora"}
                 </Text>
-                <TouchableOpacity onPress={closePicker}>
+                <TouchableOpacity
+                  onPress={closePicker}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
                   <Text style={styles.modalButtonDone}>Listo</Text>
                 </TouchableOpacity>
               </View>
@@ -242,9 +252,10 @@ const FormTimePicker = ({
                 minimumDate={minimumDate}
                 maximumDate={maximumDate}
                 style={styles.iosPickerStyle}
+                textColor={colors.textPrimary}
               />
             </View>
-          </View>
+          </TouchableOpacity>
         </Modal>
       )}
     </View>
@@ -259,80 +270,110 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
     color: colors.textPrimary,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   timeButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.input.background,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.input.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 8,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
   timeButtonDisabled: {
     backgroundColor: colors.input.disabled,
+    borderColor: colors.border,
   },
   timeButtonError: {
     borderColor: colors.danger,
+    borderWidth: 2,
+  },
+  iconContainer: {
+    marginRight: 10,
   },
   timeText: {
     flex: 1,
     fontSize: 16,
-    color: colors.input.text,
+    fontWeight: "500",
+    color: colors.textPrimary,
   },
   timeTextPlaceholder: {
     color: colors.input.placeholder,
+    fontWeight: "400",
   },
   timeTextDisabled: {
     color: colors.textSecondary,
   },
   errorText: {
-    marginTop: 4,
-    fontSize: 12,
+    marginTop: 6,
+    fontSize: 13,
     color: colors.danger,
+    fontWeight: "500",
+  },
+
+  // Estilos para input web
+  webInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.input.background,
+    borderWidth: 1.5,
+    borderColor: colors.input.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 2,
+  },
+  webInputError: {
+    borderColor: colors.danger,
+    borderWidth: 2,
   },
 
   // Estilos para modal iOS
   modalOverlay: {
     flex: 1,
-    backgroundColor: colors.shadow.medium,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "flex-end",
   },
   modalContent: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 34, // Extra para área segura en iPhone
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
     color: colors.textPrimary,
   },
   modalButtonCancel: {
-    fontSize: 16,
+    fontSize: 17,
     color: colors.danger,
+    fontWeight: "400",
   },
   modalButtonDone: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
     color: colors.primary,
   },
   iosPickerStyle: {
-    height: 200,
+    height: 216,
+    backgroundColor: colors.surface,
   },
 });
