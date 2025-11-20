@@ -121,6 +121,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           setSaving(false);
           return;
         }
+
+        totalDias = 0;
       }
 
       // Intentar usar RPC optimizado
@@ -131,13 +133,17 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         p_total_horas: totalHoras,
         p_total_dias: totalDias,
         p_numero_viajes: numeroViajes,
+        p_es_renta_por_dia: esRentaPorDia,
       });
 
       if (error) {
+        console.log("[ValeDetalleRenta] RPC falló, usando fallback");
+
         // Fallback: queries separadas
         const { error: errorDetalle } = await supabase
           .from("vale_renta_detalle")
           .update({
+            es_renta_por_dia: esRentaPorDia,
             hora_fin: horaFinFinal,
             total_horas: totalHoras,
             total_dias: totalDias,
@@ -162,6 +168,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         vale_renta_detalle: [
           {
             ...detalleRenta,
+            es_renta_por_dia: esRentaPorDia,
             hora_fin: horaFinFinal,
             total_horas: totalHoras,
             total_dias: totalDias,
@@ -177,10 +184,16 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         numeroViajes,
         esRentaPorDia,
       });
-      setShowSuccessModal(true);
+
+      // Generar PDF automáticamente sin mostrar modal primero
+      console.log(
+        "[ValeDetalleRenta] Iniciando generación automática de PDF..."
+      );
+      setTriggerPDF(true);
+      // NO ponemos setSaving(false) aquí - se maneja en onSuccess del PDF
     } catch (error) {
+      console.error("[ValeDetalleRenta] Error completando vale:", error);
       Alert.alert("Error", "No se pudo completar el vale. Intenta de nuevo.");
-    } finally {
       setSaving(false);
     }
   }, [
@@ -192,21 +205,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     vale?.id_vale,
   ]);
 
-  const handleCloseSuccess = useCallback(() => {
-    setShowSuccessModal(false);
-    onRefresh();
-    onClose();
-  }, [onRefresh, onClose]);
-
-  const handleGenerarPDFAhora = useCallback(() => {
-    if (!updatedVale) {
-      Alert.alert("Error", "No hay datos del vale actualizado");
-      return;
-    }
-    setTriggerPDF(true);
-  }, [updatedVale]);
-
-  // ValeDetalleRenta.js - línea ~75 (después del if (!vale))
   if (!vale || !detalleRenta) {
     console.log("[ValeDetalleRenta] Vale o detalle nulo");
     console.log("[ValeDetalleRenta] Vale:", !!vale);
@@ -362,17 +360,16 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         title="Vale de Renta Completado"
         message={
           successData?.esRentaPorDia
-            ? `Renta por día completo registrada.\nViajes: ${successData?.numeroViajes}\n\n¿Deseas generar el PDF ahora?`
-            : `Total de horas: ${successData?.totalHoras}\nViajes: ${successData?.numeroViajes}\n\n¿Deseas generar el PDF ahora?`
+            ? `Renta por día completo registrada.\nViajes: ${successData?.numeroViajes}\n\nPDF generado exitosamente.`
+            : `Total de horas: ${successData?.totalHoras}\nViajes: ${successData?.numeroViajes}\n\nPDF generado exitosamente.`
         }
         primaryAction={{
-          text: "Generar PDF",
-          icon: "file-pdf-box",
+          text: "Cerrar",
+          icon: "check",
           onPress: () => {
             setShowSuccessModal(false);
-            setTimeout(() => {
-              handleGenerarPDFAhora();
-            }, 300);
+            onRefresh();
+            onClose();
           },
         }}
       />
@@ -385,9 +382,28 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           colorCopia="blanco"
           autoTrigger={true}
           onSuccess={() => {
+            console.log("[ValeDetalleRenta] PDF generado exitosamente");
             setTriggerPDF(false);
-            onRefresh();
-            onClose();
+            setSaving(false);
+            setShowSuccessModal(true);
+          }}
+          onError={(error) => {
+            console.error("[ValeDetalleRenta] Error generando PDF:", error);
+            setTriggerPDF(false);
+            setSaving(false);
+            Alert.alert(
+              "Vale Completado",
+              "El vale se guardó correctamente, pero hubo un error al generar el PDF. Puedes generarlo desde la pantalla de Acarreos.",
+              [
+                {
+                  text: "Entendido",
+                  onPress: () => {
+                    onRefresh();
+                    onClose();
+                  },
+                },
+              ]
+            );
           }}
         />
       )}

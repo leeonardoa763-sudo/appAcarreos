@@ -48,15 +48,14 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
 
   console.log("[pdfRentaGenerator] Generando PDF para vale:", valeData.folio);
   console.log("[pdfRentaGenerator] Detalle:", {
+    es_renta_por_dia: detalle.es_renta_por_dia,
     total_horas: detalle.total_horas,
     total_dias: detalle.total_dias,
     hora_fin: detalle.hora_fin,
   });
 
-  // Determinar si es renta por día (detección más robusta)
-  const esRentaPorDia =
-    detalle.hora_fin === null ||
-    (Number(detalle.total_dias) === 1 && Number(detalle.total_horas) === 0);
+  // ✅ SIMPLIFICADO: Usar campo booleano directo
+  const esRentaPorDia = detalle.es_renta_por_dia === true;
 
   console.log("[pdfRentaGenerator] Es renta por día:", esRentaPorDia);
 
@@ -71,13 +70,14 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
     ? formatearHora(detalle.hora_fin)
     : "Pendiente";
 
-  // Formatear total de horas (sin "hrs" si es N/A)
+  // Formatear total de horas
   const totalHoras = esRentaPorDia
     ? "N/A"
     : detalle.total_horas
     ? `${detalle.total_horas} hrs`
     : "N/A";
 
+  // Formatear total de días
   const totalDias = esRentaPorDia ? "1 día" : "N/A";
 
   // Obtener tarifas
