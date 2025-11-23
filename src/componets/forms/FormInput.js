@@ -7,6 +7,7 @@
  * - Input genérico para texto, números, email, etc.
  * - Muestra label, placeholder y maneja estado
  * - Feedback visual de error
+ * - Cierre automático de teclado con botón "Listo"
  *
  * USADO EN:
  * - ValeRentaScreen (capacidad, nombre operador, placas)
@@ -22,6 +23,9 @@
  * - error: string - Mensaje de error (opcional)
  * - suffix: string - Texto al final del input (ej: "m³")
  * - multiline: boolean - Si es área de texto
+ * - numberOfLines: number - Número de líneas para multiline
+ * - returnKeyType: string - Tipo de botón return (default, done, next, etc)
+ * - onSubmitEditing: function - Callback al presionar return
  *
  * EJEMPLO DE USO:
  * <FormInput
@@ -33,7 +37,6 @@
  *   suffix="m³"
  * />
  */
-
 import React from "react";
 import { View, Text, TextInput, StyleSheet } from "react-native";
 import { colors } from "../../config/colors";
@@ -49,6 +52,8 @@ const FormInput = ({
   suffix = null,
   multiline = false,
   numberOfLines = 1,
+  returnKeyType = "done",
+  onSubmitEditing = null,
 }) => {
   return (
     <View style={styles.container}>
@@ -74,6 +79,9 @@ const FormInput = ({
           multiline={multiline}
           numberOfLines={multiline ? numberOfLines : 1}
           textAlignVertical={multiline ? "top" : "center"}
+          returnKeyType={multiline ? "default" : returnKeyType}
+          blurOnSubmit={!multiline}
+          onSubmitEditing={onSubmitEditing}
         />
 
         {/* Sufijo (ej: m³, km, etc) */}

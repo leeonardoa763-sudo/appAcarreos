@@ -7,6 +7,7 @@
  * - Búsqueda incremental mientras el usuario escribe
  * - Filtrado automático de opciones
  * - Compatible con catálogos de Supabase
+ * - Cierre automático de teclado al seleccionar
  *
  * USADO EN:
  * - DatosOperadorSection (operadores y vehículos)
@@ -30,6 +31,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Keyboard,
 } from "react-native";
 import { colors } from "../../config/colors";
 
@@ -62,11 +64,15 @@ const FormAutocomplete = ({
     setSearchText("");
     setShowList(false);
     onSelect(item);
+
+    // Cerrar teclado automáticamente
+    Keyboard.dismiss();
   };
 
   const handleClear = () => {
     setSearchText("");
     onSelect(null);
+    Keyboard.dismiss();
   };
 
   return (
@@ -83,8 +89,14 @@ const FormAutocomplete = ({
             if (!text) onSelect(null);
           }}
           onFocus={() => setShowList(true)}
+          onBlur={() => {
+            // Pequeño delay para permitir que el onPress del item se ejecute primero
+            setTimeout(() => setShowList(false), 150);
+          }}
           placeholder={placeholder}
           placeholderTextColor={colors.textSecondary}
+          returnKeyType="done"
+          blurOnSubmit={true}
         />
         {selectedItem && (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
