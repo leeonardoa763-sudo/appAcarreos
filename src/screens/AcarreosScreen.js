@@ -46,6 +46,7 @@ const AcarreosScreen = () => {
 
   // Ref para prevenir setState después de unmount
   const isMounted = useRef(true);
+  const isFetching = useRef(false);
 
   // Cleanup al desmontar
   useEffect(() => {
@@ -56,14 +57,26 @@ const AcarreosScreen = () => {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (isMounted.current && userProfile?.id_persona) {
+      if (isMounted.current && userProfile?.id_persona && !isFetching.current) {
         fetchVales();
       }
-    }, [userProfile])
+    }, [userProfile?.id_persona])
   );
 
   const fetchVales = async () => {
+    // Validación temprana
+    if (!userProfile?.id_persona) {
+      return;
+    }
+
+    // Prevenir fetches concurrentes
+    if (isFetching.current) {
+      return;
+    }
+
     try {
+      isFetching.current = true;
+
       if (isMounted.current) {
         setLoading(true);
         setError(null);
@@ -126,11 +139,18 @@ const AcarreosScreen = () => {
         setValesRenta(renta);
       }
     } catch (error) {
-      console.error("[AcarreosScreen] Error fetchVales:", error);
-      if (isMounted.current) {
+      console.error("[AcarreosScreen] Error fetchVales:", error.message);
+
+      if (
+        isMounted.current &&
+        error.message !== "Failed to fetch" &&
+        error.message !== "Network request failed"
+      ) {
         setError(error.message);
       }
     } finally {
+      isFetching.current = false;
+
       if (isMounted.current) {
         setLoading(false);
       }
@@ -214,6 +234,16 @@ const AcarreosScreen = () => {
   const renderValeItem = ({ item }) => {
     return <ValeCard vale={item} onPress={() => handleOpenVale(item)} />;
   };
+
+  // Validación: Esperar a que userProfile esté disponible
+  if (!userProfile?.id_persona) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Cargando perfil de usuario...</Text>
+      </View>
+    );
+  }
 
   // Mostrar loading siempre que loading=true
   if (loading) {

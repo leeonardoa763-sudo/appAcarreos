@@ -92,9 +92,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
       return;
     }
 
-    const folioNumerico = parseInt(folioBanco, 10);
-    if (isNaN(folioNumerico)) {
-      Alert.alert("Error", "El folio debe ser un número válido");
+    // Validar formato del folio (solo números y guiones opcionales)
+    const folioLimpio = folioBanco.trim();
+    if (!/^[0-9-]+$/.test(folioLimpio)) {
+      Alert.alert("Error", "El folio solo puede contener números y guiones");
       return;
     }
 
@@ -113,7 +114,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           p_id_vale: vale.id_vale,
           p_id_detalle: detalleId,
           p_peso_ton: pesoToneladas,
-          p_folio_banco: folioNumerico,
+          p_folio_banco: folioLimpio,
           p_id_material: detalleMaterial.id_material,
           p_id_banco: detalleMaterial.id_banco,
         }
@@ -203,7 +204,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           materialData.id_tipo_de_material,
           vehiculoData.id_sindicato,
           detalleMaterial.distancia_km,
-          volumenReal // ← Usar volumen real REDONDEADO
+          volumenReal
         );
 
         console.log("[ValeDetalleMaterial] Precio calculado:", {
@@ -219,13 +220,13 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           .from("vale_material_detalles")
           .update({
             peso_ton: pesoToneladas,
-            volumen_real_m3: volumenReal, // Ya redondeado
-            folio_banco: folioNumerico,
+            volumen_real_m3: volumenReal,
+            folio_banco: folioLimpio,
             precio_m3: costos.precioM3,
             costo_total: costos.costoTotal,
             id_precios_material: costos.idPreciosMaterial,
-            tarifa_primer_km: costos.tarifaPrimerKm, // ← NUEVO
-            tarifa_subsecuente: costos.tarifaSubsecuente, // ← NUEVO
+            tarifa_primer_km: costos.tarifaPrimerKm,
+            tarifa_subsecuente: costos.tarifaSubsecuente,
           })
           .eq("id_detalle_material", detalleId);
 
@@ -309,7 +310,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         setSuccessData({
           pesoToneladas,
           volumenReal: volumenReal.toFixed(2),
-          folioBanco: folioNumerico,
+          folioBanco: folioLimpio,
         });
       } else {
         // RPC exitoso
@@ -319,7 +320,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           pesoToneladas,
           volumenReal:
             detalleActualizado?.volumen_real_m3?.toFixed(2) || "0.00",
-          folioBanco: folioNumerico,
+          folioBanco: folioLimpio,
         });
       }
 
@@ -470,9 +471,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               label="Folio del Banco"
               value={folioBanco}
               onChangeText={setFolioBanco}
-              placeholder="12345"
-              keyboardType="number-pad"
+              placeholder="Ej: 123456789"
+              keyboardType="default"
               editable={true}
+              maxLength={20}
             />
 
             <PrimaryButton
