@@ -7,6 +7,7 @@
  * - Cálculo de número de semana ISO 8601
  * - Rango de fechas por semana
  * - Formateo de fechas para CSV
+ * - Generación de opciones de semanas con vales
  *
  * USADO EN:
  * - InformesScreen
@@ -158,6 +159,40 @@ export const getWeeksOfYear = () => {
   }
 
   return weeks;
+};
+
+/**
+ * NUEVA: Obtiene semanas únicas de un array de vales
+ * Útil para mostrar solo semanas que tienen vales
+ *
+ * @param {Array} vales - Array de vales con fecha_creacion
+ * @returns {Array} - Array de objetos { id: weekNumber, label: "Semana X (DD/MM - DD/MM)" }
+ */
+export const getWeeksFromVales = (vales) => {
+  if (!vales || vales.length === 0) return [];
+
+  // Obtener semanas únicas
+  const weeksSet = new Set();
+  vales.forEach((vale) => {
+    const weekNum = getWeekNumber(new Date(vale.fecha_creacion));
+    weeksSet.add(weekNum);
+  });
+
+  // Convertir a array y ordenar
+  const weeksArray = Array.from(weeksSet).sort((a, b) => b - a);
+
+  // Generar objetos con rango de fechas
+  const currentYear = getCurrentYear();
+  return weeksArray.map((weekNum) => {
+    const { startDate, endDate } = getWeekDateRange(weekNum, currentYear);
+    const startStr = formatDateOnly(startDate);
+    const endStr = formatDateOnly(endDate);
+
+    return {
+      id: weekNum,
+      label: `Semana ${weekNum} (${startStr} - ${endStr})`,
+    };
+  });
 };
 
 /**

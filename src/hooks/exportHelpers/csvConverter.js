@@ -1,0 +1,181 @@
+/**
+ * hooks/exportHelpers/csvConverter.js
+ *
+ * FUNCIONES PARA CONVERSIÓN A CSV
+ * - Escape de caracteres especiales
+ * - Conversión de arrays a CSV
+ * - Transformación de datos de vales
+ */
+
+import { getWeekNumber, formatDateOnly } from "../../utils/dateUtils";
+
+/**
+ * Escapa caracteres especiales para CSV
+ */
+export const escapeCsvValue = (value) => {
+  if (value === null || value === undefined) return "";
+
+  const stringValue = String(value);
+
+  if (
+    stringValue.includes(",") ||
+    stringValue.includes('"') ||
+    stringValue.includes("\n")
+  ) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+
+  return stringValue;
+};
+
+/**
+ * Convierte array de objetos a formato CSV
+ */
+export const convertToCSV = (data, headers) => {
+  console.log("[csvConverter] Convirtiendo a CSV:");
+  console.log("  - Filas de datos:", data.length);
+  console.log("  - Columnas:", headers.length);
+
+  const headerRow = headers.map((h) => escapeCsvValue(h.label)).join(",");
+
+  const dataRows = data.map((row) => {
+    return headers.map((h) => escapeCsvValue(row[h.key])).join(",");
+  });
+
+  const csvContent = [headerRow, ...dataRows].join("\n");
+  console.log("  - Tamaño CSV:", csvContent.length, "caracteres");
+
+  return csvContent;
+};
+
+/**
+ * Construye nombre completo de persona
+ */
+const getNombreCompleto = (persona) => {
+  if (!persona) return "-";
+  return `${persona.nombre} ${persona.primer_apellido} ${
+    persona.segundo_apellido || ""
+  }`.trim();
+};
+
+/**
+ * Transforma datos de vales de material a formato CSV
+ */
+export const transformMaterialData = (vales) => {
+  console.log("[csvConverter] Transformando datos de material:");
+  console.log("  - Vales a transformar:", vales.length);
+
+  return vales.map((vale, index) => {
+    const detalle = vale.vale_material_detalles?.[0] || {};
+    const weekNum = getWeekNumber(new Date(vale.fecha_creacion));
+
+    console.log(`  - Vale ${index + 1}:`, {
+      folio: vale.folio,
+      tiene_detalle: !!detalle,
+      obra: vale.obras?.obra,
+    });
+
+    return {
+      folio: vale.folio || "-",
+      fecha: formatDateOnly(vale.fecha_creacion),
+      semana: `Semana ${weekNum}`,
+      obra: vale.obras?.obra || "-",
+      residente: getNombreCompleto(vale.persona),
+      operador: getNombreCompleto(vale.operadores),
+      placas: vale.vehiculos?.placas || "-",
+      material: detalle.material?.material || "-",
+      banco: detalle.bancos?.banco || "-",
+      capacidad: detalle.capacidad_m3 || "0",
+      distancia: detalle.distancia_km || "0",
+      cantidad_pedida: detalle.cantidad_pedida_m3 || "0",
+      volumen_real: detalle.volumen_real_m3 || "0",
+      peso: detalle.peso_ton || "0",
+      precio_m3: detalle.precio_m3 || "0",
+      costo_total: detalle.costo_total || "0",
+    };
+  });
+};
+
+/**
+ * Transforma datos de vales de renta a formato CSV
+ */
+export const transformRentaData = (vales) => {
+  console.log("[csvConverter] Transformando datos de renta:");
+  console.log("  - Vales a transformar:", vales.length);
+
+  return vales.map((vale, index) => {
+    const detalle = vale.vale_renta_detalle?.[0] || {};
+    const weekNum = getWeekNumber(new Date(vale.fecha_creacion));
+
+    console.log(`  - Vale ${index + 1}:`, {
+      folio: vale.folio,
+      tiene_detalle: !!detalle,
+      obra: vale.obras?.obra,
+    });
+
+    return {
+      folio: vale.folio || "-",
+      fecha: formatDateOnly(vale.fecha_creacion),
+      semana: `Semana ${weekNum}`,
+      obra: vale.obras?.obra || "-",
+      residente: getNombreCompleto(vale.persona),
+      operador: getNombreCompleto(vale.operadores),
+      placas: vale.vehiculos?.placas || "-",
+      material_movido: detalle.material?.material || "-",
+      tipo_renta: detalle.es_renta_por_dia ? "Por día" : "Por hora",
+      hora_inicio: detalle.hora_inicio
+        ? formatDateOnly(detalle.hora_inicio)
+        : "-",
+      hora_fin: detalle.hora_fin ? formatDateOnly(detalle.hora_fin) : "-",
+      total_horas: detalle.total_horas || "0",
+      total_dias: detalle.total_dias || "0",
+      tarifa_hora: detalle.precios_renta?.costo_hr || "0",
+      tarifa_dia: detalle.precios_renta?.costo_dia || "0",
+      costo_total: detalle.costo_total || "0",
+    };
+  });
+};
+
+/**
+ * Headers para exportación de vales de material
+ */
+export const MATERIAL_HEADERS = [
+  { key: "folio", label: "Folio" },
+  { key: "fecha", label: "Fecha" },
+  { key: "semana", label: "Semana" },
+  { key: "obra", label: "Obra" },
+  { key: "residente", label: "Residente" },
+  { key: "operador", label: "Operador" },
+  { key: "placas", label: "Placas" },
+  { key: "material", label: "Material" },
+  { key: "banco", label: "Banco" },
+  { key: "capacidad", label: "Capacidad (m³)" },
+  { key: "distancia", label: "Distancia (km)" },
+  { key: "cantidad_pedida", label: "Cantidad Pedida (m³)" },
+  { key: "volumen_real", label: "Volumen Real (m³)" },
+  { key: "peso", label: "Peso (ton)" },
+  { key: "precio_m3", label: "Precio por m³" },
+  { key: "costo_total", label: "Costo Total" },
+];
+
+/**
+ * Headers para exportación de vales de renta
+ */
+export const RENTA_HEADERS = [
+  { key: "folio", label: "Folio" },
+  { key: "fecha", label: "Fecha" },
+  { key: "semana", label: "Semana" },
+  { key: "obra", label: "Obra" },
+  { key: "residente", label: "Residente" },
+  { key: "operador", label: "Operador" },
+  { key: "placas", label: "Placas" },
+  { key: "material_movido", label: "Material Movido" },
+  { key: "tipo_renta", label: "Tipo de Renta" },
+  { key: "hora_inicio", label: "Hora Inicio" },
+  { key: "hora_fin", label: "Hora Fin" },
+  { key: "total_horas", label: "Total Horas" },
+  { key: "total_dias", label: "Total Días" },
+  { key: "tarifa_hora", label: "Tarifa por Hora" },
+  { key: "tarifa_dia", label: "Tarifa por Día" },
+  { key: "costo_total", label: "Costo Total" },
+];
