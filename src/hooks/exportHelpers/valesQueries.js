@@ -16,12 +16,8 @@ import { getWeekDateRange, getWeeksFromVales } from "../../utils/dateUtils";
 export const fetchWeeksWithVales = async (idObra) => {
   try {
     if (!idObra) {
-      console.log("[valesQueries] ⚠️ No hay idObra");
       return [];
     }
-
-    console.log("[valesQueries] Buscando semanas con vales...");
-    console.log("  - id_obra:", idObra);
 
     const { data, error } = await supabase
       .from("vales_con_semanas")
@@ -29,16 +25,12 @@ export const fetchWeeksWithVales = async (idObra) => {
       .eq("id_obra", idObra)
       .order("fecha_creacion", { ascending: false });
 
-    console.log("[valesQueries] Resultado query:");
-    console.log("  - Vales encontrados:", data?.length || 0);
-
     if (error) {
       console.error("[valesQueries] ❌ Error en query:", error);
       throw error;
     }
 
     if (!data || data.length === 0) {
-      console.log("[valesQueries] ⚠️ No hay vales emitidos para esta obra");
       return [];
     }
 
@@ -53,11 +45,6 @@ export const fetchWeeksWithVales = async (idObra) => {
         });
       }
     });
-
-    console.log(
-      "[valesQueries] Semanas únicas encontradas:",
-      semanasUnicas.size
-    );
 
     return getWeeksFromVales(
       Array.from(semanasUnicas.values()).map((s) => ({
@@ -75,16 +62,6 @@ export const fetchWeeksWithVales = async (idObra) => {
  */
 export const fetchValesMaterial = async (weekNumber, year, idObra) => {
   const { startDate, endDate } = getWeekDateRange(weekNumber, year);
-
-  console.log("[valesQueries] Buscando vales de material:");
-  console.log("  - Semana:", weekNumber, "Año:", year);
-  console.log(
-    "  - Rango:",
-    startDate.toISOString(),
-    "a",
-    endDate.toISOString()
-  );
-  console.log("  - Obra:", idObra);
 
   const { data, error } = await supabase
     .from("vales")
@@ -121,8 +98,6 @@ export const fetchValesMaterial = async (weekNumber, year, idObra) => {
     .lte("fecha_creacion", endDate.toISOString())
     .order("fecha_creacion", { ascending: false });
 
-  console.log("[valesQueries] Vales material encontrados:", data?.length || 0);
-
   if (error) throw error;
   return data;
 };
@@ -132,16 +107,6 @@ export const fetchValesMaterial = async (weekNumber, year, idObra) => {
  */
 export const fetchValesRenta = async (weekNumber, year, idObra) => {
   const { startDate, endDate } = getWeekDateRange(weekNumber, year);
-
-  console.log("[valesQueries] Buscando vales de renta:");
-  console.log("  - Semana:", weekNumber, "Año:", year);
-  console.log(
-    "  - Rango:",
-    startDate.toISOString(),
-    "a",
-    endDate.toISOString()
-  );
-  console.log("  - Obra:", idObra);
 
   const { data, error } = await supabase
     .from("vales")
@@ -174,8 +139,6 @@ export const fetchValesRenta = async (weekNumber, year, idObra) => {
     .gte("fecha_creacion", startDate.toISOString())
     .lte("fecha_creacion", endDate.toISOString())
     .order("fecha_creacion", { ascending: false });
-
-  console.log("[valesQueries] Vales renta encontrados:", data?.length || 0);
 
   if (error) throw error;
   return data;

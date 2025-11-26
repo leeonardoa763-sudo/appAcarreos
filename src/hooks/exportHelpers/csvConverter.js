@@ -7,7 +7,11 @@
  * - Transformación de datos de vales
  */
 
-import { getWeekNumber, formatDateOnly } from "../../utils/dateUtils";
+import {
+  getWeekNumber,
+  formatDateOnly,
+  formatDateTimeForCSV,
+} from "../../utils/dateUtils";
 
 /**
  * Escapa caracteres especiales para CSV
@@ -32,10 +36,6 @@ export const escapeCsvValue = (value) => {
  * Convierte array de objetos a formato CSV
  */
 export const convertToCSV = (data, headers) => {
-  console.log("[csvConverter] Convirtiendo a CSV:");
-  console.log("  - Filas de datos:", data.length);
-  console.log("  - Columnas:", headers.length);
-
   const headerRow = headers.map((h) => escapeCsvValue(h.label)).join(",");
 
   const dataRows = data.map((row) => {
@@ -43,7 +43,6 @@ export const convertToCSV = (data, headers) => {
   });
 
   const csvContent = [headerRow, ...dataRows].join("\n");
-  console.log("  - Tamaño CSV:", csvContent.length, "caracteres");
 
   return csvContent;
 };
@@ -62,18 +61,9 @@ const getNombreCompleto = (persona) => {
  * Transforma datos de vales de material a formato CSV
  */
 export const transformMaterialData = (vales) => {
-  console.log("[csvConverter] Transformando datos de material:");
-  console.log("  - Vales a transformar:", vales.length);
-
   return vales.map((vale, index) => {
     const detalle = vale.vale_material_detalles?.[0] || {};
     const weekNum = getWeekNumber(new Date(vale.fecha_creacion));
-
-    console.log(`  - Vale ${index + 1}:`, {
-      folio: vale.folio,
-      tiene_detalle: !!detalle,
-      obra: vale.obras?.obra,
-    });
 
     return {
       folio: vale.folio || "-",
@@ -100,18 +90,9 @@ export const transformMaterialData = (vales) => {
  * Transforma datos de vales de renta a formato CSV
  */
 export const transformRentaData = (vales) => {
-  console.log("[csvConverter] Transformando datos de renta:");
-  console.log("  - Vales a transformar:", vales.length);
-
   return vales.map((vale, index) => {
     const detalle = vale.vale_renta_detalle?.[0] || {};
     const weekNum = getWeekNumber(new Date(vale.fecha_creacion));
-
-    console.log(`  - Vale ${index + 1}:`, {
-      folio: vale.folio,
-      tiene_detalle: !!detalle,
-      obra: vale.obras?.obra,
-    });
 
     return {
       folio: vale.folio || "-",
@@ -122,11 +103,11 @@ export const transformRentaData = (vales) => {
       operador: getNombreCompleto(vale.operadores),
       placas: vale.vehiculos?.placas || "-",
       material_movido: detalle.material?.material || "-",
-      tipo_renta: detalle.es_renta_por_dia ? "Por día" : "Por hora",
+      tipo_renta: detalle.es_renta_por_dia ? "Por dia" : "Por hora",
       hora_inicio: detalle.hora_inicio
-        ? formatDateOnly(detalle.hora_inicio)
+        ? formatDateTimeForCSV(detalle.hora_inicio)
         : "-",
-      hora_fin: detalle.hora_fin ? formatDateOnly(detalle.hora_fin) : "-",
+      hora_fin: detalle.hora_fin ? formatDateTimeForCSV(detalle.hora_fin) : "-",
       total_horas: detalle.total_horas || "0",
       total_dias: detalle.total_dias || "0",
       tarifa_hora: detalle.precios_renta?.costo_hr || "0",
@@ -149,12 +130,12 @@ export const MATERIAL_HEADERS = [
   { key: "placas", label: "Placas" },
   { key: "material", label: "Material" },
   { key: "banco", label: "Banco" },
-  { key: "capacidad", label: "Capacidad (m³)" },
+  { key: "capacidad", label: "Capacidad (m3)" },
   { key: "distancia", label: "Distancia (km)" },
-  { key: "cantidad_pedida", label: "Cantidad Pedida (m³)" },
-  { key: "volumen_real", label: "Volumen Real (m³)" },
+  { key: "cantidad_pedida", label: "Cantidad Pedida (m3)" },
+  { key: "volumen_real", label: "Volumen Real (m3)" },
   { key: "peso", label: "Peso (ton)" },
-  { key: "precio_m3", label: "Precio por m³" },
+  { key: "precio_m3", label: "Precio por m3" },
   { key: "costo_total", label: "Costo Total" },
 ];
 
@@ -174,8 +155,8 @@ export const RENTA_HEADERS = [
   { key: "hora_inicio", label: "Hora Inicio" },
   { key: "hora_fin", label: "Hora Fin" },
   { key: "total_horas", label: "Total Horas" },
-  { key: "total_dias", label: "Total Días" },
+  { key: "total_dias", label: "Total Dias" },
   { key: "tarifa_hora", label: "Tarifa por Hora" },
-  { key: "tarifa_dia", label: "Tarifa por Día" },
+  { key: "tarifa_dia", label: "Tarifa por Dia" },
   { key: "costo_total", label: "Costo Total" },
 ];

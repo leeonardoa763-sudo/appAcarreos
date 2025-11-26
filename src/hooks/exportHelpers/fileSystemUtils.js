@@ -5,7 +5,7 @@
  * Si FileSystem falla, usamos Print para inicializarlo
  */
 
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy"; // ✅ CAMBIO AQUÍ
 import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
 
@@ -18,22 +18,17 @@ let cachedDirectory = null;
 const getWorkingDirectory = async () => {
   // Si ya tenemos el directorio cacheado, usarlo
   if (cachedDirectory) {
-    console.log("[csvExport] Usando directorio cacheado:", cachedDirectory);
     return cachedDirectory;
   }
 
   // Intentar usar cacheDirectory directamente
   if (FileSystem.cacheDirectory) {
-    console.log(
-      "[csvExport] cacheDirectory disponible:",
-      FileSystem.cacheDirectory
-    );
     cachedDirectory = FileSystem.cacheDirectory;
     return cachedDirectory;
   }
 
   // Si no está disponible, inicializar con Print (como hacen los PDFs)
-  console.log("[csvExport] Inicializando FileSystem con Print...");
+
   try {
     const { uri } = await Print.printToFileAsync({
       html: "<h1>Init</h1>",
@@ -41,7 +36,6 @@ const getWorkingDirectory = async () => {
 
     // Extraer el directorio base del URI que devuelve Print
     const baseDir = uri.substring(0, uri.lastIndexOf("/") + 1);
-    console.log("[csvExport] Directorio extraído de Print:", baseDir);
 
     cachedDirectory = baseDir;
     return cachedDirectory;
@@ -56,10 +50,6 @@ const getWorkingDirectory = async () => {
  */
 export const shareCSVFile = async (csvContent, filename) => {
   try {
-    console.log("[csvExport] === INICIO shareCSVFile ===");
-    console.log("[csvExport] Nombre:", filename);
-    console.log("[csvExport] Tamaño:", csvContent.length, "caracteres");
-
     // Agregar BOM para UTF-8 (Excel compatibility)
     const BOM = "\uFEFF";
     const csvWithBOM = BOM + csvContent;
@@ -68,34 +58,25 @@ export const shareCSVFile = async (csvContent, filename) => {
     const workingDir = await getWorkingDirectory();
     const fileUri = `${workingDir}${filename}`;
 
-    console.log("[csvExport] Escribiendo archivo en:", fileUri);
-
-    // Crear archivo temporal SIN especificar encoding
-    // (el encoding por defecto es UTF-8)
+    // Crear archivo temporal
     await FileSystem.writeAsStringAsync(fileUri, csvWithBOM);
 
-    console.log("[csvExport] ✅ Archivo creado");
+    console.log("[fileSystemUtils] ✅ Archivo creado");
 
     // Verificar que existe
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
-    console.log("[csvExport] Verificación:");
-    console.log("  - Existe:", fileInfo.exists);
-    console.log("  - Tamaño:", fileInfo.size, "bytes");
 
     if (!fileInfo.exists) {
       throw new Error("No se pudo crear el archivo temporal");
     }
 
     // Verificar disponibilidad de compartir
-    console.log("[csvExport] Verificando disponibilidad de compartir...");
+
     const isAvailable = await Sharing.isAvailableAsync();
-    console.log("[csvExport] Sharing disponible:", isAvailable);
 
     if (!isAvailable) {
       throw new Error("La función de compartir no está disponible");
     }
-
-    console.log("[csvExport] Compartiendo archivo...");
 
     // COMPARTIR - Con timeout igual que PDFs
     await Promise.race([
@@ -109,14 +90,12 @@ export const shareCSVFile = async (csvContent, filename) => {
       ),
     ]);
 
-    console.log("[csvExport] ✅ Archivo compartido exitosamente");
     return fileUri;
   } catch (error) {
     console.error("[csvExport] ❌ ERROR:", error.message);
 
     // Mismo manejo de timeout que tus PDFs
     if (error.message === "Timeout compartiendo") {
-      console.log("[csvExport] Timeout pero archivo probablemente compartido");
       return true;
     }
 

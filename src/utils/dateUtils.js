@@ -124,6 +124,25 @@ export const formatDateOnly = (date) => {
 };
 
 /**
+ * Formatea fecha con hora para CSV
+ *
+ * @param {Date|string} date - Fecha a formatear
+ * @returns {string} - Fecha formateada (DD/MM/YYYY HH:mm)
+ */
+export const formatDateTimeForCSV = (date) => {
+  if (!date) return "-";
+
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
+};
+
+/**
  * Formatea una fecha para CSV (ISO 8601)
  *
  * @param {Date|string} date - Fecha a formatear
