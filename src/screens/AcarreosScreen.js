@@ -1,11 +1,10 @@
 /**
- * AcarreosScreen.js - VERSIÓN FINAL CORREGIDA
+ * AcarreosScreen.js - CON ESTADOS VERIFICADO Y CONCILIADO
  *
  * CAMBIOS:
- * - ✅ Protección contra arrays null/undefined
- * - ✅ Loading inicial en false
- * - ✅ Verificación de loading sin condición de refreshing
- * - ✅ Protección en filterVales y separateValesByStatus
+ * - ✅ Agregadas secciones Verificados y Conciliados
+ * - ✅ Todos los colapsables vienen expandidos por defecto
+ * - ✅ Visible para todos los roles (incluido RESIDENTE)
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -44,11 +43,9 @@ const AcarreosScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Ref para prevenir setState después de unmount
   const isMounted = useRef(true);
   const isFetching = useRef(false);
 
-  // Cleanup al desmontar
   useEffect(() => {
     return () => {
       isMounted.current = false;
@@ -64,12 +61,10 @@ const AcarreosScreen = () => {
   );
 
   const fetchVales = async () => {
-    // Validación temprana
     if (!userProfile?.id_persona) {
       return;
     }
 
-    // Prevenir fetches concurrentes
     if (isFetching.current) {
       return;
     }
@@ -182,7 +177,6 @@ const AcarreosScreen = () => {
   };
 
   const filterVales = (vales) => {
-    // Protección contra null/undefined
     if (!vales || !Array.isArray(vales)) {
       return [];
     }
@@ -207,35 +201,45 @@ const AcarreosScreen = () => {
   const filteredValesMaterial = filterVales(valesMaterial);
   const filteredValesRenta = filterVales(valesRenta);
 
-  const separateValesByStatus = (vales, tipo) => {
-    // Protección contra null/undefined
+  /**
+   * Separa vales por estado: en_proceso, emitido, verificado, conciliado
+   */
+  const separateValesByStatus = (vales) => {
     if (!vales || !Array.isArray(vales)) {
-      return { enProceso: [], completados: [] };
+      return {
+        enProceso: [],
+        emitidos: [],
+        verificados: [],
+        conciliados: [],
+      };
     }
 
-    if (tipo === "material") {
-      const enProceso = vales.filter((vale) => vale.estado === "en_proceso");
-      const completados = vales.filter((vale) => vale.estado === "emitido");
-      return { enProceso, completados };
-    } else if (tipo === "renta") {
-      const enProceso = vales.filter((vale) => vale.estado === "en_proceso");
-      const completados = vales.filter((vale) => vale.estado === "emitido");
-      return { enProceso, completados };
-    }
-    return { enProceso: [], completados: [] };
+    return {
+      enProceso: vales.filter((v) => v.estado === "en_proceso"),
+      emitidos: vales.filter((v) => v.estado === "emitido"),
+      verificados: vales.filter((v) => v.estado === "verificado"),
+      conciliados: vales.filter((v) => v.estado === "conciliado"),
+    };
   };
 
-  const materialSeparado = separateValesByStatus(
-    filteredValesMaterial,
-    "material"
-  );
-  const rentaSeparado = separateValesByStatus(filteredValesRenta, "renta");
+  const materialSeparado = separateValesByStatus(filteredValesMaterial);
+  const rentaSeparado = separateValesByStatus(filteredValesRenta);
 
   const renderValeItem = ({ item }) => {
     return <ValeCard vale={item} onPress={() => handleOpenVale(item)} />;
   };
 
-  // Validación: Esperar a que userProfile esté disponible
+  const EmptyState = ({ icon, text }) => (
+    <View style={styles.emptyState}>
+      <MaterialCommunityIcons
+        name={icon}
+        size={50}
+        color={colors.textSecondary}
+      />
+      <Text style={styles.emptyText}>{text}</Text>
+    </View>
+  );
+
   if (!userProfile?.id_persona) {
     return (
       <View style={styles.loadingContainer}>
@@ -245,7 +249,6 @@ const AcarreosScreen = () => {
     );
   }
 
-  // Mostrar loading siempre que loading=true
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -294,17 +297,21 @@ const AcarreosScreen = () => {
           {searchQuery.length > 0 && (
             <Text style={styles.searchResults}>
               {materialSeparado.enProceso.length +
-                materialSeparado.completados.length +
+                materialSeparado.emitidos.length +
+                materialSeparado.verificados.length +
+                materialSeparado.conciliados.length +
                 rentaSeparado.enProceso.length +
-                rentaSeparado.completados.length}{" "}
+                rentaSeparado.emitidos.length +
+                rentaSeparado.verificados.length +
+                rentaSeparado.conciliados.length}{" "}
               resultado(s)
             </Text>
           )}
         </View>
 
-        {/* Sección Material */}
+        {/* ========== SECCIÓN MATERIAL ========== */}
         <View style={styles.section}>
-          <Text style={styles.categoryTitle}> Material</Text>
+          <Text style={styles.categoryTitle}>Material</Text>
 
           {/* Material - En Proceso */}
           <View style={styles.subsection}>
@@ -328,18 +335,14 @@ const AcarreosScreen = () => {
                 renderItem={renderValeItem}
                 keyExtractor={(item) => item.id_vale.toString()}
                 ListEmptyComponent={() => (
-                  <View style={styles.emptyState}>
-                    <MaterialCommunityIcons
-                      name="package-variant-closed"
-                      size={50}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={styles.emptyText}>
-                      {searchQuery
+                  <EmptyState
+                    icon="package-variant-closed"
+                    text={
+                      searchQuery
                         ? "No se encontraron vales en proceso"
-                        : "No hay vales de material en proceso"}
-                    </Text>
-                  </View>
+                        : "No hay vales de material en proceso"
+                    }
+                  />
                 )}
                 scrollEnabled={false}
                 showsVerticalScrollIndicator={false}
@@ -347,32 +350,84 @@ const AcarreosScreen = () => {
             </View>
           </View>
 
-          {/* Material - Completados (Colapsable) */}
+          {/* Material - Emitidos */}
           <CollapsibleSection
             title="Emitidos"
             icon="check-circle"
-            count={materialSeparado.completados.length}
+            count={materialSeparado.emitidos.length}
             defaultCollapsed={true}
             iconColor={colors.accent}
             badgeColor={colors.accent}
           >
             <FlatList
-              data={materialSeparado.completados}
+              data={materialSeparado.emitidos}
               renderItem={renderValeItem}
               keyExtractor={(item) => item.id_vale.toString()}
               ListEmptyComponent={() => (
-                <View style={styles.emptyState}>
-                  <MaterialCommunityIcons
-                    name="package-variant-closed"
-                    size={50}
-                    color={colors.textSecondary}
-                  />
-                  <Text style={styles.emptyText}>
-                    {searchQuery
-                      ? "No se encontraron vales completados"
-                      : "No hay vales de material completados"}
-                  </Text>
-                </View>
+                <EmptyState
+                  icon="package-variant-closed"
+                  text={
+                    searchQuery
+                      ? "No se encontraron vales emitidos"
+                      : "No hay vales de material emitidos"
+                  }
+                />
+              )}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          </CollapsibleSection>
+
+          {/* Material - Verificados */}
+          <CollapsibleSection
+            title="Verificados"
+            icon="check-decagram"
+            count={materialSeparado.verificados.length}
+            defaultCollapsed={true}
+            iconColor={colors.info}
+            badgeColor={colors.info}
+          >
+            <FlatList
+              data={materialSeparado.verificados}
+              renderItem={renderValeItem}
+              keyExtractor={(item) => item.id_vale.toString()}
+              ListEmptyComponent={() => (
+                <EmptyState
+                  icon="package-variant-closed"
+                  text={
+                    searchQuery
+                      ? "No se encontraron vales verificados"
+                      : "No hay vales de material verificados"
+                  }
+                />
+              )}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          </CollapsibleSection>
+
+          {/* Material - Conciliados */}
+          <CollapsibleSection
+            title="Conciliados"
+            icon="currency-usd"
+            count={materialSeparado.conciliados.length}
+            defaultCollapsed={true}
+            iconColor={colors.success}
+            badgeColor={colors.success}
+          >
+            <FlatList
+              data={materialSeparado.conciliados}
+              renderItem={renderValeItem}
+              keyExtractor={(item) => item.id_vale.toString()}
+              ListEmptyComponent={() => (
+                <EmptyState
+                  icon="package-variant-closed"
+                  text={
+                    searchQuery
+                      ? "No se encontraron vales conciliados"
+                      : "No hay vales de material conciliados"
+                  }
+                />
               )}
               scrollEnabled={false}
               showsVerticalScrollIndicator={false}
@@ -380,7 +435,7 @@ const AcarreosScreen = () => {
           </CollapsibleSection>
         </View>
 
-        {/* Sección Renta */}
+        {/* ========== SECCIÓN RENTA ========== */}
         <View style={styles.section}>
           <Text style={styles.categoryTitle}> Renta</Text>
 
@@ -406,18 +461,14 @@ const AcarreosScreen = () => {
                 renderItem={renderValeItem}
                 keyExtractor={(item) => item.id_vale.toString()}
                 ListEmptyComponent={() => (
-                  <View style={styles.emptyState}>
-                    <MaterialCommunityIcons
-                      name="truck-outline"
-                      size={50}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={styles.emptyText}>
-                      {searchQuery
+                  <EmptyState
+                    icon="truck-outline"
+                    text={
+                      searchQuery
                         ? "No se encontraron vales en proceso"
-                        : "No hay vales de renta en proceso"}
-                    </Text>
-                  </View>
+                        : "No hay vales de renta en proceso"
+                    }
+                  />
                 )}
                 scrollEnabled={false}
                 showsVerticalScrollIndicator={false}
@@ -425,32 +476,84 @@ const AcarreosScreen = () => {
             </View>
           </View>
 
-          {/* Renta - Completados (Colapsable) */}
+          {/* Renta - Emitidos */}
           <CollapsibleSection
             title="Emitidos"
             icon="check-circle"
-            count={rentaSeparado.completados.length}
+            count={rentaSeparado.emitidos.length}
             defaultCollapsed={true}
             iconColor={colors.accent}
             badgeColor={colors.accent}
           >
             <FlatList
-              data={rentaSeparado.completados}
+              data={rentaSeparado.emitidos}
               renderItem={renderValeItem}
               keyExtractor={(item) => item.id_vale.toString()}
               ListEmptyComponent={() => (
-                <View style={styles.emptyState}>
-                  <MaterialCommunityIcons
-                    name="truck-outline"
-                    size={50}
-                    color={colors.textSecondary}
-                  />
-                  <Text style={styles.emptyText}>
-                    {searchQuery
-                      ? "No se encontraron vales completados"
-                      : "No hay vales de renta completados"}
-                  </Text>
-                </View>
+                <EmptyState
+                  icon="truck-outline"
+                  text={
+                    searchQuery
+                      ? "No se encontraron vales emitidos"
+                      : "No hay vales de renta emitidos"
+                  }
+                />
+              )}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          </CollapsibleSection>
+
+          {/* Renta - Verificados */}
+          <CollapsibleSection
+            title="Verificados"
+            icon="check-decagram"
+            count={rentaSeparado.verificados.length}
+            defaultCollapsed={true}
+            iconColor={colors.info}
+            badgeColor={colors.info}
+          >
+            <FlatList
+              data={rentaSeparado.verificados}
+              renderItem={renderValeItem}
+              keyExtractor={(item) => item.id_vale.toString()}
+              ListEmptyComponent={() => (
+                <EmptyState
+                  icon="truck-outline"
+                  text={
+                    searchQuery
+                      ? "No se encontraron vales verificados"
+                      : "No hay vales de renta verificados"
+                  }
+                />
+              )}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          </CollapsibleSection>
+
+          {/* Renta - Conciliados */}
+          <CollapsibleSection
+            title="Conciliados"
+            icon="currency-usd"
+            count={rentaSeparado.conciliados.length}
+            defaultCollapsed={true}
+            iconColor={colors.success}
+            badgeColor={colors.success}
+          >
+            <FlatList
+              data={rentaSeparado.conciliados}
+              renderItem={renderValeItem}
+              keyExtractor={(item) => item.id_vale.toString()}
+              ListEmptyComponent={() => (
+                <EmptyState
+                  icon="truck-outline"
+                  text={
+                    searchQuery
+                      ? "No se encontraron vales conciliados"
+                      : "No hay vales de renta conciliados"
+                  }
+                />
               )}
               scrollEnabled={false}
               showsVerticalScrollIndicator={false}
@@ -459,7 +562,7 @@ const AcarreosScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Modal FUERA del ScrollView */}
+      {/* Modal */}
       <ValeDetalleModal
         visible={modalVisible}
         vale={selectedVale}

@@ -7,6 +7,7 @@
  * - Selector de semanas con vales emitidos
  * - Checkboxes para seleccionar tipo de vale (Material/Renta)
  * - Exportación a CSV con filtro de semana
+ * - Pull-to-refresh para actualizar semanas
  * - UI minimalista y limpia
  *
  * USADO EN:
@@ -20,6 +21,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl, // ← NUEVO
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -53,6 +55,7 @@ const InformesScreen = () => {
   const [exportRenta, setExportRenta] = useState(false);
   const [weeksOptions, setWeeksOptions] = useState([]);
   const [loadingWeeks, setLoadingWeeks] = useState(true);
+  const [refreshing, setRefreshing] = useState(false); // ← NUEVO
 
   /**
    * Carga las semanas que tienen vales al montar el componente
@@ -60,16 +63,9 @@ const InformesScreen = () => {
    */
   useEffect(() => {
     if (userProfile?.id_persona) {
-      console.log("👤 UserProfile cargado:", {
-        id_persona: userProfile.id_persona,
-        id_current_obra: userProfile.id_current_obra,
-        nombre: userProfile.nombre,
-      });
       loadWeeks();
-    } else {
-      console.log("⏳ Esperando userProfile...");
     }
-  }, [userProfile]); // ← IMPORTANTE: Agregar userProfile como dependencia
+  }, [userProfile]);
 
   const loadWeeks = async () => {
     try {
@@ -98,6 +94,15 @@ const InformesScreen = () => {
   };
 
   /**
+   * ← NUEVA FUNCIÓN: Maneja el pull-to-refresh
+   */
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadWeeks();
+    setRefreshing(false);
+  };
+
+  /**
    * Obtiene el label de la semana seleccionada para mostrar en el texto informativo
    */
   const getSelectedWeekLabel = () => {
@@ -118,8 +123,6 @@ const InformesScreen = () => {
       return;
     }
 
-    console.log("📤 Exportando semana:", selectedWeek);
-
     let successCount = 0;
 
     if (exportMaterial) {
@@ -131,8 +134,6 @@ const InformesScreen = () => {
       const success = await exportRentaCSV(selectedWeek, selectedYear);
       if (success) successCount++;
     }
-
-    console.log("✅ Exportaciones exitosas:", successCount);
   };
 
   return (
@@ -140,6 +141,17 @@ const InformesScreen = () => {
       <ScrollView
         style={commonStyles.scrollView}
         contentContainerStyle={commonStyles.scrollContent}
+        refreshControl={
+          // ← NUEVO
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+            title="Actualizando semanas..."
+            titleColor={colors.textSecondary}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
@@ -181,7 +193,7 @@ const InformesScreen = () => {
               />
               <Text style={styles.emptyText}>No tienes vales emitidos aún</Text>
               <Text style={styles.emptySubtext}>
-                Los vales aparecerán aquí una vez que sean emitidos
+                Desliza hacia abajo para actualizar
               </Text>
             </View>
           ) : (
@@ -190,7 +202,6 @@ const InformesScreen = () => {
                 label="Semana"
                 value={selectedWeek}
                 onValueChange={(value) => {
-                  console.log("📅 Semana seleccionada:", value);
                   setSelectedWeek(value);
                 }}
                 items={weeksOptions}

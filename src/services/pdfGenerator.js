@@ -279,7 +279,7 @@ export const generateAndSharePDF = async (
   colorCopia = "roja",
   qrDataUrl
 ) => {
-  let newUri = null; // ✅ Declarar aquí
+  let newUri = null;
 
   try {
     console.log("[pdfGenerator] === INICIO generateAndSharePDF ===");

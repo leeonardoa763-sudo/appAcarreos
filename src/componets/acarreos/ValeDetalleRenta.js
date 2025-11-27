@@ -5,9 +5,10 @@
  * Extraído de ValeDetalleModal para mejor organización
  *
  * FUNCIONALIDAD:
- * - Muestra detalles del vale de renta
+ * - Muestra detalles completos del vale de renta
  * - Permite capturar hora fin y número de viajes
  * - Soporta renta por día completo
+ * - Muestra tarifas del sindicato y precio final
  * - Completa el vale y actualiza estado a "emitido"
  * - Genera PDF automáticamente después de completar
  *
@@ -45,6 +46,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
 
   const detalleRenta = vale?.vale_renta_detalle?.[0];
   const canComplete = vale?.estado === "en_proceso" && detalleRenta;
+  const preciosRenta = detalleRenta?.precios_renta;
 
   // Inicializar valores cuando cambia el vale
   useEffect(() => {
@@ -85,6 +87,12 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       hour12: true,
     });
   }, []);
+
+  // Formatear moneda
+  const formatCurrency = (amount) => {
+    if (!amount && amount !== 0) return "N/A";
+    return `$${parseFloat(amount).toFixed(2)} MXN`;
+  };
 
   // Completar vale
   const handleGuardarHoraFin = useCallback(async () => {
@@ -185,12 +193,10 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         esRentaPorDia,
       });
 
-      // Generar PDF automáticamente sin mostrar modal primero
       console.log(
         "[ValeDetalleRenta] Iniciando generación automática de PDF..."
       );
       setTriggerPDF(true);
-      // NO ponemos setSaving(false) aquí - se maneja en onSuccess del PDF
     } catch (error) {
       console.error("[ValeDetalleRenta] Error completando vale:", error);
       Alert.alert("Error", "No se pudo completar el vale. Intenta de nuevo.");
@@ -206,9 +212,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   ]);
 
   if (!vale || !detalleRenta) {
-    console.log("[ValeDetalleRenta] Vale o detalle nulo");
-    console.log("[ValeDetalleRenta] Vale:", !!vale);
-    console.log("[ValeDetalleRenta] detalleRenta:", !!detalleRenta);
     return null;
   }
 
@@ -248,6 +251,14 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Detalles de Renta</Text>
 
+          {detalleRenta.material?.material && (
+            <InfoRow
+              icon="package-variant"
+              label="Material Movido"
+              value={detalleRenta.material.material}
+            />
+          )}
+
           {detalleRenta.capacidad_m3 && (
             <InfoRow
               icon="truck"
@@ -256,11 +267,12 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             />
           )}
 
-          {detalleRenta.material?.material && (
+          {/* Tipo de Renta */}
+          {detalleRenta.es_renta_por_dia !== null && (
             <InfoRow
-              icon="package-variant"
-              label="Material"
-              value={detalleRenta.material.material}
+              icon="calendar-clock"
+              label="Tipo de Renta"
+              value={detalleRenta.es_renta_por_dia ? "Por día" : "Por hora"}
             />
           )}
 
@@ -271,35 +283,49 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           />
 
           {detalleRenta.hora_fin && (
-            <>
-              <InfoRow
-                icon="clock-end"
-                label="Hora Fin"
-                value={formatTime(detalleRenta.hora_fin)}
-              />
+            <InfoRow
+              icon="clock-end"
+              label="Hora Fin"
+              value={formatTime(detalleRenta.hora_fin)}
+            />
+          )}
 
-              <InfoRow
-                icon="clock-outline"
-                label="Total Horas"
-                value={`${detalleRenta.total_horas} hrs`}
-              />
+          {/* Total Horas (solo si es por hora) */}
+          {detalleRenta.total_horas > 0 && (
+            <InfoRow
+              icon="clock-outline"
+              label="Total Horas"
+              value={`${detalleRenta.total_horas} hrs`}
+            />
+          )}
 
-              <InfoRow
-                icon="truck-check"
-                label="Número de Viajes"
-                value={detalleRenta.numero_viajes || 0}
-              />
+          {/* Total Días (solo si es por día) */}
+          {detalleRenta.total_dias > 0 && (
+            <InfoRow
+              icon="calendar-check"
+              label="Total Días"
+              value={`${detalleRenta.total_dias} día(s)`}
+            />
+          )}
 
-              <InfoRow
-                icon="calendar-check"
-                label="Emitido el"
-                value={`${formatDate(
-                  vale.fecha_actualizacion || vale.fecha_creacion
-                )} a las ${formatTime(
-                  vale.fecha_actualizacion || vale.fecha_creacion
-                )}`}
-              />
-            </>
+          {/* Número de Viajes */}
+          {detalleRenta.numero_viajes && (
+            <InfoRow
+              icon="truck-check"
+              label="Número de Viajes"
+              value={detalleRenta.numero_viajes}
+            />
+          )}
+
+          {/* Fecha de emisión */}
+          {vale.estado !== "en_proceso" && (
+            <InfoRow
+              icon="calendar-check"
+              label="Emitido el"
+              value={`${formatDate(vale.fecha_creacion)} a las ${formatTime(
+                vale.fecha_creacion
+              )}`}
+            />
           )}
 
           {detalleRenta.notas_adicionales && (
@@ -310,6 +336,39 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             />
           )}
         </View>
+
+        {/* Tarifas y Costo (solo si el vale está emitido) */}
+        {vale.estado !== "en_proceso" && preciosRenta && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tarifas y Costo</Text>
+
+            {preciosRenta.costo_hr && (
+              <InfoRow
+                icon="cash"
+                label="Tarifa por Hora"
+                value={formatCurrency(preciosRenta.costo_hr)}
+              />
+            )}
+
+            {preciosRenta.costo_dia && (
+              <InfoRow
+                icon="cash-multiple"
+                label="Tarifa por Día"
+                value={formatCurrency(preciosRenta.costo_dia)}
+              />
+            )}
+
+            {detalleRenta.costo_total && (
+              <View style={styles.totalContainer}>
+                <InfoRow
+                  icon="currency-usd"
+                  label="Costo Total"
+                  value={formatCurrency(detalleRenta.costo_total)}
+                />
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Formulario para Completar */}
         {canComplete && (
@@ -382,7 +441,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           colorCopia="blanco"
           autoTrigger={true}
           onSuccess={() => {
-            console.log("[ValeDetalleRenta] PDF generado exitosamente");
             setTriggerPDF(false);
             setSaving(false);
             setShowSuccessModal(true);
@@ -466,5 +524,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textPrimary,
     fontWeight: "500",
+  },
+  totalContainer: {
+    backgroundColor: colors.accent + "10",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
   },
 });

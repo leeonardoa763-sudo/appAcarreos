@@ -2,28 +2,17 @@
  * utils/pdfHelpers.js
  *
  * Utilidades compartidas para generación de PDFs de vales
- *
- * PROPÓSITO:
- * - Centralizar constantes de colores y destinatarios
- * - Funciones de formateo reutilizables
- * - CSS base compartido entre PDFs de Material y Renta
  */
 
-/**
- * CONSTANTES: Colores de fondo según tipo de copia
- */
 export const COLORES_COPIA = {
-  blanco: "#FFFFFF", //  Blanco puro
-  roja: "#FFEBEE", // Rojo muy claro (como papel rosa)
-  verde: "#E8F5E8", // Verde muy suave
-  azul: "#E3F2FD", // Azul claro (como papel celeste)
-  amarilla: "#FFFDE7", // Amarillo pastel
-  naranja: "#FFF3E0", // Naranja muy suave
+  blanco: "#FFFFFF",
+  roja: "#FFEBEE",
+  verde: "#E8F5E8",
+  azul: "#E3F2FD",
+  amarilla: "#FFFDE7",
+  naranja: "#FFF3E0",
 };
 
-/**
- * CONSTANTES: Destinatarios según color de copia
- */
 export const DESTINATARIOS_COPIA = {
   blanco: "OPERADOR",
   roja: "BANCO DE MATERIAL",
@@ -33,11 +22,6 @@ export const DESTINATARIOS_COPIA = {
   naranja: "ADMINISTRADOR 3",
 };
 
-/**
- * Formatea fecha en formato mexicano
- * @param {Date|string} fecha - Fecha a formatear
- * @returns {string} - Fecha formateada (dd/mm/yyyy)
- */
 export const formatearFecha = (fecha) => {
   const date = fecha instanceof Date ? fecha : new Date(fecha);
   return date.toLocaleDateString("es-MX", {
@@ -47,11 +31,6 @@ export const formatearFecha = (fecha) => {
   });
 };
 
-/**
- * Formatea hora en formato 24h
- * @param {Date|string} fecha - Fecha/hora a formatear
- * @returns {string} - Hora formateada (HH:mm)
- */
 export const formatearHora = (fecha) => {
   const date = fecha instanceof Date ? fecha : new Date(fecha);
   return date.toLocaleTimeString("es-MX", {
@@ -60,11 +39,6 @@ export const formatearHora = (fecha) => {
   });
 };
 
-/**
- * Genera CSS base compartido para todos los PDFs de vales
- * @param {string} bgColor - Color de fondo según tipo de copia
- * @returns {string} - Estilos CSS completos
- */
 export const getValeBaseCSS = (bgColor) => {
   return `
     * {
@@ -84,7 +58,6 @@ export const getValeBaseCSS = (bgColor) => {
     
     .container {
       width: 67.5mm;
-      // min-height: 100vh;
       margin: 0 auto;
       background: ${bgColor};
       border: 2px solid #000;
@@ -94,10 +67,13 @@ export const getValeBaseCSS = (bgColor) => {
     
     .header {
       background: #000;
+      background-color: #000 !important;  
       color: #FFF;
       padding: 8px 6px;
       text-align: center;
       border-bottom: 2px solid #000;
+      -webkit-print-color-adjust: exact;  
+      print-color-adjust: exact;          
     }
     
     .header h1 {
@@ -105,11 +81,13 @@ export const getValeBaseCSS = (bgColor) => {
       margin-bottom: 2px;
       text-transform: uppercase;
       font-weight: bold;
+      color: #FFF !important;
     }
     
     .header h2 {
       font-size: 10px;
       font-weight: normal;
+      color: #FFF !important;
     }
     
     .info-section {
@@ -119,13 +97,15 @@ export const getValeBaseCSS = (bgColor) => {
     
     .section-title {
       background: #000;
-      color: #FFF;
+      color: #FFF !important;
       padding: 4px 6px;
       text-align: center;
       font-weight: bold;
       font-size: 11px;
       margin: 0;
       text-transform: uppercase;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     
     .info-row {
@@ -143,6 +123,7 @@ export const getValeBaseCSS = (bgColor) => {
       font-weight: bold;
       font-size: 10px;
       text-transform: uppercase;
+      color: #000 !important;
     }
     
     .info-value {
@@ -150,11 +131,17 @@ export const getValeBaseCSS = (bgColor) => {
       text-align: right;
       max-width: 50%;
       word-break: break-word;
+      color: #000 !important;
     }
     
     .info-full {
       padding: 3px 6px;
       border-bottom: 0.5px dashed #666;
+    }
+    
+    .info-full .info-label,
+    .info-full .info-value {
+      color: #000 !important;
     }
     
     .divider {
@@ -173,6 +160,7 @@ export const getValeBaseCSS = (bgColor) => {
       font-size: 11px;
       margin-bottom: 6px;
       text-transform: uppercase;
+      color: #000 !important;
     }
     
     .qr-image {
@@ -186,13 +174,14 @@ export const getValeBaseCSS = (bgColor) => {
       font-size: 9px;
       margin: 4px 0;
       font-weight: bold;
+      color: #000 !important;
     }
     
     .qr-url {
       font-size: 8px;
       word-break: break-all;
       margin-top: 4px;
-      color: #333;
+      color: #333 !important;
     }
     
     .footer {
@@ -201,6 +190,8 @@ export const getValeBaseCSS = (bgColor) => {
       padding: 8px 6px;
       text-align: center;
       margin-top: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     
     .copia-badge {
@@ -208,16 +199,19 @@ export const getValeBaseCSS = (bgColor) => {
       font-weight: bold;
       margin-bottom: 4px;
       text-transform: uppercase;
+      color: #FFF !important;
     }
     
     .copia-destinatario {
       font-size: 10px;
       margin-bottom: 6px;
+      color: #FFF !important;
     }
     
     .emision-info {
       font-size: 9px;
       font-style: italic;
+      color: #FFF !important;
     }
     
     .logo-container {
@@ -246,11 +240,6 @@ export const getValeBaseCSS = (bgColor) => {
   `;
 };
 
-/**
- * Obtiene color y destinatario según tipo de copia
- * @param {string} colorCopia - Tipo de copia (blanco, roja, verde, etc.)
- * @returns {object} - { bgColor, destinatario }
- */
 export const getCopiaInfo = (colorCopia) => {
   return {
     bgColor: COLORES_COPIA[colorCopia] || COLORES_COPIA.blanco,

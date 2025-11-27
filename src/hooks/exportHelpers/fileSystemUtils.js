@@ -86,7 +86,7 @@ export const shareCSVFile = async (csvContent, filename) => {
         UTI: "public.comma-separated-values-text",
       }),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout compartiendo")), 15000)
+        setTimeout(() => reject(new Error("Timeout compartiendo")), 30000)
       ),
     ]);
 

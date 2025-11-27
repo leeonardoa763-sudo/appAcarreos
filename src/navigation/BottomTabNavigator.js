@@ -16,6 +16,7 @@ import AcarreosScreen from "../screens/AcarreosScreen";
 import InformesScreen from "../screens/InformesScreen";
 import ValesScreen from "../screens/ValesScreen";
 import SeleccionarTipoValeScreen from "../screens/SeleccionarTipoValeScreen";
+import ArchivadosScreen from "../screens/ArchivadosScreen";
 import ValeRentaScreen from "../screens/ValeRentaScreen";
 import ValeMaterialScreen from "../screens/ValeMaterialScreen";
 import ConfiguracionScreen from "../screens/ConfiguracionScreen";
@@ -61,6 +62,17 @@ function ValesStack() {
       <Stack.Screen
         name="SeleccionarTipoVale"
         component={SeleccionarTipoValeScreen}
+      />
+
+      {/* Pantalla de Archivados - CON header */}
+      <Stack.Screen
+        name="Archivados"
+        component={ArchivadosScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Vales Archivados",
+          headerBackVisible: true,
+        }}
       />
 
       {/* Pantalla de Renta - CON header */}

@@ -443,9 +443,62 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
                 label="Folio Banco"
                 value={detalleMaterial.folio_banco || "N/A"}
               />
+              {/* AGREGAR FECHA DE EMISIÓN */}
+              {vale.estado !== "en_proceso" && (
+                <InfoRow
+                  icon="calendar-check"
+                  label="Emitido el"
+                  value={formatDate(vale.fecha_creacion)}
+                />
+              )}
             </>
           )}
         </View>
+
+        {/* AGREGAR NUEVA SECCIÓN: Precios */}
+        {vale.estado !== "en_proceso" && detalleMaterial.precio_m3 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Precios y Costo</Text>
+
+            <InfoRow
+              icon="cash"
+              label="Precio por m³"
+              value={`$${parseFloat(detalleMaterial.precio_m3).toFixed(2)} MXN`}
+            />
+
+            {detalleMaterial.tarifa_primer_km && (
+              <InfoRow
+                icon="currency-usd"
+                label="Tarifa 1er Km"
+                value={`$${parseFloat(detalleMaterial.tarifa_primer_km).toFixed(
+                  2
+                )} MXN`}
+              />
+            )}
+
+            {detalleMaterial.tarifa_subsecuente && (
+              <InfoRow
+                icon="currency-usd"
+                label="Tarifa Subsecuente"
+                value={`$${parseFloat(
+                  detalleMaterial.tarifa_subsecuente
+                ).toFixed(2)} MXN/km`}
+              />
+            )}
+
+            {detalleMaterial.costo_total && (
+              <View style={styles.totalContainer}>
+                <InfoRow
+                  icon="currency-usd"
+                  label="Costo Total"
+                  value={`$${parseFloat(detalleMaterial.costo_total).toFixed(
+                    2
+                  )} MXN`}
+                />
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Formulario para Completar */}
         {canComplete && (
@@ -596,5 +649,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
     fontStyle: "italic",
+  },
+  totalContainer: {
+    backgroundColor: colors.accent + "10",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
   },
 });

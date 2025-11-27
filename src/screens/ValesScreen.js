@@ -16,6 +16,10 @@ const ValesScreen = () => {
     navigation.navigate("SeleccionarTipoVale");
   };
 
+  const handleVerArchivados = () => {
+    navigation.navigate("Archivados");
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -32,6 +36,13 @@ const ValesScreen = () => {
       iconSize: 70,
       buttonText: "Crear Vale",
       backgroundColor: colors.primary,
+    },
+    {
+      onPress: handleVerArchivados,
+      iconName: "archive",
+      iconSize: 70,
+      buttonText: "Ver Archivados",
+      backgroundColor: colors.secondary,
     },
   ];
 
