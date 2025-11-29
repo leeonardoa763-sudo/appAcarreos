@@ -368,8 +368,14 @@ export const generatePDFOnly = async (valeData, colorCopia, qrDataUrl) => {
     const { uri } = await Print.printToFileAsync({
       html,
       base64: false,
-      width: 226,
-      height: 842,
+      // width: 226,
+      // height: 842,
+      margins: {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+      },
     });
 
     return uri;

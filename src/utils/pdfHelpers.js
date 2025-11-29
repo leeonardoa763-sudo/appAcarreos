@@ -50,19 +50,29 @@ export const getValeBaseCSS = (bgColor) => {
     body {
       font-family: 'Courier New', 'Courier', monospace;
       background-color: ${bgColor};
+      background-color: ${bgColor} !important;  
       padding: 0;
+      margin: 0;
       color: #000;
       font-size: 11px;
-      height: 105mm;
+      min-height: 100vh;
+      -webkit-print-color-adjust: exact;        
+      print-color-adjust: exact;                
     }
     
     .container {
-      width: 67.5mm;
-      margin: 0 auto;
+      width: 100%;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
       background: ${bgColor};
+      background-color: ${bgColor} !important;  
       border: 2px solid #000;
       display: flex;
       flex-direction: column;
+      -webkit-print-color-adjust: exact;       
+      print-color-adjust: exact;  
+      box-sizing: border-box;              
     }
     
     .header {
@@ -186,10 +196,11 @@ export const getValeBaseCSS = (bgColor) => {
     
     .footer {
       background: #000;
+      background-color: #000 !important;
       color: #FFF;
       padding: 8px 6px;
       text-align: center;
-      margin-top: 0;
+      margin-top: auto;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
@@ -225,17 +236,9 @@ export const getValeBaseCSS = (bgColor) => {
       height: auto;
     }
 
-    @media print {
-      body {
-        padding: 0;
-        margin: 0;
-        height: auto;
-      }
-      .container {
-        border: none;
-        height: auto;
-        page-break-after: always;
-      }
+    html {
+      height: 100%;
+      background-color: ${bgColor} !important;
     }
   `;
 };
