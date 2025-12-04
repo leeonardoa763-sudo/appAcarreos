@@ -2,9 +2,9 @@
  * AcarreosScreen.js - CON ESTADOS VERIFICADO Y CONCILIADO
  *
  * CAMBIOS:
- * - ✅ Agregadas secciones Verificados y Conciliados
- * - ✅ Todos los colapsables vienen expandidos por defecto
- * - ✅ Visible para todos los roles (incluido RESIDENTE)
+ * - Agregadas secciones Verificados y Conciliados
+ * - odos los colapsables vienen expandidos por defecto
+ * - Visible para todos los roles (incluido RESIDENTE)
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -314,41 +314,32 @@ const AcarreosScreen = () => {
           <Text style={styles.categoryTitle}>Material</Text>
 
           {/* Material - En Proceso */}
-          <View style={styles.subsection}>
-            <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons
-                name="progress-clock"
-                size={24}
-                color={colors.warning}
-              />
-              <Text style={styles.sectionTitle}>En Proceso</Text>
-              <View style={[styles.badge, { backgroundColor: colors.warning }]}>
-                <Text style={styles.badgeText}>
-                  {materialSeparado.enProceso.length}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.valesContainer}>
-              <FlatList
-                data={materialSeparado.enProceso}
-                renderItem={renderValeItem}
-                keyExtractor={(item) => item.id_vale.toString()}
-                ListEmptyComponent={() => (
-                  <EmptyState
-                    icon="package-variant-closed"
-                    text={
-                      searchQuery
-                        ? "No se encontraron vales en proceso"
-                        : "No hay vales de material en proceso"
-                    }
-                  />
-                )}
-                scrollEnabled={false}
-                showsVerticalScrollIndicator={false}
-              />
-            </View>
-          </View>
+          <CollapsibleSection
+            title="En Proceso"
+            icon="progress-clock"
+            count={materialSeparado.enProceso.length}
+            defaultCollapsed={false}
+            iconColor={colors.warning}
+            badgeColor={colors.warning}
+          >
+            <FlatList
+              data={materialSeparado.enProceso}
+              renderItem={renderValeItem}
+              keyExtractor={(item) => item.id_vale.toString()}
+              ListEmptyComponent={() => (
+                <EmptyState
+                  icon="package-variant-closed"
+                  text={
+                    searchQuery
+                      ? "No se encontraron vales en proceso"
+                      : "No hay vales de material en proceso"
+                  }
+                />
+              )}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          </CollapsibleSection>
 
           {/* Material - Emitidos */}
           <CollapsibleSection
@@ -440,41 +431,32 @@ const AcarreosScreen = () => {
           <Text style={styles.categoryTitle}> Renta</Text>
 
           {/* Renta - En Proceso */}
-          <View style={styles.subsection}>
-            <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons
-                name="progress-clock"
-                size={24}
-                color={colors.warning}
-              />
-              <Text style={styles.sectionTitle}>En Proceso</Text>
-              <View style={[styles.badge, { backgroundColor: colors.warning }]}>
-                <Text style={styles.badgeText}>
-                  {rentaSeparado.enProceso.length}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.valesContainer}>
-              <FlatList
-                data={rentaSeparado.enProceso}
-                renderItem={renderValeItem}
-                keyExtractor={(item) => item.id_vale.toString()}
-                ListEmptyComponent={() => (
-                  <EmptyState
-                    icon="truck-outline"
-                    text={
-                      searchQuery
-                        ? "No se encontraron vales en proceso"
-                        : "No hay vales de renta en proceso"
-                    }
-                  />
-                )}
-                scrollEnabled={false}
-                showsVerticalScrollIndicator={false}
-              />
-            </View>
-          </View>
+          <CollapsibleSection
+            title="En Proceso"
+            icon="progress-clock"
+            count={rentaSeparado.enProceso.length}
+            defaultCollapsed={false}
+            iconColor={colors.warning}
+            badgeColor={colors.warning}
+          >
+            <FlatList
+              data={rentaSeparado.enProceso}
+              renderItem={renderValeItem}
+              keyExtractor={(item) => item.id_vale.toString()}
+              ListEmptyComponent={() => (
+                <EmptyState
+                  icon="truck-outline"
+                  text={
+                    searchQuery
+                      ? "No se encontraron vales en proceso"
+                      : "No hay vales de renta en proceso"
+                  }
+                />
+              )}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          </CollapsibleSection>
 
           {/* Renta - Emitidos */}
           <CollapsibleSection

@@ -41,7 +41,7 @@ const ValesScreen = () => {
       onPress: handleVerArchivados,
       iconName: "archive",
       iconSize: 70,
-      buttonText: "Ver Archivados",
+      buttonText: "Archivados",
       backgroundColor: colors.secondary,
     },
   ];

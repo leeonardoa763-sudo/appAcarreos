@@ -92,7 +92,7 @@ export const fetchValesMaterial = async (weekNumber, year, idObra) => {
     `
     )
     .eq("tipo_vale", "material")
-    .eq("estado", "emitido")
+    .neq("estado", "en_proceso")
     .eq("id_obra", idObra)
     .gte("fecha_creacion", startDate.toISOString())
     .lte("fecha_creacion", endDate.toISOString())
@@ -134,7 +134,7 @@ export const fetchValesRenta = async (weekNumber, year, idObra) => {
     `
     )
     .eq("tipo_vale", "renta")
-    .eq("estado", "emitido")
+    .neq("estado", "en_proceso")
     .eq("id_obra", idObra)
     .gte("fecha_creacion", startDate.toISOString())
     .lte("fecha_creacion", endDate.toISOString())
