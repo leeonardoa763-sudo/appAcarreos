@@ -83,7 +83,6 @@ export const useValeMaterialLogic = (materiales) => {
             id_operador: formData.selectedOperador?.id_operador,
             id_vehiculo: formData.selectedVehiculo?.id_vehiculo,
             estado: generarCopiaRoja ? "en_proceso" : "emitido",
-            total_copias_emitidas: 1,
             qr_verification_url: verificationUrl,
           },
         ])

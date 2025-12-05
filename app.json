@@ -21,13 +21,20 @@
       }
     },
     "android": {
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FF6B35"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.controlacarreos.app",
-      "permissions": ["WRITE_EXTERNAL_STORAGE", "READ_EXTERNAL_STORAGE"]
+      "permissions": [
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -40,6 +47,11 @@
           "enableVideoRecordings": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "33b24368-32ca-4247-94a6-1055c29eea0f"
+      }
+    }
   }
 }
