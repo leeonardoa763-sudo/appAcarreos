@@ -28,15 +28,10 @@ export const useValeMaterialLogic = (materiales) => {
     const material = materiales.find((m) => m.id_material === materialId);
     if (!material) return;
 
-    const esTipo3 = material.id_tipo_de_material === 3;
-    const nuevaCopiaRoja = !esTipo3;
+    const nuevaCopiaRoja = true; // todas seran rojas
 
     if (generarCopiaRoja !== nuevaCopiaRoja) {
       setGenerarCopiaRoja(nuevaCopiaRoja);
-      console.log(
-        "[useValeMaterialLogic] Tipo copia:",
-        esTipo3 ? "BLANCA (Tipo 3)" : "ROJA (Otros)"
-      );
     }
   }, [materialSeleccionado, materiales]);
 
@@ -99,42 +94,13 @@ export const useValeMaterialLogic = (materiales) => {
 
       console.log("[useValeMaterialLogic] Vale insertado:", valeNuevo.id_vale);
 
-      // PASO 5: Calcular precio (solo Tipo 3)
-      let costos = null;
+      console.log("[useValeMaterialLogic] Vale insertado:", valeNuevo.id_vale);
 
-      if (!generarCopiaRoja) {
-        console.log("[useValeMaterialLogic] Calculando precio Tipo 3...");
-
-        // Buscar el material seleccionado
-        const materialInfo = materiales.find(
-          (m) => m.id_material === formData.materialId
-        );
-
-        if (!materialInfo || !materialInfo.id_tipo_de_material) {
-          console.error(
-            "[useValeMaterialLogic] Material no encontrado:",
-            formData.materialId
-          );
-          throw new Error("No se pudo determinar el tipo de material");
-        }
-
-        console.log("[useValeMaterialLogic] Material encontrado:", {
-          id: materialInfo.id_material,
-          nombre: materialInfo.material,
-          tipo: materialInfo.id_tipo_de_material,
-        });
-
-        costos = await calcularCostoValeMaterial(
-          materialInfo.id_tipo_de_material,
-          formData.sindicatoId,
-          parseFloat(formData.distancia),
-          parseFloat(formData.cantidadSolicitada)
-        );
-
-        console.log("[useValeMaterialLogic] Precio calculado:", costos);
-      } else {
-        console.log("[useValeMaterialLogic] Copia roja - sin precio aún");
-      }
+      // PASO 5: NO calcular precio en creación inicial
+      // Ahora TODOS los vales se completan después de creados
+      console.log(
+        "[useValeMaterialLogic] Creando vale sin precio - se completará después"
+      );
 
       // PASO 6: Insertar detalles
       const detalleInsert = {
@@ -145,22 +111,8 @@ export const useValeMaterialLogic = (materiales) => {
         distancia_km: parseFloat(formData.distancia),
         cantidad_pedida_m3: parseFloat(formData.cantidadSolicitada),
         peso_ton: null,
-        notas_adicionales: formData.notasAdicionales || null, // ← AGREGAR NOTAS
+        notas_adicionales: formData.notasAdicionales || null,
       };
-
-      if (costos) {
-        detalleInsert.precio_m3 = costos.precioM3;
-        detalleInsert.costo_total = costos.costoTotal;
-        detalleInsert.id_precios_material = costos.idPreciosMaterial;
-        detalleInsert.tarifa_primer_km = costos.tarifaPrimerKm; // ← NUEVO
-        detalleInsert.tarifa_subsecuente = costos.tarifaSubsecuente; // ← NUEVO
-        console.log("[useValeMaterialLogic] Insertando con precio:", {
-          precio_m3: costos.precioM3,
-          costo_total: costos.costoTotal,
-          tarifa_primer_km: costos.tarifaPrimerKm,
-          tarifa_subsecuente: costos.tarifaSubsecuente,
-        });
-      }
 
       const { error: errorDetalle } = await supabase
         .from("vale_material_detalles")
@@ -192,6 +144,11 @@ export const useValeMaterialLogic = (materiales) => {
             sufijo,
             logo
           )
+        ),
+        persona:id_persona_creador (
+          nombre,
+          primer_apellido,
+          segundo_apellido
         ),
         operadores:id_operador (
           nombre_completo

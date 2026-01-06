@@ -31,6 +31,9 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
   const distancia = detalle.distancia_km || "N/A";
   const cantidadPedida = detalle.cantidad_pedida_m3 || "N/A";
 
+  // Detectar si es tipo 3
+  const esTipo3 = detalle.material?.id_tipo_de_material === 3;
+
   // Datos de copia roja/verde (después de capturar peso)
   const folioBanco = detalle.folio_banco || null;
   const peso = detalle.peso_ton
@@ -145,42 +148,26 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
           </div>
           <div class="divider"></div>
           
-          <!-- 1. CANTIDAD PEDIDA (siempre) -->
+          ${
+            !(esCopiaBlanca && esTipo3)
+              ? `
+          <!-- CANTIDAD PEDIDA (NO mostrar en copia blanca tipo 3) -->
           <div class="info-row">
             <span class="info-label">Cantidad Pedida</span>
             <span class="info-value">${cantidadPedida} m³</span>
           </div>
-
-          ${
-            !esCopiaBlanca && folioBanco
-              ? `
-          <!-- 2. FOLIO BANCO (solo copias rojas/verdes) -->
-          <div class="info-row">
-            <span class="info-label">Folio Banco</span>
-            <span class="info-value">${folioBanco}</span>
-          </div>
           `
               : ""
           }
 
           ${
-            !esCopiaBlanca && peso
+            (!esCopiaBlanca || esTipo3) && volumenReal
               ? `
-          <!-- 3. PESO (solo copias rojas/verdes) -->
+          <!-- 4. VOLUMEN REAL (copias rojas/verdes O copia blanca tipo 3) -->
           <div class="info-row">
-            <span class="info-label">Peso</span>
-            <span class="info-value">${peso} Ton</span>
-          </div>
-          `
-              : ""
-          }
-
-          ${
-            !esCopiaBlanca && volumenReal
-              ? `
-          <!-- 4. VOLUMEN REAL (solo copias rojas/verdes) -->
-          <div class="info-row">
-            <span class="info-label">Volumen Real</span>
+            <span class="info-label">${
+              esTipo3 ? "Cantidad Final" : "Volumen Real"
+            }</span>
             <span class="info-value">${volumenReal} m³</span>
           </div>
           `
@@ -234,6 +221,13 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
           <div class="info-row">
             <span class="info-label">Sindicato</span>
             <span class="info-value">${sindicato}</span>
+          </div>
+          <div class="divider"></div>
+          <div class="info-row">
+            <span class="info-label">Emitido por</span>
+            <span class="info-value">${valeData.persona?.nombre || ""} ${
+    valeData.persona?.primer_apellido || ""
+  } ${valeData.persona?.segundo_apellido || ""}</span>
           </div>
         </div>
 
@@ -307,7 +301,7 @@ export const generateAndSharePDF = async (
     console.log("[pdfGenerator] PDF generado en:", uri);
 
     console.log("[pdfGenerator] Renombrando archivo...");
-    newUri = await renamePDFWithAutoName(uri, valeData.folio, colorCopia); // ✅ Sin const
+    newUri = await renamePDFWithAutoName(uri, valeData.folio, colorCopia);
     console.log("[pdfGenerator] Archivo renombrado:", newUri);
 
     console.log("[pdfGenerator] Verificando disponibilidad de compartir...");

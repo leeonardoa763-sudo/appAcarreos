@@ -107,7 +107,11 @@ const AcarreosScreen = () => {
           ),
           vale_material_detalles (
             *,
-            material:id_material (material),
+            material:id_material (
+              id_material,
+              material,
+              id_tipo_de_material
+            ),
             bancos:id_banco (banco)
           ),
           vale_renta_detalle (

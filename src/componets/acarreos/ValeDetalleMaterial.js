@@ -6,7 +6,8 @@
  *
  * FUNCIONALIDAD:
  * - Muestra detalles del vale de material
- * - Permite capturar peso (toneladas) y folio del banco
+ * - TIPO 3 (Tepetate): Confirmar/editar cantidad pedida
+ * - OTROS TIPOS: Capturar peso (toneladas) y folio del banco
  * - Completa el vale y actualiza estado a "emitido"
  * - Genera PDF automáticamente después de completar
  *
@@ -19,6 +20,7 @@ import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
+import { useAuth } from "../../hooks/useAuth";
 
 import { calcularCostoValeMaterial } from "../../utils/preciosMaterial";
 import KeyboardAvoidingScrollView from "../common//KeyboardAvoidingScrollView";
@@ -31,9 +33,15 @@ import PrimaryButton from "../common/PrimaryButton";
 import GenerarPDFButton from "../vale/GenerarPDFButton";
 
 const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
-  // Estados
+  // Estados para OTROS TIPOS
+  const { userProfile } = useAuth();
   const [pesoToneladas, setPesoToneladas] = useState(null);
   const [folioBanco, setFolioBanco] = useState("");
+
+  // Estados para TIPO 3
+  const [cantidadConfirmada, setCantidadConfirmada] = useState(null);
+
+  // Estados comunes
   const [savingToneladas, setSavingToneladas] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successData, setSuccessData] = useState(null);
@@ -45,6 +53,9 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
   const detalleMaterial = vale?.vale_material_detalles?.[0];
   const canComplete = vale?.estado === "en_proceso" && detalleMaterial;
+
+  // ✅ NUEVO: Detectar si es tipo 3
+  const esTipo3 = detalleMaterial?.material?.id_tipo_de_material === 3;
 
   // Inicializar valores cuando cambia el vale
   useEffect(() => {
@@ -59,10 +70,14 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     isInitialized.current = true;
 
     if (detalleMaterial) {
+      // Estados para otros tipos
       setPesoToneladas(detalleMaterial.peso_ton || null);
       setFolioBanco(
         detalleMaterial.folio_banco ? String(detalleMaterial.folio_banco) : ""
       );
+
+      // ✅ NUEVO: Inicializar cantidad para tipo 3
+      setCantidadConfirmada(detalleMaterial.cantidad_pedida_m3 || null);
     }
   }, [vale?.id_vale, detalleMaterial]);
 
@@ -77,9 +92,171 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     });
   }, []);
 
-  // Completar vale
+  // ✅ NUEVO: Completar vale TIPO 3 (solo cantidad)
+  const handleCompletarValeTipo3 = useCallback(async () => {
+    if (!canComplete || !esTipo3) return;
+
+    // Validaciones
+    if (!cantidadConfirmada || cantidadConfirmada <= 0) {
+      Alert.alert("Error", "Por favor ingresa una cantidad válida");
+      return;
+    }
+
+    try {
+      setSavingToneladas(true);
+
+      const detalleId = detalleMaterial?.id_detalle_material;
+      if (!detalleId) {
+        throw new Error("No se encontró el detalle del vale");
+      }
+
+      console.log(
+        "[ValeDetalleMaterial] Completando tipo 3 con cantidad:",
+        cantidadConfirmada
+      );
+
+      // PASO 1: Obtener tipo de material y sindicato
+      const { data: materialData, error: errorMaterial } = await supabase
+        .from("material")
+        .select("id_tipo_de_material")
+        .eq("id_material", detalleMaterial.id_material)
+        .single();
+
+      if (errorMaterial || !materialData) {
+        throw new Error("No se pudo obtener el tipo de material");
+      }
+
+      const { data: vehiculoData, error: errorVehiculo } = await supabase
+        .from("vehiculos")
+        .select("id_sindicato")
+        .eq("id_vehiculo", vale.id_vehiculo)
+        .single();
+
+      if (errorVehiculo || !vehiculoData) {
+        throw new Error("No se pudo obtener el sindicato del vehículo");
+      }
+
+      // PASO 2: Calcular precio con la cantidad confirmada
+      console.log("[ValeDetalleMaterial] Calculando precio tipo 3...");
+      const costos = await calcularCostoValeMaterial(
+        materialData.id_tipo_de_material,
+        vehiculoData.id_sindicato,
+        detalleMaterial.distancia_km,
+        cantidadConfirmada
+      );
+
+      console.log("[ValeDetalleMaterial] Precio calculado:", costos);
+
+      // PASO 3: Actualizar detalle con cantidad confirmada y precios
+      console.log("[DEBUG] Intentando actualizar vale_material_detalles:");
+      console.log("- detalleId:", detalleId);
+      console.log("- vale.id_vale:", vale.id_vale);
+      console.log("- userProfile.id_persona:", userProfile?.id_persona);
+      const { error: errorUpdate } = await supabase
+
+        .from("vale_material_detalles")
+        .update({
+          cantidad_pedida_m3: cantidadConfirmada,
+          volumen_real_m3: cantidadConfirmada, // Para tipo 3, volumen real = cantidad confirmada
+          precio_m3: costos.precioM3,
+          costo_total: costos.costoTotal,
+          id_precios_material: costos.idPreciosMaterial,
+          tarifa_primer_km: costos.tarifaPrimerKm,
+          tarifa_subsecuente: costos.tarifaSubsecuente,
+        })
+        .eq("id_detalle_material", detalleId);
+
+      if (errorUpdate) {
+        console.error("[ValeDetalleMaterial] Error actualizando:", errorUpdate);
+        throw errorUpdate;
+      }
+
+      // PASO 4: Actualizar estado del vale a "emitido"
+      const { error: errorEstado } = await supabase
+        .from("vales")
+        .update({ estado: "emitido" })
+        .eq("id_vale", vale.id_vale);
+
+      if (errorEstado) {
+        throw errorEstado;
+      }
+
+      // PASO 5: Consultar vale completo actualizado
+      const { data: valeConsultado, error: errorConsulta } = await supabase
+        .from("vales")
+        .select(
+          `
+          *,
+          obras:id_obra (
+            id_obra,
+            obra,
+            cc,
+            empresas:id_empresa (
+              id_empresa,
+              empresa,
+              sufijo,
+              logo
+            )
+          ),
+          persona:id_persona_creador (
+            nombre,
+            primer_apellido,
+            segundo_apellido
+          ),
+          operadores:id_operador (
+            nombre_completo
+          ),
+          vehiculos:id_vehiculo (
+            placas,
+            sindicatos:id_sindicato (
+              sindicato
+            )
+          ),
+          vale_material_detalles (
+            *,
+            material:id_material (
+              id_material,
+              material,
+              id_tipo_de_material
+            ),
+            bancos:id_banco (
+              id_banco,
+              banco
+            )
+          )
+        `
+        )
+        .eq("id_vale", vale.id_vale)
+        .single();
+
+      if (errorConsulta) {
+        throw errorConsulta;
+      }
+
+      setUpdatedVale(valeConsultado);
+      setSuccessData({
+        cantidadConfirmada: cantidadConfirmada.toFixed(2),
+        tipo: "tipo3",
+      });
+      setShowSuccessModal(true);
+      setTriggerPDF(false);
+    } catch (error) {
+      console.error("[ValeDetalleMaterial] Error:", error);
+      Alert.alert("Error", "No se pudo completar el vale. Intenta de nuevo.");
+    } finally {
+      setSavingToneladas(false);
+    }
+  }, [
+    canComplete,
+    esTipo3,
+    cantidadConfirmada,
+    detalleMaterial,
+    vale?.id_vale,
+  ]);
+
+  // Completar vale OTROS TIPOS (peso + folio) - CÓDIGO EXISTENTE
   const handleCompletarVale = useCallback(async () => {
-    if (!canComplete) return;
+    if (!canComplete || esTipo3) return; // ✅ Agregar validación para NO ejecutar si es tipo 3
 
     // Validaciones
     if (!pesoToneladas || pesoToneladas <= 0) {
@@ -92,7 +269,6 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
       return;
     }
 
-    // Validar formato del folio (solo números y guiones opcionales)
     const folioLimpio = folioBanco.trim();
     if (!/^[0-9-]+$/.test(folioLimpio)) {
       Alert.alert("Error", "El folio solo puede contener números y guiones");
@@ -144,15 +320,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
         const pesoEspecifico = pesoEspecificoData?.peso_especifico || 1;
 
-        // Calcular y redondear volumen real a 2 decimales
         const volumenRealSinRedondear = pesoToneladas / pesoEspecifico;
         const volumenReal = parseFloat(volumenRealSinRedondear.toFixed(2));
 
         console.log("[ValeDetalleMaterial] Peso específico:", pesoEspecifico);
-        console.log(
-          "[ValeDetalleMaterial] Volumen real sin redondear:",
-          volumenRealSinRedondear
-        );
         console.log(
           "[ValeDetalleMaterial] Volumen real redondeado:",
           volumenReal
@@ -173,11 +344,6 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           throw new Error("No se pudo obtener el tipo de material");
         }
 
-        console.log(
-          "[ValeDetalleMaterial] Tipo de material:",
-          materialData.id_tipo_de_material
-        );
-
         // PASO 3: Obtener sindicato del vehículo
         const { data: vehiculoData, error: errorVehiculo } = await supabase
           .from("vehiculos")
@@ -193,11 +359,6 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           throw new Error("No se pudo obtener el sindicato del vehículo");
         }
 
-        console.log(
-          "[ValeDetalleMaterial] Sindicato ID:",
-          vehiculoData.id_sindicato
-        );
-
         // PASO 4: Calcular precio usando volumen real REDONDEADO
         console.log("[ValeDetalleMaterial] Calculando precio...");
         const costos = await calcularCostoValeMaterial(
@@ -207,15 +368,9 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           volumenReal
         );
 
-        console.log("[ValeDetalleMaterial] Precio calculado:", {
-          precio_m3: costos.precioM3,
-          costo_total: costos.costoTotal,
-          tarifa_primer_km: costos.tarifaPrimerKm,
-          tarifa_subsecuente: costos.tarifaSubsecuente,
-          id_precios_material: costos.idPreciosMaterial,
-        });
+        console.log("[ValeDetalleMaterial] Precio calculado:", costos);
 
-        // PASO 5: Actualizar vale_material_detalles con TODOS los campos
+        // PASO 5: Actualizar vale_material_detalles
         const { error: errorUpdate } = await supabase
           .from("vale_material_detalles")
           .update({
@@ -237,10 +392,6 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           );
           throw errorUpdate;
         }
-
-        console.log(
-          "[ValeDetalleMaterial] Vale actualizado con precio y tarifas exitosamente"
-        );
 
         // Actualizar estado del vale a "emitido"
         const { error: errorEstado } = await supabase
@@ -273,6 +424,11 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
                 logo
               )
             ),
+            persona:id_persona_creador (
+              nombre,
+              primer_apellido,
+              segundo_apellido
+            ),
             operadores:id_operador (
               nombre_completo
             ),
@@ -286,7 +442,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               *,
               material:id_material (
                 id_material,
-                material
+                material,
+                id_tipo_de_material
               ),
               bancos:id_banco (
                 id_banco,
@@ -311,6 +468,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           pesoToneladas,
           volumenReal: volumenReal.toFixed(2),
           folioBanco: folioLimpio,
+          tipo: "normal",
         });
       } else {
         // RPC exitoso
@@ -321,6 +479,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           volumenReal:
             detalleActualizado?.volumen_real_m3?.toFixed(2) || "0.00",
           folioBanco: folioLimpio,
+          tipo: "normal",
         });
       }
 
@@ -330,7 +489,14 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     } finally {
       setSavingToneladas(false);
     }
-  }, [canComplete, pesoToneladas, folioBanco, detalleMaterial, vale?.id_vale]);
+  }, [
+    canComplete,
+    esTipo3,
+    pesoToneladas,
+    folioBanco,
+    detalleMaterial,
+    vale?.id_vale,
+  ]);
 
   const handleCloseSuccess = useCallback(() => {
     setShowSuccessModal(false);
@@ -343,26 +509,39 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
       Alert.alert("Error", "No hay datos del vale actualizado");
       return;
     }
-    setTriggerPDF(true);
+    console.log("[ValeDetalleMaterial] Trigger PDF activado");
+    setShowSuccessModal(false); // Cerrar modal primero
+    setTimeout(() => {
+      setTriggerPDF(true);
+    }, 100);
   }, [updatedVale]);
 
   if (!vale || !detalleMaterial) {
-    console.log("[ValeDetalleMaterial] Vale o detalle nulo");
-    console.log("[ValeDetalleMaterial] Vale:", !!vale);
-    console.log("[ValeDetalleMaterial] detalleMaterial:", !!detalleMaterial);
     return null;
   }
 
+  // ✅ Componente auxiliar para mostrar información
+  const InfoRow = ({ icon, label, value }) => (
+    <View style={styles.infoRow}>
+      <View style={styles.infoLabel}>
+        <MaterialCommunityIcons
+          name={icon}
+          size={18}
+          color={colors.textSecondary}
+        />
+        <Text style={styles.labelText}>{label}</Text>
+      </View>
+      <Text style={styles.valueText}>{value}</Text>
+    </View>
+  );
+
   return (
-    <>
-      <KeyboardAvoidingScrollView
-        style={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Estado */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Estado</Text>
-          <StatusBadge estado={vale.estado} size="medium" />
+    <View style={styles.container}>
+      <KeyboardAvoidingScrollView>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.folio}>{vale.folio}</Text>
+          <StatusBadge estado={vale.estado} />
         </View>
 
         {/* Información General */}
@@ -370,92 +549,104 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           <Text style={styles.sectionTitle}>Información General</Text>
 
           <InfoRow
-            icon="calendar"
-            label="Fecha de creación"
-            value={formatDate(vale.fecha_creacion)}
+            icon="domain"
+            label="Obra"
+            value={vale.obras?.obra || "N/A"}
           />
-
           <InfoRow
             icon="account-hard-hat"
             label="Operador"
             value={vale.operadores?.nombre_completo || "N/A"}
           />
-
           <InfoRow
-            icon="car"
+            icon="truck"
             label="Placas"
             value={vale.vehiculos?.placas || "N/A"}
           />
+          <InfoRow
+            icon="home-group"
+            label="Sindicato"
+            value={vale.vehiculos?.sindicatos?.sindicato || "N/A"}
+          />
         </View>
 
-        {/* Detalles de Material */}
+        {/* Detalles del Material */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Detalles de Material</Text>
-
-          <InfoRow
-            icon="package-variant"
-            label="Material"
-            value={detalleMaterial.material?.material || "N/A"}
-          />
-
-          <InfoRow
-            icon="map-marker"
-            label="Banco"
-            value={detalleMaterial.bancos?.banco || "N/A"}
-          />
-
-          <InfoRow
-            icon="truck"
-            label="Capacidad"
-            value={`${detalleMaterial.capacidad_m3} m³`}
-          />
-
-          <InfoRow
-            icon="map-marker-distance"
-            label="Distancia"
-            value={`${detalleMaterial.distancia_km} Km`}
-          />
+          <Text style={styles.sectionTitle}>Detalles del Material</Text>
 
           <InfoRow
             icon="cube-outline"
+            label="Material"
+            value={detalleMaterial.material?.material || "N/A"}
+          />
+          <InfoRow
+            icon="bank"
+            label="Banco"
+            value={detalleMaterial.bancos?.banco || "N/A"}
+          />
+          <InfoRow
+            icon="cube-send"
+            label="Capacidad"
+            value={`${detalleMaterial.capacidad_m3} m³`}
+          />
+          <InfoRow
+            icon="map-marker-distance"
+            label="Distancia"
+            value={`${detalleMaterial.distancia_km} km`}
+          />
+          <InfoRow
+            icon="package-variant"
             label="Cantidad Pedida"
             value={`${detalleMaterial.cantidad_pedida_m3} m³`}
           />
 
-          {detalleMaterial.peso_ton && (
+          {/* Mostrar datos completados si existen */}
+          {vale.estado !== "en_proceso" && (
             <>
-              <InfoRow
-                icon="weight"
-                label="Peso"
-                value={`${detalleMaterial.peso_ton} Ton`}
-              />
+              {!esTipo3 && (
+                <>
+                  <InfoRow
+                    icon="weight"
+                    label="Peso"
+                    value={`${detalleMaterial.peso_ton} Ton`}
+                  />
 
-              <InfoRow
-                icon="cube"
-                label="Volumen Real"
-                value={`${
-                  detalleMaterial.volumen_real_m3?.toFixed(2) || "N/A"
-                } m³`}
-              />
+                  <InfoRow
+                    icon="cube"
+                    label="Volumen Real"
+                    value={`${
+                      detalleMaterial.volumen_real_m3?.toFixed(2) || "N/A"
+                    } m³`}
+                  />
 
-              <InfoRow
-                icon="file-document"
-                label="Folio Banco"
-                value={detalleMaterial.folio_banco || "N/A"}
-              />
-              {/* AGREGAR FECHA DE EMISIÓN */}
-              {vale.estado !== "en_proceso" && (
+                  <InfoRow
+                    icon="file-document"
+                    label="Folio Banco"
+                    value={detalleMaterial.folio_banco || "N/A"}
+                  />
+                </>
+              )}
+
+              {esTipo3 && (
                 <InfoRow
-                  icon="calendar-check"
-                  label="Emitido el"
-                  value={formatDate(vale.fecha_creacion)}
+                  icon="cube"
+                  label="Cantidad Final"
+                  value={`${
+                    detalleMaterial.volumen_real_m3?.toFixed(2) || "N/A"
+                  } m³`}
                 />
               )}
+
+              <InfoRow
+                icon="calendar-check"
+                label="Emitido el"
+                value={formatDate(vale.fecha_creacion)}
+              />
             </>
           )}
         </View>
 
-        {/* AGREGAR NUEVA SECCIÓN: Precios */}
+        {/* Precios (solo si está completado) */}
         {vale.estado !== "en_proceso" && detalleMaterial.precio_m3 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Precios y Costo</Text>
@@ -500,8 +691,42 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           </View>
         )}
 
-        {/* Formulario para Completar */}
-        {canComplete && (
+        {/* ✅ NUEVO: Formulario para Completar TIPO 3 */}
+        {canComplete && esTipo3 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Confirmar Cantidad</Text>
+            <Text style={styles.sectionSubtitle}>
+              Cantidad pedida actual: {detalleMaterial.cantidad_pedida_m3} m³
+            </Text>
+            <Text style={styles.helperText}>
+              Confirma la cantidad o ingresa una diferente si es necesario
+            </Text>
+
+            <FormDecimalInput
+              label="Cantidad Final (m³)"
+              value={cantidadConfirmada}
+              onChange={setCantidadConfirmada}
+              min={0.01}
+              max={999}
+              decimalPlaces={2}
+              placeholder="0.00"
+              suffix="m³"
+              disabled={false}
+            />
+
+            <PrimaryButton
+              title="Completar Vale"
+              onPress={handleCompletarValeTipo3}
+              loading={savingToneladas}
+              disabled={!cantidadConfirmada || cantidadConfirmada <= 0}
+              icon="check-circle"
+              backgroundColor={colors.accent}
+            />
+          </View>
+        )}
+
+        {/* Formulario para Completar OTROS TIPOS */}
+        {canComplete && !esTipo3 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Completar Vale</Text>
             <Text style={styles.sectionSubtitle}>
@@ -553,71 +778,70 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         <View style={{ height: 40 }} />
       </KeyboardAvoidingScrollView>
 
-      {/* Modal de Éxito */}
+      {/* ✅ MODIFICADO: Modal de Éxito con mensaje condicional */}
       <SuccessModal
         visible={showSuccessModal}
         title="Vale Completado"
-        message={`Peso: ${successData?.pesoToneladas} ton\nVolumen Real: ${successData?.volumenReal} m³\nFolio Banco: ${successData?.folioBanco}\n\n¿Deseas generar el PDF ahora?`}
+        message={
+          successData?.tipo === "tipo3"
+            ? `Cantidad confirmada: ${successData?.cantidadConfirmada} m³\n\n¿Deseas generar el PDF ahora?`
+            : `Peso: ${successData?.pesoToneladas} ton\nVolumen Real: ${successData?.volumenReal} m³\nFolio Banco: ${successData?.folioBanco}\n\n¿Deseas generar el PDF ahora?`
+        }
         primaryAction={{
           text: "Generar PDF",
           icon: "file-pdf-box",
-          onPress: () => {
-            setShowSuccessModal(false);
-            setTimeout(() => {
-              handleGenerarPDFAhora();
-            }, 300);
-          },
+          onPress: handleGenerarPDFAhora,
         }}
+        onClose={handleCloseSuccess}
       />
 
-      {/* Generador de PDF */}
-      {triggerPDF && updatedVale && (
-        <GenerarPDFButton
-          valeData={updatedVale}
-          tipoVale="material"
-          colorCopia="blanco"
-          autoTrigger={true}
-          onSuccess={() => {
-            setTriggerPDF(false);
-            onRefresh();
-            onClose();
-          }}
-        />
+      {/* Generador de PDF invisible */}
+      {updatedVale && triggerPDF && (
+        <View style={{ position: "absolute", left: -9999 }}>
+          <GenerarPDFButton
+            valeData={updatedVale}
+            tipoVale="material"
+            colorCopia="blanca"
+            autoTrigger={true}
+            onSuccess={() => {
+              setTriggerPDF(false);
+              handleCloseSuccess();
+            }}
+          />
+        </View>
       )}
-    </>
+    </View>
   );
 };
-
-// Componente auxiliar para filas de información
-const InfoRow = ({ icon, label, value }) => (
-  <View style={styles.infoRow}>
-    <MaterialCommunityIcons
-      name={icon}
-      size={20}
-      color={colors.textSecondary}
-    />
-    <View style={styles.infoTextContainer}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
-  </View>
-);
 
 export default ValeDetalleMaterial;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  folio: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.textPrimary,
   },
   section: {
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "600",
     color: colors.textPrimary,
-    marginBottom: 12,
+    marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
@@ -626,34 +850,39 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  infoTextContainer: {
-    marginLeft: 12,
-    flex: 1,
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + "30",
   },
   infoLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
   },
-  infoValue: {
-    fontSize: 15,
+  labelText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginLeft: 8,
+  },
+  valueText: {
+    fontSize: 14,
+    fontWeight: "600",
     color: colors.textPrimary,
-    fontWeight: "500",
+    textAlign: "right",
+    flex: 1,
   },
   helperText: {
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 8,
-    textAlign: "center",
     fontStyle: "italic",
   },
   totalContainer: {
-    backgroundColor: colors.accent + "10",
-    borderRadius: 8,
-    padding: 12,
     marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 2,
+    borderTopColor: colors.accent,
   },
 });

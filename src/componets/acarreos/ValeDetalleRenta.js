@@ -17,11 +17,12 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, Alert } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
 
+import KeyboardAvoidingScrollView from "../common/KeyboardAvoidingScrollView";
 import StatusBadge from "../common/StatusBadge";
 import FormTimePicker from "../forms/FormTimePicker";
 import FormNumberInput from "../forms/FormNumberInput";
@@ -31,7 +32,6 @@ import PrimaryButton from "../common/PrimaryButton";
 import GenerarPDFButton from "../vale/GenerarPDFButton";
 
 const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
-  // Estados
   const [horaFin, setHoraFin] = useState(null);
   const [numeroViajes, setNumeroViajes] = useState(1);
   const [esRentaPorDia, setEsRentaPorDia] = useState(false);
@@ -48,7 +48,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const canComplete = vale?.estado === "en_proceso" && detalleRenta;
   const preciosRenta = detalleRenta?.precios_renta;
 
-  // Inicializar valores cuando cambia el vale
   useEffect(() => {
     if (
       !vale ||
@@ -67,7 +66,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     }
   }, [vale?.id_vale, detalleRenta]);
 
-  // Formateo de fechas
   const formatDate = useCallback((dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -88,17 +86,14 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     });
   }, []);
 
-  // Formatear moneda
   const formatCurrency = (amount) => {
     if (!amount && amount !== 0) return "N/A";
     return `$${parseFloat(amount).toFixed(2)} MXN`;
   };
 
-  // Completar vale
   const handleGuardarHoraFin = useCallback(async () => {
     if (!canComplete) return;
 
-    // Validaciones
     if (!esRentaPorDia && !horaFin) {
       Alert.alert("Error", "Por favor selecciona la hora de fin");
       return;
@@ -133,7 +128,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         totalDias = 0;
       }
 
-      // Intentar usar RPC optimizado
       const { data, error } = await supabase.rpc("completar_vale_renta", {
         p_id_vale: vale.id_vale,
         p_id_detalle: detalleRenta.id_vale_renta_detalle,
@@ -147,7 +141,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       if (error) {
         console.log("[ValeDetalleRenta] RPC falló, usando fallback");
 
-        // Fallback: queries separadas
         const { error: errorDetalle } = await supabase
           .from("vale_renta_detalle")
           .update({
@@ -169,7 +162,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         if (valeError) throw valeError;
       }
 
-      // Crear vale actualizado para success modal
       const valeActualizado = {
         ...vale,
         estado: "emitido",
@@ -193,13 +185,12 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         esRentaPorDia,
       });
 
-      console.log(
-        "[ValeDetalleRenta] Iniciando generación automática de PDF..."
-      );
-      setTriggerPDF(true);
+      setShowSuccessModal(true);
+      setTriggerPDF(false);
     } catch (error) {
       console.error("[ValeDetalleRenta] Error completando vale:", error);
       Alert.alert("Error", "No se pudo completar el vale. Intenta de nuevo.");
+    } finally {
       setSaving(false);
     }
   }, [
@@ -211,17 +202,49 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     vale?.id_vale,
   ]);
 
+  const handleCloseSuccess = useCallback(() => {
+    setShowSuccessModal(false);
+    onRefresh();
+    onClose();
+  }, [onRefresh, onClose]);
+
+  const handleGenerarPDFAhora = useCallback(() => {
+    if (!updatedVale) {
+      Alert.alert("Error", "No hay datos del vale actualizado");
+      return;
+    }
+    console.log("[ValeDetalleRenta] Trigger PDF activado");
+    setShowSuccessModal(false);
+    setTimeout(() => {
+      setTriggerPDF(true);
+    }, 100);
+  }, [updatedVale]);
+
   if (!vale || !detalleRenta) {
     return null;
   }
 
+  const InfoRow = ({ icon, label, value }) => (
+    <View style={styles.infoRow}>
+      <View style={styles.infoLabel}>
+        <MaterialCommunityIcons
+          name={icon}
+          size={18}
+          color={colors.textSecondary}
+        />
+        <Text style={styles.labelText}>{label}</Text>
+      </View>
+      <Text style={styles.valueText}>{value}</Text>
+    </View>
+  );
+
   return (
-    <>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Estado */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Estado</Text>
-          <StatusBadge estado={vale.estado} size="medium" />
+    <View style={styles.container}>
+      <KeyboardAvoidingScrollView>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.folio}>{vale.folio}</Text>
+          <StatusBadge estado={vale.estado} />
         </View>
 
         {/* Información General */}
@@ -229,21 +252,24 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           <Text style={styles.sectionTitle}>Información General</Text>
 
           <InfoRow
-            icon="calendar"
-            label="Fecha de creación"
-            value={formatDate(vale.fecha_creacion)}
+            icon="domain"
+            label="Obra"
+            value={vale.obras?.obra || "N/A"}
           />
-
           <InfoRow
             icon="account-hard-hat"
             label="Operador"
             value={vale.operadores?.nombre_completo || "N/A"}
           />
-
           <InfoRow
-            icon="car"
+            icon="truck"
             label="Placas"
             value={vale.vehiculos?.placas || "N/A"}
+          />
+          <InfoRow
+            icon="home-group"
+            label="Sindicato"
+            value={vale.vehiculos?.sindicatos?.sindicato || "N/A"}
           />
         </View>
 
@@ -261,20 +287,20 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
 
           {detalleRenta.capacidad_m3 && (
             <InfoRow
-              icon="truck"
+              icon="truck-cargo-container"
               label="Capacidad"
               value={`${detalleRenta.capacidad_m3} m³`}
             />
           )}
 
-          {/* Tipo de Renta */}
-          {detalleRenta.es_renta_por_dia !== null && (
-            <InfoRow
-              icon="calendar-clock"
-              label="Tipo de Renta"
-              value={detalleRenta.es_renta_por_dia ? "Por día" : "Por hora"}
-            />
-          )}
+          {detalleRenta.es_renta_por_dia !== null &&
+            vale.estado !== "en_proceso" && (
+              <InfoRow
+                icon="calendar-clock"
+                label="Tipo de Renta"
+                value={detalleRenta.es_renta_por_dia ? "Por día" : "Por hora"}
+              />
+            )}
 
           <InfoRow
             icon="clock-start"
@@ -290,7 +316,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             />
           )}
 
-          {/* Total Horas (solo si es por hora) */}
           {detalleRenta.total_horas > 0 && (
             <InfoRow
               icon="clock-outline"
@@ -299,7 +324,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             />
           )}
 
-          {/* Total Días (solo si es por día) */}
           {detalleRenta.total_dias > 0 && (
             <InfoRow
               icon="calendar-check"
@@ -308,7 +332,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             />
           )}
 
-          {/* Número de Viajes */}
           {detalleRenta.numero_viajes && (
             <InfoRow
               icon="truck-check"
@@ -317,27 +340,32 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             />
           )}
 
-          {/* Fecha de emisión */}
           {vale.estado !== "en_proceso" && (
             <InfoRow
               icon="calendar-check"
               label="Emitido el"
-              value={`${formatDate(vale.fecha_creacion)} a las ${formatTime(
-                vale.fecha_creacion
-              )}`}
+              value={formatDate(vale.fecha_creacion)}
             />
           )}
 
           {detalleRenta.notas_adicionales && (
-            <InfoRow
-              icon="note-text"
-              label="Notas"
-              value={detalleRenta.notas_adicionales}
-            />
+            <View style={styles.notasContainer}>
+              <View style={styles.notasHeader}>
+                <MaterialCommunityIcons
+                  name="note-text"
+                  size={18}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.notasLabel}>Notas Adicionales</Text>
+              </View>
+              <Text style={styles.notasText}>
+                {detalleRenta.notas_adicionales}
+              </Text>
+            </View>
           )}
         </View>
 
-        {/* Tarifas y Costo (solo si el vale está emitido) */}
+        {/* Tarifas y Costo */}
         {vale.estado !== "en_proceso" && preciosRenta && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Tarifas y Costo</Text>
@@ -401,105 +429,89 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             />
 
             <PrimaryButton
-              title="Guardar y Completar Vale"
+              title="Completar Vale"
               onPress={handleGuardarHoraFin}
               loading={saving}
+              disabled={!esRentaPorDia && !horaFin}
               icon="check-circle"
               backgroundColor={colors.accent}
             />
+
+            <Text style={styles.helperText}>
+              {esRentaPorDia
+                ? "Renta por día completo seleccionada"
+                : "Hora de fin requerida para renta por hora"}
+            </Text>
           </View>
         )}
 
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </KeyboardAvoidingScrollView>
 
       {/* Modal de Éxito */}
       <SuccessModal
         visible={showSuccessModal}
-        title="Vale de Renta Completado"
+        title="Vale Completado"
         message={
           successData?.esRentaPorDia
-            ? `Renta por día completo registrada.\nViajes: ${successData?.numeroViajes}\n\nPDF generado exitosamente.`
-            : `Total de horas: ${successData?.totalHoras}\nViajes: ${successData?.numeroViajes}\n\nPDF generado exitosamente.`
+            ? `Renta por día completo\nViajes: ${successData?.numeroViajes}\n\n¿Deseas generar el PDF ahora?`
+            : `Total de horas: ${successData?.totalHoras} hrs\nViajes: ${successData?.numeroViajes}\n\n¿Deseas generar el PDF ahora?`
         }
         primaryAction={{
-          text: "Cerrar",
-          icon: "check",
-          onPress: () => {
-            setShowSuccessModal(false);
-            onRefresh();
-            onClose();
-          },
+          text: "Generar PDF",
+          icon: "file-pdf-box",
+          onPress: handleGenerarPDFAhora,
         }}
+        onClose={handleCloseSuccess}
       />
 
-      {/* Generador de PDF */}
-      {triggerPDF && updatedVale && (
-        <GenerarPDFButton
-          valeData={updatedVale}
-          tipoVale="renta"
-          colorCopia="blanco"
-          autoTrigger={true}
-          onSuccess={() => {
-            setTriggerPDF(false);
-            setSaving(false);
-            setShowSuccessModal(true);
-          }}
-          onError={(error) => {
-            console.error("[ValeDetalleRenta] Error generando PDF:", error);
-            setTriggerPDF(false);
-            setSaving(false);
-            Alert.alert(
-              "Vale Completado",
-              "El vale se guardó correctamente, pero hubo un error al generar el PDF. Puedes generarlo desde la pantalla de Acarreos.",
-              [
-                {
-                  text: "Entendido",
-                  onPress: () => {
-                    onRefresh();
-                    onClose();
-                  },
-                },
-              ]
-            );
-          }}
-        />
+      {/* Generador de PDF invisible */}
+      {updatedVale && triggerPDF && (
+        <View style={{ position: "absolute", left: -9999 }}>
+          <GenerarPDFButton
+            valeData={updatedVale}
+            tipoVale="renta"
+            colorCopia="blanco"
+            autoTrigger={true}
+            onSuccess={() => {
+              setTriggerPDF(false);
+              handleCloseSuccess();
+            }}
+          />
+        </View>
       )}
-    </>
+    </View>
   );
 };
-
-// Componente auxiliar para filas de información
-const InfoRow = ({ icon, label, value }) => (
-  <View style={styles.infoRow}>
-    <MaterialCommunityIcons
-      name={icon}
-      size={20}
-      color={colors.textSecondary}
-    />
-    <View style={styles.infoTextContainer}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
-  </View>
-);
 
 export default ValeDetalleRenta;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  folio: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.textPrimary,
   },
   section: {
-    marginTop: 20,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "600",
     color: colors.textPrimary,
-    marginBottom: 12,
+    marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
@@ -508,27 +520,63 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  infoTextContainer: {
-    marginLeft: 12,
-    flex: 1,
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + "30",
   },
   infoLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  labelText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginLeft: 8,
+  },
+  valueText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    textAlign: "right",
+    flex: 1,
+  },
+  helperText: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 15,
-    color: colors.textPrimary,
-    fontWeight: "500",
+    marginTop: 8,
+    fontStyle: "italic",
   },
   totalContainer: {
-    backgroundColor: colors.accent + "10",
-    borderRadius: 8,
-    padding: 12,
     marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 2,
+    borderTopColor: colors.accent,
+  },
+  notasContainer: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.info,
+  },
+  notasHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  notasLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    marginLeft: 8,
+  },
+  notasText: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    lineHeight: 20,
   },
 });
