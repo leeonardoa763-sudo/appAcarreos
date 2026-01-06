@@ -2,7 +2,7 @@
   "expo": {
     "name": "Control de Acarreos",
     "slug": "control-acarreos",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -21,7 +21,7 @@
       }
     },
     "android": {
-      "versionCode": 1,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FF6B35"
@@ -51,7 +51,9 @@
     "extra": {
       "eas": {
         "projectId": "33b24368-32ca-4247-94a6-1055c29eea0f"
-      }
+      },
+      "supabaseUrl": "https://zqdnyqvgfymjorfplquf.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxZG55cXZnZnltam9yZnBscXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyNjYzODYsImV4cCI6MjA3Njg0MjM4Nn0.OAdncNGmBSG4LdwNCTtfuSAIqYBK0JbaeBuSvUcCxNE"
     }
   }
 }

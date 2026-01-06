@@ -288,13 +288,67 @@ const LoginScreen = ({ navigation }) => {
         <Text style={styles.footerText}>
           Sistema de Control de Vales Digitales
         </Text>
+
+        {/* Información del Desarrollador */}
+        <View style={styles.developerInfo}>
+          <View style={styles.developerRow}>
+            <MaterialCommunityIcons
+              name="account-hard-hat"
+              size={14}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.developerText}>
+              Desarrollado por: Ing. Leonardo Aguilar Saucedo
+            </Text>
+          </View>
+          <View style={styles.developerRow}>
+            <MaterialCommunityIcons
+              name="phone"
+              size={14}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.developerText}>Contacto: 492 145 2396</Text>
+          </View>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
 };
 
-const styles = {
+const styles = StyleSheet.create({
   ...screenStyles,
   ...formStyles,
-};
+  // Ajuste del footer principal
+  footer: {
+    marginTop: 30,
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  footerText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  // Estilos para información del desarrollador
+  developerInfo: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E0E0E0",
+    width: "100%",
+    alignItems: "center",
+  },
+  developerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  developerText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginLeft: 6,
+  },
+});
 export default LoginScreen;

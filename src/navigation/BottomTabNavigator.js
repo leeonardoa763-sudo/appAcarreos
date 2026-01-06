@@ -130,11 +130,11 @@ function MainTabs() {
           // Altura dinámica según plataforma
           height: Platform.select({
             ios: 85, // iPhone con n otch/isla dinámica
-            android: 80, // Android estándar
+            android: 115, // Android estándar
           }),
           paddingBottom: Platform.select({
             ios: 25, // Espacio para el área segura en iOS
-            android: 15,
+            android: 25,
           }),
           paddingTop: 8,
           elevation: 8,

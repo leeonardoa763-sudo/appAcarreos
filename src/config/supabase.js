@@ -1,11 +1,16 @@
-// // src/config/supabase.js
-
+// src/config/supabase.js
 import { createClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@env";
+import Constants from "expo-constants";
 
-const supabaseUrl = SUPABASE_URL;
-const supabaseAnonKey = SUPABASE_ANON_KEY;
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    "Supabase URL o Anon Key no configurados en app.json. Verifica la sección 'extra'."
+  );
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -15,17 +20,3 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
-
-// Test de conexión
-supabase.auth
-  .getSession()
-  .then(({ data, error }) => {
-    if (error) {
-      console.error(" Error en test de conexión:", error);
-    } else {
-      console.log(" [supabase] Conexión exitosa con Supabase");
-    }
-  })
-  .catch((err) => {
-    console.error(" Error crítico conectando con Supabase:", err);
-  });
