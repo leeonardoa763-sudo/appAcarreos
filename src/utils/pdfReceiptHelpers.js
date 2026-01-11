@@ -16,7 +16,7 @@ export const COLORES_COPIA_RECIBO = {
 };
 
 export const DESTINATARIOS_COPIA_RECIBO = {
-  blanco: "OPERADOR",
+  blanco: "ORIGINAL",
   roja: "BANCO DE MATERIAL",
   verde: "RESIDENTE",
   azul: "ADMINISTRADOR 1",
@@ -28,7 +28,7 @@ export const getCopiaInfoRecibo = (colorCopia) => {
   const color = colorCopia.toLowerCase();
   return {
     bgColor: COLORES_COPIA_RECIBO[color] || COLORES_COPIA_RECIBO.blanco,
-    destinatario: DESTINATARIOS_COPIA_RECIBO[color] || "COPIA",
+    destinatario: DESTINATARIOS_COPIA_RECIBO[color] || "ORIGINAL",
   };
 };
 

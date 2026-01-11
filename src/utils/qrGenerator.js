@@ -13,7 +13,7 @@
  * - ValeRentaScreen
  *
  * FORMATO URL:
- * https://verify.controldeacarreos.com/vale/{FOLIO}
+ * https://web-acarreos.vercel.app/vale/{FOLIO}
  */
 
 /**
@@ -22,8 +22,8 @@
  * @returns {string} - URL completa de verificación
  */
 export const generateVerificationUrl = (folio) => {
-  // Base URL del sistema de verificación
-  const BASE_URL = "https://verify.controldeacarreos.com";
+  // NUEVA: Base URL del sistema de verificación (web desplegada en Vercel)
+  const BASE_URL = "https://web-acarreos.vercel.app";
 
   // Construir URL con el folio
   return `${BASE_URL}/vale/${folio}`;
@@ -50,7 +50,7 @@ export const extractFolioFromUrl = (url) => {
  * @returns {boolean} - true si es válida, false si no
  */
 export const isValidVerificationUrl = (url) => {
-  const pattern =
-    /^https:\/\/verify\.controldeacarreos\.com\/vale\/[A-Z]+-\d+-\d+$/;
+  // ACTUALIZADO: Validar nueva URL de Vercel
+  const pattern = /^https:\/\/web-acarreos\.vercel\.app\/vale\/[A-Z]+-\d+-\d+$/;
   return pattern.test(url);
 };
