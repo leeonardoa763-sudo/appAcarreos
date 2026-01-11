@@ -161,14 +161,39 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
           }
 
           ${
-            (!esCopiaBlanca || esTipo3) && volumenReal
+            volumenReal &&
+            (!esCopiaBlanca || esTipo3 || (esCopiaBlanca && !esTipo3))
               ? `
-          <!-- 4. VOLUMEN REAL (copias rojas/verdes O copia blanca tipo 3) -->
+          <!-- 4. VOLUMEN REAL -->
           <div class="info-row">
             <span class="info-label">${
               esTipo3 ? "Cantidad Final" : "Volumen Real"
             }</span>
             <span class="info-value">${volumenReal} m³</span>
+          </div>
+          `
+              : ""
+          }
+
+          ${
+            peso && esCopiaBlanca && !esTipo3
+              ? `
+          <!-- 4B. PESO (solo copias blancas tipo 1 y 2) -->
+          <div class="info-row">
+            <span class="info-label">Peso</span>
+            <span class="info-value">${peso} Ton</span>
+          </div>
+          `
+              : ""
+          }
+
+          ${
+            folioBanco && esCopiaBlanca && !esTipo3
+              ? `
+          <!-- 4C. FOLIO BANCO (solo copias blancas tipo 1 y 2) -->
+          <div class="info-row">
+            <span class="info-label">Folio Banco</span>
+            <span class="info-value">${folioBanco}</span>
           </div>
           `
               : ""
@@ -268,17 +293,14 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
   `;
 };
 
-export const generateAndSharePDF = async (
-  valeData,
-  colorCopia = "roja",
-  qrDataUrl
-) => {
+export const generateAndSharePDF = async (valeData, colorCopia, qrDataUrl) => {
   let newUri = null;
 
   try {
-    console.log("[pdfGenerator] === INICIO generateAndSharePDF ===");
-    console.log("[pdfGenerator] colorCopia:", colorCopia);
-    console.log("[pdfGenerator] Tiene QR:", !!qrDataUrl);
+    console.log("[pdfGenerator] === generateAndSharePDF llamado ===");
+    console.log("[pdfGenerator] Folio:", valeData?.folio);
+    console.log("[pdfGenerator] Color:", colorCopia);
+    console.log("[pdfGenerator] QR presente:", !!qrDataUrl);
 
     if (!valeData || !valeData.folio) {
       throw new Error("Datos del vale incompletos");
@@ -314,31 +336,21 @@ export const generateAndSharePDF = async (
 
     console.log("[pdfGenerator] Compartiendo PDF...");
 
-    await Promise.race([
-      Sharing.shareAsync(newUri, {
-        mimeType: "application/pdf",
-        dialogTitle: `Vale ${
-          valeData.folio
-        } - Copia ${colorCopia.toUpperCase()}`,
-        UTI: "com.adobe.pdf",
-      }),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout compartiendo")), 15000)
-      ),
-    ]);
+    // ✅ ELIMINADO: Promise.race con timeout
+    // ✅ AHORA: Sharing directo sin timeout
+    await Sharing.shareAsync(newUri, {
+      mimeType: "application/pdf",
+      dialogTitle: `Vale ${valeData.folio} - Copia ${colorCopia.toUpperCase()}`,
+      UTI: "com.adobe.pdf",
+    });
 
     console.log("[pdfGenerator] ✅ PDF compartido exitosamente");
     return newUri;
   } catch (error) {
     console.error("[pdfGenerator] ❌ ERROR:", error.message);
 
-    if (error.message === "Timeout compartiendo" && newUri) {
-      console.log("[pdfGenerator] Timeout pero archivo creado:", newUri);
-      // ⚠️ El archivo existe pero sharing falló
-      // Retornar success de todos modos
-      return newUri;
-    }
-
+    // ✅ ELIMINADO: Manejo especial de timeout
+    // Si hay error, simplemente lo propagamos
     throw error;
   }
 };

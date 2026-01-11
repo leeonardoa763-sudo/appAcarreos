@@ -22,8 +22,11 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import QRCodeGenerator from "../common/QRCodeGenerator";
-import { generateAndSharePDF } from "../../services/pdfGenerator";
-import { generateAndSharePDFRenta } from "../../services/pdfRentaGenerator";
+
+// import { generateAndSharePDF } from "../../services/pdfGenerator";
+// import { generateAndSharePDFRenta } from "../../services/pdfRentaGenerator";
+import { generateAndShareMaterialRecibo as generateAndSharePDF } from "../../services/pdfMaterialGeneratorRecibo";
+import { generateAndShareRentaRecibo as generateAndSharePDFRenta } from "../../services/pdfRentaGeneratorRecibo";
 
 const GenerarPDFButton = ({
   valeData,

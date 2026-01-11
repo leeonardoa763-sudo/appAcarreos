@@ -12,7 +12,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { Alert, InteractionManager } from "react-native";
-import { generateAndSharePDF } from "../services/pdfGenerator";
+import { generateAndShareMaterialRecibo as generateAndSharePDF } from "../services/pdfMaterialGeneratorRecibo";
 
 export const useValeMaterialPDF = (navigation) => {
   const [qrDataUrl, setQrDataUrl] = useState(null);

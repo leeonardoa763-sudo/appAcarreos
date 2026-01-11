@@ -54,7 +54,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const detalleMaterial = vale?.vale_material_detalles?.[0];
   const canComplete = vale?.estado === "en_proceso" && detalleMaterial;
 
-  // ✅ NUEVO: Detectar si es tipo 3
+  // NUEVO: Detectar si es tipo 3
   const esTipo3 = detalleMaterial?.material?.id_tipo_de_material === 3;
 
   // Inicializar valores cuando cambia el vale
@@ -92,7 +92,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     });
   }, []);
 
-  // ✅ NUEVO: Completar vale TIPO 3 (solo cantidad)
+  //  NUEVO: Completar vale TIPO 3 (solo cantidad)
   const handleCompletarValeTipo3 = useCallback(async () => {
     if (!canComplete || !esTipo3) return;
 
@@ -258,7 +258,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const handleCompletarVale = useCallback(async () => {
     if (!canComplete || esTipo3) return; // ✅ Agregar validación para NO ejecutar si es tipo 3
 
-    // Validaciones
+    // Validaciones de campos
     if (!pesoToneladas || pesoToneladas <= 0) {
       Alert.alert("Error", "Por favor ingresa un peso válido");
       return;
@@ -275,6 +275,51 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
       return;
     }
 
+    // ✅ NUEVA VALIDACIÓN: Verificar que existe peso específico ANTES de completar
+    try {
+      const { data: pesoEspecificoValidacion, error: errorValidacion } =
+        await supabase
+          .from("peso_especifico")
+          .select("peso_especifico")
+          .eq("id_material", detalleMaterial.id_material)
+          .eq("id_banco", detalleMaterial.id_banco)
+          .maybeSingle();
+
+      if (errorValidacion) {
+        console.error(
+          "[ValeDetalleMaterial] Error validando peso específico:",
+          errorValidacion
+        );
+        Alert.alert(
+          "Error",
+          "No se pudo verificar el peso específico del material"
+        );
+        return;
+      }
+
+      if (!pesoEspecificoValidacion) {
+        Alert.alert(
+          "Material sin peso específico",
+          "El material de este vale no tiene configurado un peso específico para el banco seleccionado. Por favor, contacte al administrador para que lo configure antes de completar el vale.",
+          [{ text: "Entendido" }]
+        );
+        return;
+      }
+
+      console.log(
+        "[ValeDetalleMaterial] Peso específico confirmado:",
+        pesoEspecificoValidacion.peso_especifico
+      );
+    } catch (error) {
+      console.error(
+        "[ValeDetalleMaterial] Error inesperado validando peso específico:",
+        error
+      );
+      Alert.alert("Error", "Ocurrió un error al validar el material");
+      return;
+    }
+
+    // ✅ Si llegó aquí, el peso específico existe - continuar completado
     try {
       setSavingToneladas(true);
 
@@ -302,7 +347,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           "[ValeDetalleMaterial] Usando método manual (RPC no disponible)"
         );
 
-        // PASO 1: Obtener peso específico
+        // PASO 1: Obtener peso específico (ahora ya sabemos que existe)
         const { data: pesoEspecificoData, error: errorPeso } = await supabase
           .from("peso_especifico")
           .select("peso_especifico")
@@ -412,45 +457,45 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           .from("vales")
           .select(
             `
-            *,
-            obras:id_obra (
-              id_obra,
-              obra,
-              cc,
-              empresas:id_empresa (
-                id_empresa,
-                empresa,
-                sufijo,
-                logo
-              )
-            ),
-            persona:id_persona_creador (
-              nombre,
-              primer_apellido,
-              segundo_apellido
-            ),
-            operadores:id_operador (
-              nombre_completo
-            ),
-            vehiculos:id_vehiculo (
-              placas,
-              sindicatos:id_sindicato (
-                sindicato
-              )
-            ),
-            vale_material_detalles (
-              *,
-              material:id_material (
-                id_material,
-                material,
-                id_tipo_de_material
-              ),
-              bancos:id_banco (
-                id_banco,
-                banco
-              )
+          *,
+          obras:id_obra (
+            id_obra,
+            obra,
+            cc,
+            empresas:id_empresa (
+              id_empresa,
+              empresa,
+              sufijo,
+              logo
             )
-          `
+          ),
+          persona:id_persona_creador (
+            nombre,
+            primer_apellido,
+            segundo_apellido
+          ),
+          operadores:id_operador (
+            nombre_completo
+          ),
+          vehiculos:id_vehiculo (
+            placas,
+            sindicatos:id_sindicato (
+              sindicato
+            )
+          ),
+          vale_material_detalles (
+            *,
+            material:id_material (
+              id_material,
+              material,
+              id_tipo_de_material
+            ),
+            bancos:id_banco (
+              id_banco,
+              banco
+            )
+          )
+        `
           )
           .eq("id_vale", vale.id_vale)
           .single();
