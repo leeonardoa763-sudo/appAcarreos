@@ -32,6 +32,7 @@ import QRCodeGenerator from "../componets/common/QRCodeGenerator";
 import SuccessModal from "../componets/common/SuccessModal";
 import FormInput from "../componets/forms/FormInput";
 import FormPicker from "../componets/forms/FormPicker";
+import CustomModalPicker from "../componets/forms/CustomModalPicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
 
@@ -262,7 +263,7 @@ const ValeMaterialScreen = () => {
             editable={false}
           />
 
-          <FormPicker
+          <CustomModalPicker
             label="Material"
             value={formData.materialId}
             onValueChange={(value) =>
@@ -276,7 +277,7 @@ const ValeMaterialScreen = () => {
             error={errors.materialId}
           />
 
-          <FormPicker
+          <CustomModalPicker
             label="Banco de Material"
             value={formData.bancoId}
             onValueChange={(value) =>
@@ -287,7 +288,7 @@ const ValeMaterialScreen = () => {
             error={errors.bancoId}
           />
 
-          <FormPicker
+          <CustomModalPicker
             label="Sindicato"
             value={formData.sindicatoId}
             onValueChange={(value) =>

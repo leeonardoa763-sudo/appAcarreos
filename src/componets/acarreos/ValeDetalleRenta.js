@@ -30,6 +30,7 @@ import FormCheckbox from "../forms/FormCheckbox";
 import SuccessModal from "../common/SuccessModal";
 import PrimaryButton from "../common/PrimaryButton";
 import GenerarPDFButton from "../vale/GenerarPDFButton";
+import CustomTimePicker from "../forms/CustomTimePicker";
 
 const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const [horaFin, setHoraFin] = useState(null);
@@ -412,7 +413,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
               onChange={setEsRentaPorDia}
             />
 
-            <FormTimePicker
+            <CustomTimePicker
               label="Hora de Fin"
               value={horaFin}
               onChange={setHoraFin}

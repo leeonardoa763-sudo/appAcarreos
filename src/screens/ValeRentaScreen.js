@@ -43,7 +43,9 @@ import SectionHeader from "../componets/common/SectionHeader";
 import PrimaryButton from "../componets/common/PrimaryButton";
 import FormInput from "../componets/forms/FormInput";
 import FormPicker from "../componets/forms/FormPicker";
+import CustomModalPicker from "../componets/forms/CustomModalPicker";
 import FormTimePicker from "../componets/forms/FormTimePicker";
+import CustomTimePicker from "../componets/forms/CustomTimePicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 import SuccessModal from "../componets/common/SuccessModal";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
@@ -322,7 +324,7 @@ const ValeRentaScreen = () => {
             editable={false}
           />
 
-          <FormPicker
+          <CustomModalPicker
             label="Material"
             value={formData.materialId}
             onValueChange={(value) =>
@@ -348,7 +350,7 @@ const ValeRentaScreen = () => {
             error={errors.capacidad}
           />
 
-          <FormPicker
+          <CustomModalPicker
             label="Sindicato"
             value={formData.sindicatoId}
             onValueChange={(value) =>
@@ -362,7 +364,7 @@ const ValeRentaScreen = () => {
             error={errors.sindicatoId}
           />
 
-          <FormTimePicker
+          <CustomTimePicker
             label="Hora Inicio"
             value={formData.horaInicio}
             onChange={(value) =>
