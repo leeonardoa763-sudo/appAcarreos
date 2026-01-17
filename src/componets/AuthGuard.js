@@ -1,15 +1,18 @@
 /**
  * AuthGuard.js
  *
- * Componente guardian de autenticación
+ * Componente guardian de autenticación y versiones
  *
  * PROPÓSITO:
+ * - Verificar versión de la app antes de permitir acceso
  * - Proteger rutas que requieren autenticación
  * - Mostrar pantallas según estado de autenticación
  * - Manejar errores de timeout y conexión
  * - Redirigir a Login cuando no hay sesión
  *
  * ESTADOS MANEJADOS:
+ * - Checking Version: Verificando versión de la app 🆕
+ * - Version Outdated: Versión obsoleta, bloquear acceso 🆕
  * - Loading: Cargando sesión inicial
  * - Timeout: Carga excedió límite de tiempo
  * - No Profile: Usuario sin registro en BD
@@ -17,7 +20,7 @@
  * - Authenticated: Sesión válida, mostrar app
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   ActivityIndicator,
@@ -29,7 +32,9 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../hooks/useAuth";
 import LoginScreen from "../screens/LoginScreen";
+import UpdateRequiredScreen from "../screens/UpdateRequiredScreen"; // 🆕
 import { colors } from "../config/colors";
+import { checkAppVersion } from "../utils/versionChecker"; // 🆕
 
 const AuthGuard = ({ children }) => {
   const { user, userProfile, loading, profileError, isAuthenticated, signOut } =
@@ -37,6 +42,40 @@ const AuthGuard = ({ children }) => {
 
   const [isRetrying, setIsRetrying] = useState(false);
   const [timeoutDetected, setTimeoutDetected] = useState(false);
+
+  // 🆕 Estados para verificación de versión
+  const [checkingVersion, setCheckingVersion] = useState(true);
+  const [versionInfo, setVersionInfo] = useState(null);
+
+  // 🆕 Verificar versión al montar el componente
+  useEffect(() => {
+    verifyAppVersion();
+  }, []);
+
+  /**
+   * 🆕 Verifica la versión de la app
+   */
+  const verifyAppVersion = async () => {
+    try {
+      console.log("[AuthGuard] 🔍 Verificando versión de la app...");
+
+      const versionCheck = await checkAppVersion();
+
+      if (versionCheck.needsUpdate) {
+        console.log("[AuthGuard] ⚠️ Actualización requerida");
+        setVersionInfo(versionCheck);
+      } else {
+        console.log("[AuthGuard] ✅ Versión válida, permitiendo acceso");
+        setVersionInfo(null);
+      }
+    } catch (error) {
+      console.error("[AuthGuard] ❌ Error verificando versión:", error);
+      // En caso de error, permitir acceso (fail-safe)
+      setVersionInfo(null);
+    } finally {
+      setCheckingVersion(false);
+    }
+  };
 
   // Detectar timeout si carga tarda más de 15 segundos
   React.useEffect(() => {
@@ -96,6 +135,30 @@ const AuthGuard = ({ children }) => {
       },
     ]);
   };
+
+  // 🆕 PRIORIDAD 1: Verificando versión (antes que todo)
+  if (checkingVersion) {
+    return (
+      <View style={styles.centerContainer}>
+        <MaterialCommunityIcons
+          name="shield-check"
+          size={60}
+          color={colors.primary}
+        />
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+          style={{ marginTop: 20 }}
+        />
+        <Text style={styles.loadingText}>Verificando versión...</Text>
+      </View>
+    );
+  }
+
+  // 🆕 PRIORIDAD 2: Versión obsoleta (bloquear acceso)
+  if (versionInfo && versionInfo.needsUpdate) {
+    return <UpdateRequiredScreen versionInfo={versionInfo} />;
+  }
 
   // Usuario no autenticado - mostrar Login
   if (!isAuthenticated) {
