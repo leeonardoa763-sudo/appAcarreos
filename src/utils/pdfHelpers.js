@@ -188,10 +188,11 @@ export const getValeBaseCSS = (bgColor) => {
     }
     
     .qr-url {
-      font-size: 8px;
+      font-size: 5px;
       word-break: break-all;
-      margin-top: 4px;
-      color: #333 !important;
+      margin-top: 0.5mm;
+      color: #666;
+      text-align: center;
     }
     
     .footer {

@@ -18,7 +18,7 @@ import {
   validateDistancia,
 } from "../utils/validations";
 
-export const useValeMaterialForm = (obraData) => {
+export const useValeMaterialForm = (obraData, materiales = []) => {
   const [formData, setFormData] = useState({
     materialId: null,
     bancoId: null,
@@ -29,6 +29,7 @@ export const useValeMaterialForm = (obraData) => {
     selectedOperador: null,
     selectedVehiculo: null,
     notasAdicionales: "",
+    requisicion: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -110,6 +111,17 @@ export const useValeMaterialForm = (obraData) => {
     );
     if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
 
+    // Validar requisición (obligatoria solo para tipo 1)
+    const materialSeleccionado = materiales.find(
+      (m) => m.id_material === formData.materialId
+    );
+    const esTipo1 = materialSeleccionado?.id_tipo_de_material === 1;
+
+    if (esTipo1 && !formData.requisicion?.trim()) {
+      newErrors.requisicion =
+        "La requisición es obligatoria para este material";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -126,6 +138,7 @@ export const useValeMaterialForm = (obraData) => {
       selectedOperador: null,
       selectedVehiculo: null,
       notasAdicionales: "",
+      requisicion: "",
     });
     setErrors({});
   };

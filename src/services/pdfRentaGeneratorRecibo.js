@@ -228,6 +228,9 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
         <div class="qr-section">
           <img src="${qrDataUrl}" alt="QR">
           <div class="qr-text">Escanear para verificar</div>
+          <div class="qr-url">${
+            valeData.qr_verification_url || `verify.app/${valeData.folio}`
+          }</div>
         </div>
 
         <!-- FOOTER -->
@@ -265,7 +268,7 @@ export const generateAndShareRentaRecibo = async (
       html,
       base64: false,
       width: 189, // 50mm @ 96dpi
-      height: 390, // ~90mm mínimo @ 96dpi (ajustable)
+      height: 500, // ~90mm mínimo @ 96dpi (ajustable)
     });
 
     const renamedUri = await renamePDFWithAutoName(

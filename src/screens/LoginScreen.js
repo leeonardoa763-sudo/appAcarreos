@@ -1,10 +1,12 @@
 /**
  * LoginScreen.js
  *
- * Pantalla de inicio de sesión
+ * Pantalla de inicio de sesión con auto-login
  *
  * PROPÓSITO:
  * - Autenticar usuarios con email y contraseña
+ * - Auto-login si hay credenciales guardadas
+ * - Opción "Recordar en este dispositivo"
  * - Implementar timeout para proceso de login (10 segundos)
  * - Mostrar feedback visual durante el proceso
  * - Manejar errores de autenticación y conexión
@@ -19,7 +21,7 @@
  * - Login fallido: Muestra error y permite reintentar
  */
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -41,6 +43,13 @@ import {
   TIMEOUT_DURATIONS,
   createObservableTimeout,
 } from "../utils/sessionTimeout";
+// 🆕 Importar utilidades de recordar cuenta
+import {
+  saveCredentials,
+  getCredentials,
+  clearCredentials,
+  hasRememberedCredentials,
+} from "../utils/rememberAccount";
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
@@ -48,9 +57,97 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loginTimeout, setLoginTimeout] = useState(null);
+  // 🆕 Estados para recordar cuenta
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(true);
 
   // Referencia para manejar timeout observable
   const timeoutRef = useRef(null);
+  const isMounted = useRef(true);
+
+  // 🆕 Effect para intentar auto-login al montar
+  useEffect(() => {
+    isMounted.current = true;
+
+    attemptAutoLogin();
+
+    return () => {
+      isMounted.current = false;
+      if (timeoutRef.current) {
+        timeoutRef.current.clear();
+      }
+    };
+  }, []);
+
+  /**
+   * 🆕 Intenta hacer auto-login si hay credenciales guardadas
+   */
+  const attemptAutoLogin = async () => {
+    try {
+      // Verificar si hay credenciales guardadas
+      const hasCredentials = await hasRememberedCredentials();
+
+      if (!hasCredentials) {
+        if (isMounted.current) {
+          setIsAutoLoggingIn(false);
+        }
+        return;
+      }
+
+      // Obtener credenciales
+      const credentials = await getCredentials();
+
+      if (!credentials.email || !credentials.password) {
+        if (isMounted.current) {
+          setIsAutoLoggingIn(false);
+        }
+        return;
+      }
+
+      console.log("[LoginScreen] 🔄 Iniciando auto-login...");
+
+      // Pre-llenar campos (para que usuario vea qué cuenta está usando)
+      if (isMounted.current) {
+        setEmail(credentials.email);
+        setRememberMe(true);
+      }
+
+      // Pequeño delay para que usuario vea la pantalla
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Intentar login automático
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      });
+
+      if (error) {
+        console.error("[LoginScreen] ❌ Auto-login falló:", error.message);
+
+        // Si las credenciales son inválidas, borrarlas
+        if (error.message.includes("Invalid login credentials")) {
+          await clearCredentials();
+
+          if (isMounted.current) {
+            Alert.alert(
+              "Sesión Expirada",
+              "Por favor ingresa tu contraseña nuevamente",
+              [{ text: "OK" }]
+            );
+          }
+        }
+      } else {
+        console.log("[LoginScreen] ✅ Auto-login exitoso");
+        // AuthGuard manejará la navegación
+      }
+    } catch (error) {
+      console.error("[LoginScreen] ❌ Error en auto-login:", error);
+    } finally {
+      if (isMounted.current) {
+        setIsAutoLoggingIn(false);
+      }
+    }
+  };
 
   /**
    * Maneja el proceso de inicio de sesión con timeout
@@ -115,6 +212,23 @@ const LoginScreen = ({ navigation }) => {
         }
       } else {
         console.log("Usuario logueado exitosamente");
+
+        // 🆕 Guardar credenciales si está habilitado "Recordar"
+        if (rememberMe) {
+          const saved = await saveCredentials(
+            email.trim().toLowerCase(),
+            password
+          );
+          if (saved) {
+            console.log(
+              "[LoginScreen] ✅ Credenciales guardadas para próximo inicio"
+            );
+          }
+        } else {
+          // Si no está marcado, asegurarse de borrar credenciales previas
+          await clearCredentials();
+        }
+
         // AuthGuard manejará la navegación automáticamente
       }
     } catch (error) {
@@ -178,6 +292,28 @@ const LoginScreen = ({ navigation }) => {
       console.error("Error limpiando sesión fallida:", error);
     }
   };
+
+  // 🆕 Mostrar pantalla de auto-login
+  if (isAutoLoggingIn) {
+    return (
+      <View style={styles.autoLoginContainer}>
+        <MaterialCommunityIcons
+          name="truck-delivery"
+          size={80}
+          color={colors.primary}
+        />
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+          style={styles.autoLoginSpinner}
+        />
+        <Text style={styles.autoLoginText}>Iniciando sesión...</Text>
+        <Text style={styles.autoLoginSubtext}>
+          {email || "Verificando credenciales guardadas"}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -246,6 +382,23 @@ const LoginScreen = ({ navigation }) => {
             />
           </TouchableOpacity>
         </View>
+
+        {/* 🆕 Checkbox "Recordar en este dispositivo" */}
+        <TouchableOpacity
+          style={styles.rememberMeContainer}
+          onPress={() => setRememberMe(!rememberMe)}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name={rememberMe ? "checkbox-marked" : "checkbox-blank-outline"}
+            size={24}
+            color={rememberMe ? colors.primary : colors.textSecondary}
+          />
+          <Text style={styles.rememberMeText}>
+            Recordar en este dispositivo
+          </Text>
+        </TouchableOpacity>
 
         {/* Advertencia de timeout */}
         {loginTimeout !== null && (
@@ -350,5 +503,42 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 6,
   },
+  // 🆕 Estilos para checkbox "Recordar dispositivo"
+  rememberMeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    marginBottom: 16,
+    paddingLeft: 4,
+  },
+  rememberMeText: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    marginLeft: 8,
+  },
+  // 🆕 Estilos para pantalla de auto-login
+  autoLoginContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  autoLoginSpinner: {
+    marginTop: 20,
+  },
+  autoLoginText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    marginTop: 16,
+  },
+  autoLoginSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 8,
+    textAlign: "center",
+  },
 });
+
 export default LoginScreen;

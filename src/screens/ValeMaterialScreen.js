@@ -336,6 +336,25 @@ const ValeMaterialScreen = () => {
             editable={false}
             error={errors.distancia}
           />
+
+          {/* ✅ NUEVO: Campo Requisición (solo tipo 1) */}
+          {materialSeleccionado?.id_tipo_de_material === 1 && (
+            <FormInput
+              label="Requisición *"
+              value={formData.requisicion}
+              onChangeText={(value) => {
+                // Convertir a mayúsculas y permitir solo letras, números y guiones
+                const formatted = value
+                  .toUpperCase()
+                  .replace(/[^A-Z0-9-]/g, "");
+                setFormData({ ...formData, requisicion: formatted });
+              }}
+              placeholder="Ej: REQ-2024-001"
+              maxLength={50}
+              error={errors.requisicion}
+              autoCapitalize="characters"
+            />
+          )}
         </View>
 
         {/* SECCIÓN: DATOS DE OPERADOR */}

@@ -624,6 +624,13 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             label="Material"
             value={detalleMaterial.material?.material || "N/A"}
           />
+          {detalleMaterial.requisicion && (
+            <InfoRow
+              icon="file-document-outline"
+              label="Requisición"
+              value={detalleMaterial.requisicion}
+            />
+          )}
           <InfoRow
             icon="bank"
             label="Banco"

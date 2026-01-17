@@ -36,6 +36,7 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const capacidad = detalle.capacidad_m3 || "N/A";
   const distancia = detalle.distancia_km || "N/A";
   const cantidadPedida = detalle.cantidad_pedida_m3 || "N/A";
+  const requisicion = detalle.requisicion || null;
 
   // Detectar si es tipo 3 (Tepetate)
   const esTipo3 = detalle.material?.id_tipo_de_material === 3;
@@ -141,6 +142,16 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
         <!-- CANTIDADES -->
         <div class="receipt-section">
           <div class="section-title">CANTIDADES</div>
+          ${
+            requisicion
+              ? `
+            <div class="receipt-row">
+              <span class="receipt-row-label">Requisición:</span>
+              <span class="receipt-row-value">${requisicion}</span>
+            </div>
+            `
+              : ""
+          }
           
           ${
             !(esCopiaBlanca && esTipo3)
@@ -259,6 +270,9 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
         <div class="qr-section">
           <img src="${qrDataUrl}" alt="QR">
           <div class="qr-text">Escanear para verificar</div>
+          <div class="qr-url">${
+            valeData.qr_verification_url || `verify.app/${valeData.folio}`
+          }</div>
         </div>
 
         <!-- FOOTER -->
@@ -300,7 +314,7 @@ export const generateAndShareMaterialRecibo = async (
       html,
       base64: false,
       width: 189, // 50mm @ 96dpi
-      height: 400, // ~90mm mínimo @ 96dpi (ajustable)
+      height: 500, // ~90mm mínimo @ 96dpi (ajustable)
     });
 
     const renamedUri = await renamePDFWithAutoName(

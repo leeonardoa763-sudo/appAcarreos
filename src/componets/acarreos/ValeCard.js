@@ -55,9 +55,13 @@ const ValeCard = ({ vale, onPress }) => {
   const getMaterialInfo = () => {
     if (isMaterial && vale.vale_material_detalles?.length > 0) {
       const detalle = vale.vale_material_detalles[0];
-      return detalle.cantidad_pedida_m3
-        ? `${detalle.cantidad_pedida_m3} m³`
-        : "Sin cantidad";
+      return {
+        cantidad: detalle.cantidad_pedida_m3
+          ? `${detalle.cantidad_pedida_m3} m³`
+          : "Sin cantidad",
+        requisicion: detalle.requisicion || null,
+        material: detalle.material?.material || "N/A",
+      };
     }
     return null;
   };
@@ -121,14 +125,26 @@ const ValeCard = ({ vale, onPress }) => {
 
       {/* Información específica según tipo */}
       {isMaterial && materialInfo && (
-        <View style={styles.row}>
-          <MaterialCommunityIcons
-            name="cube-outline"
-            size={16}
-            color={colors.textSecondary}
-          />
-          <Text style={styles.infoText}>Cantidad: {materialInfo}</Text>
-        </View>
+        <>
+          <View style={styles.row}>
+            <MaterialCommunityIcons
+              name="package-variant"
+              size={16}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.infoText}>{materialInfo.material}</Text>
+          </View>
+          <View style={styles.row}>
+            <MaterialCommunityIcons
+              name="cube-outline"
+              size={16}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.infoText}>
+              Cantidad: {materialInfo.cantidad}
+            </Text>
+          </View>
+        </>
       )}
 
       {isRenta && rentaInfo && (

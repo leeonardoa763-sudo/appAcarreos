@@ -10,12 +10,15 @@
  * - ✅ B1: Utilidad clearSupabaseStorage
  * - ✅ B2: Optimización con useMemo
  * - ✅ B3: Hook useUserProfile separado
+ * - ✅ B4: Borrado de credenciales al cerrar sesión 🆕
  */
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "../config/supabase";
 import { clearSupabaseStorage } from "../utils/storageUtils";
 import { useUserProfile } from "./useUserProfile";
+// 🆕 Importar clearCredentials
+import { clearCredentials } from "../utils/rememberAccount";
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
@@ -112,22 +115,31 @@ export const useAuth = () => {
 
   /**
    * Cierra la sesión del usuario
+   * 🆕 Ahora también borra las credenciales guardadas
    */
   const signOut = async () => {
     try {
+      // 🆕 1. Borrar credenciales guardadas PRIMERO
+      await clearCredentials();
+      console.log("[useAuth] ✅ Credenciales guardadas borradas");
+
+      // 2. Limpiar AsyncStorage de Supabase
       await clearSupabaseStorage();
 
+      // 3. Limpiar estado local
       if (isMounted.current) {
         setUser(null);
         clearProfile();
       }
 
+      // 4. Cerrar sesión en Supabase
       await supabase.auth.signOut();
 
       return { error: null };
     } catch (error) {
       console.error("[useAuth] Error en signOut:", error);
 
+      // Asegurar limpieza incluso si hay error
       if (isMounted.current) {
         setUser(null);
         clearProfile();

@@ -112,6 +112,7 @@ export const useValeMaterialLogic = (materiales) => {
         cantidad_pedida_m3: parseFloat(formData.cantidadSolicitada),
         peso_ton: null,
         notas_adicionales: formData.notasAdicionales || null,
+        requisicion: formData.requisicion || null,
       };
 
       const { error: errorDetalle } = await supabase

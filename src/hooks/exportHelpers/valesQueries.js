@@ -87,7 +87,8 @@ export const fetchValesMaterial = async (weekNumber, year, idObra) => {
         precio_m3,
         costo_total,
         tarifa_primer_km,
-        tarifa_subsecuente
+        tarifa_subsecuente,
+        requisicion
       )
     `
     )
