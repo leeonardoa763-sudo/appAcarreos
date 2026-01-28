@@ -20,6 +20,7 @@ import ArchivadosScreen from "../screens/ArchivadosScreen";
 import ValeRentaScreen from "../screens/ValeRentaScreen";
 import ValeMaterialScreen from "../screens/ValeMaterialScreen";
 import ConfiguracionScreen from "../screens/ConfiguracionScreen";
+import EstadisticasScreen from "../screens/EstadisticasScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -116,6 +117,8 @@ function MainTabs() {
             iconName = focused ? "dump-truck" : "dump-truck";
           } else if (route.name === "Informes") {
             iconName = focused ? "chart-box" : "chart-box-outline";
+          } else if (route.name === "Estadísticas") {
+            iconName = focused ? "chart-line" : "chart-line-variant";
           }
 
           return (
@@ -152,6 +155,7 @@ function MainTabs() {
       <Tab.Screen name="Vales" component={ValesStack} />
       <Tab.Screen name="Acarreos" component={AcarreosScreen} />
       <Tab.Screen name="Informes" component={InformesScreen} />
+      <Tab.Screen name="Estadísticas" component={EstadisticasScreen} />
     </Tab.Navigator>
   );
 }
