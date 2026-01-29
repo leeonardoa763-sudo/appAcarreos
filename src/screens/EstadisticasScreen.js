@@ -26,24 +26,21 @@ import QuickStatsRow from "../componets/stats/QuickStatsRow";
 import FilterModal from "../componets/stats/FilterModal";
 import { useStatsFilters } from "../hooks/useStatsFilters";
 import { useFilterCatalogos } from "../hooks/useFilterCatalogos";
-import ExportButton from "../componets/stats/ExportButton";
-import { useStatsPDF } from "../hooks/useStatsPDF";
 import { useAuth } from "../hooks/useAuth";
-import { supabase } from "../config/supabase";
-import WatermarkOverlay from "../componets/stats/WatermarkOverlay";
 import { useObras } from "../hooks/useObras";
+
+// Importar componentes modulares
+import StatsHeader from "../componets/stats/StatsHeader";
+import ActiveFiltersIndicator from "../componets/stats/ActiveFiltersIndicator";
 
 const EstadisticasScreen = () => {
   // ========== ESTADOS ==========
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState("mes");
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [captureMode, setCaptureMode] = useState(false);
-  const [contentHeight, setContentHeight] = useState(0);
 
   // ========== REFS ==========
   const scrollViewRef = useRef(null);
-  const captureViewRef = useRef(null);
 
   // ========== HOOKS ==========
   const { userProfile } = useAuth();
@@ -70,8 +67,6 @@ const EstadisticasScreen = () => {
     activeFiltersCount,
     hasFilters,
   } = useStatsFilters(data);
-
-  const { generating, captureAndShare } = useStatsPDF();
 
   // ========== DATOS DERIVADOS ==========
   const displayData = hasFilters ? filteredData : data;
@@ -109,37 +104,11 @@ const EstadisticasScreen = () => {
     applyFilters(newFilters);
   };
 
-  const handleExportPDF = async () => {
-    console.log("[EstadisticasScreen] Iniciando captura de pantalla...");
-
-    try {
-      const success = await captureAndShare(scrollViewRef);
-
-      if (success) {
-        console.log("[EstadisticasScreen] Captura compartida exitosamente");
-      } else {
-        console.log("[EstadisticasScreen] Error al compartir captura");
-      }
-    } catch (err) {
-      console.error("[EstadisticasScreen] Error en handleExportPDF:", err);
-    }
-  };
-
-  /**
-   * Mide la altura total del contenido cuando se renderiza en modo captura
-   */
-  const handleContentLayout = (event) => {
-    const { height } = event.nativeEvent.layout;
-    console.log("[EstadisticasScreen] Altura del contenido:", height);
-    setContentHeight(height);
-  };
-
   /**
    * Renderiza el contenido de estadísticas
-   * Se usa tanto para ScrollView normal como para captura completa
    */
   const renderContent = () => {
-    if (loading && !captureMode) {
+    if (loading) {
       return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -151,76 +120,24 @@ const EstadisticasScreen = () => {
     return (
       <>
         {/* Header informativo */}
-        <View style={styles.header}>
-          <MaterialCommunityIcons
-            name="chart-line"
-            size={40}
-            color={colors.primary}
-          />
-          <Text style={styles.headerTitle}>Dashboard Ejecutivo</Text>
-          <Text style={styles.headerSubtitle}>
-            Análisis de vales -{" "}
-            {periodos.find((p) => p.id === periodoSeleccionado)?.label}
-          </Text>
-        </View>
+        <StatsHeader
+          periodoSeleccionado={periodoSeleccionado}
+          onPeriodoChange={handlePeriodoChange}
+          onFilterPress={() => setFilterModalVisible(true)}
+          hasFilters={hasFilters}
+          activeFiltersCount={activeFiltersCount}
+          periodoLabel={
+            periodos.find((p) => p.id === periodoSeleccionado)?.label
+          }
+        />
 
         {/* Indicador de filtros activos */}
         {hasFilters && (
-          <View style={styles.activeFiltersContainer}>
-            <View style={styles.activeFiltersHeader}>
-              <MaterialCommunityIcons
-                name="filter-check"
-                size={20}
-                color={colors.primary}
-              />
-              <Text style={styles.activeFiltersTitle}>
-                Filtros activos ({activeFiltersCount})
-              </Text>
-              <TouchableOpacity
-                onPress={clearFilters}
-                style={styles.clearFiltersButton}
-              >
-                <Text style={styles.clearFiltersText}>Limpiar</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.activeFiltersList}>
-              {filters.materiales.length > 0 && (
-                <View style={styles.filterChip}>
-                  <MaterialCommunityIcons
-                    name="package-variant"
-                    size={14}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.filterChipText}>
-                    {filters.materiales.length} material(es)
-                  </Text>
-                </View>
-              )}
-              {filters.sindicatos.length > 0 && (
-                <View style={styles.filterChip}>
-                  <MaterialCommunityIcons
-                    name="account-group"
-                    size={14}
-                    color={colors.secondary}
-                  />
-                  <Text style={styles.filterChipText}>
-                    {filters.sindicatos.length} sindicato(s)
-                  </Text>
-                </View>
-              )}
-              {filters.mostrarComparativa && (
-                <View style={styles.filterChip}>
-                  <MaterialCommunityIcons
-                    name="compare"
-                    size={14}
-                    color={colors.accent}
-                  />
-                  <Text style={styles.filterChipText}>Comparativa activa</Text>
-                </View>
-              )}
-            </View>
-          </View>
+          <ActiveFiltersIndicator
+            filters={filters}
+            activeFiltersCount={activeFiltersCount}
+            onClearFilters={clearFilters}
+          />
         )}
 
         {/* KPIs principales */}
@@ -358,39 +275,6 @@ const EstadisticasScreen = () => {
             ?.label.toLowerCase()}
         />
 
-        {/* Métricas rápidas adicionales */}
-        <QuickStatsRow
-          stats={[
-            {
-              icon: "file-document",
-              value: displayData.valesMaterial.length,
-              label: "Vales Material",
-              color: colors.primary,
-            },
-            {
-              icon: "truck-cargo-container",
-              value: displayData.valesRenta.length,
-              label: "Vales Renta",
-              color: colors.secondary,
-            },
-            {
-              icon: "calendar-today",
-              value: displayData.totales.totalDias.toFixed(0),
-              label: "Días de Renta",
-              color: colors.accent,
-            },
-            {
-              icon: "map-marker-distance",
-              value:
-                displayData.totales.totalDistancia > 0
-                  ? `${displayData.totales.totalDistancia.toFixed(1)} km`
-                  : "0 km",
-              label: "Distancia Total",
-              color: "#F77F00",
-            },
-          ]}
-        />
-
         {/* Top Operadores */}
         <TopOperadoresList
           data={chartData.topOperadoresData}
@@ -419,6 +303,7 @@ const EstadisticasScreen = () => {
     );
   };
 
+  // ========== MANEJO DE ERRORES ==========
   if (error) {
     return (
       <View style={styles.errorContainer}>
@@ -436,104 +321,26 @@ const EstadisticasScreen = () => {
     );
   }
 
+  // ========== RENDER PRINCIPAL ==========
   return (
     <View style={styles.container}>
-      {/* Barra de filtros sticky */}
-      <View style={styles.filterBar}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScrollContent}
-        >
-          {periodos.map((periodo) => (
-            <TouchableOpacity
-              key={periodo.id}
-              style={[
-                styles.filterButton,
-                periodoSeleccionado === periodo.id && styles.filterButtonActive,
-              ]}
-              onPress={() => handlePeriodoChange(periodo.id)}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={periodo.icon}
-                size={20}
-                color={
-                  periodoSeleccionado === periodo.id
-                    ? colors.surface
-                    : colors.textPrimary
-                }
-              />
-              <Text
-                style={[
-                  styles.filterButtonText,
-                  periodoSeleccionado === periodo.id &&
-                    styles.filterButtonTextActive,
-                ]}
-              >
-                {periodo.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Botón de filtros avanzados */}
-        <TouchableOpacity
-          style={[
-            styles.advancedFilterButton,
-            hasFilters && styles.advancedFilterButtonActive,
-          ]}
-          onPress={() => setFilterModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons
-            name="tune"
-            size={24}
-            color={hasFilters ? colors.surface : colors.textPrimary}
+      {/* ScrollView con pull-to-refresh */}
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={refetch}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
-          {activeFiltersCount > 0 && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Renderizado condicional: ScrollView normal vs View completo para captura */}
-      {captureMode ? (
-        // MODO CAPTURA: View absoluto con todo el contenido sin scroll
-        <View
-          style={styles.captureContainer}
-          ref={captureViewRef}
-          onLayout={handleContentLayout}
-          collapsable={false}
-        >
-          <View style={styles.captureContent}>{renderContent()}</View>
-          <WatermarkOverlay
-            periodo={periodos.find((p) => p.id === periodoSeleccionado)?.label}
-          />
-        </View>
-      ) : (
-        // MODO NORMAL: ScrollView con pull-to-refresh
-        <>
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={loading}
-                onRefresh={refetch}
-                colors={[colors.primary]}
-                tintColor={colors.primary}
-              />
-            }
-          >
-            {renderContent()}
-          </ScrollView>
-        </>
-      )}
+        }
+      >
+        {renderContent()}
+      </ScrollView>
 
       {/* Modal de filtros avanzados */}
       <FilterModal
@@ -558,103 +365,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  // Barra de filtros
-  filterBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    elevation: 2,
-    shadowColor: colors.shadow.color,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  filterScrollContent: {
-    paddingRight: 8,
-    gap: 8,
-  },
-  filterButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 6,
-  },
-  filterButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  filterButtonTextActive: {
-    color: colors.surface,
-  },
-
-  // Botón de filtros avanzados
-  advancedFilterButton: {
-    padding: 8,
-    marginLeft: 12,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    position: "relative",
-  },
-  advancedFilterButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterBadge: {
-    position: "absolute",
-    top: -6,
-    right: -6,
-    backgroundColor: colors.accent,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
-    borderWidth: 2,
-    borderColor: colors.surface,
-  },
-  filterBadgeText: {
-    color: colors.surface,
-    fontSize: 11,
-    fontWeight: "bold",
-  },
-
-  // ScrollView normal
+  // ScrollView
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 100,
-  },
-
-  // NUEVO: Modo captura (sin scroll)
-  captureContainer: {
-    position: "absolute",
-    left: -9999,
-    top: 0,
-    backgroundColor: colors.background,
-    width: 1080,
-  },
-  captureContent: {
-    padding: 20,
-    paddingBottom: 40,
   },
 
   // Loading
@@ -700,77 +417,6 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontSize: 16,
     fontWeight: "600",
-  },
-
-  // Header
-  header: {
-    alignItems: "center",
-    marginBottom: 24,
-    paddingVertical: 16,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-    marginTop: 8,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-
-  // Indicador de filtros activos
-  activeFiltersContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderLeftWidth: 4,
-  },
-  activeFiltersHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    gap: 8,
-  },
-  activeFiltersTitle: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  clearFiltersButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: colors.background,
-    borderRadius: 6,
-  },
-  clearFiltersText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.primary,
-  },
-  activeFiltersList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  filterChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.background,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 4,
-  },
-  filterChipText: {
-    fontSize: 12,
-    color: colors.textPrimary,
-    fontWeight: "500",
   },
 
   // Secciones

@@ -1,4 +1,4 @@
-// src/components/stats/QuickStatsRow.js
+// src/componets/stats/QuickStatsRow.js
 
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
@@ -11,7 +11,38 @@ import { colors } from "../../config/colors";
  * Fila horizontal de mini-stats para info rápida
  * Ideal para métricas secundarias
  */
-const QuickStatsRow = ({ stats = [] }) => {
+const QuickStatsRow = ({
+  viajesPorDia = 0,
+  m3PorViaje = 0,
+  operadoresActivos = 0,
+}) => {
+  // Formatear números
+  const formatNumber = (num) => {
+    const validNum = Number(num) || 0;
+    return validNum.toFixed(1);
+  };
+
+  const stats = [
+    {
+      icon: "calendar-today",
+      value: formatNumber(viajesPorDia),
+      label: "Viajes/día",
+      color: colors.primary,
+    },
+    {
+      icon: "cube-outline",
+      value: formatNumber(m3PorViaje),
+      label: "m³/viaje",
+      color: colors.secondary,
+    },
+    {
+      icon: "account-hard-hat",
+      value: Math.round(operadoresActivos || 0).toString(),
+      label: "Operadores",
+      color: colors.accent,
+    },
+  ];
+
   return (
     <View style={styles.container}>
       {stats.map((stat, index) => (
@@ -19,7 +50,7 @@ const QuickStatsRow = ({ stats = [] }) => {
           <MaterialCommunityIcons
             name={stat.icon}
             size={20}
-            color={stat.color || colors.primary}
+            color={stat.color}
           />
           <View style={styles.statContent}>
             <Text style={styles.statValue}>{stat.value}</Text>
@@ -47,7 +78,7 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
-    minWidth: "45%",
+    minWidth: "30%",
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
