@@ -1,6 +1,6 @@
 // src/screens/EstadisticasScreen.js
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -14,8 +14,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { statsColors } from "../config/statsColors";
 import { useEstadisticas } from "../hooks/useEstadisticas";
-
-// Agregar estos imports al inicio
 import StatCard from "../componets/stats/StatCard";
 import TrendIndicator from "../componets/stats/TrendIndicator";
 import ComparisonCard from "../componets/stats/ComparisonCard";
@@ -25,6 +23,15 @@ import BarChartCard from "../componets/stats/BarChartCard";
 import TopOperadoresList from "../componets/stats/TopOperadoresList";
 import SavingsCard from "../componets/stats/SavingsCard";
 import QuickStatsRow from "../componets/stats/QuickStatsRow";
+import FilterModal from "../componets/stats/FilterModal";
+import { useStatsFilters } from "../hooks/useStatsFilters";
+import { useFilterCatalogos } from "../hooks/useFilterCatalogos";
+import ExportButton from "../componets/stats/ExportButton";
+import { useStatsPDF } from "../hooks/useStatsPDF";
+import { useAuth } from "../hooks/useAuth";
+import { supabase } from "../config/supabase";
+import WatermarkOverlay from "../componets/stats/WatermarkOverlay";
+
 /**
  * EstadisticasScreen
  *
@@ -35,7 +42,30 @@ const EstadisticasScreen = () => {
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState("mes");
   const { data, loading, error, refetch } =
     useEstadisticas(periodoSeleccionado);
-  const chartData = useChartData(data);
+  const { userProfile } = useAuth();
+
+  const scrollViewRef = useRef(null);
+
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const {
+    materiales,
+    sindicatos,
+    loading: catalogosLoading,
+  } = useFilterCatalogos();
+  const {
+    filters,
+    filteredData,
+    applyFilters,
+    clearFilters,
+    activeFiltersCount,
+    hasFilters,
+  } = useStatsFilters(data);
+
+  const { generating, captureAndShare } = useStatsPDF();
+
+  // Usar datos filtrados en lugar de datos originales
+  const displayData = hasFilters ? filteredData : data;
+  const chartData = useChartData(displayData);
 
   const periodos = [
     { id: "semana", label: "Semana", icon: "calendar-week" },
@@ -48,6 +78,21 @@ const EstadisticasScreen = () => {
   const handlePeriodoChange = (periodo) => {
     console.log(`[EstadisticasScreen] Cambiando periodo a: ${periodo}`);
     setPeriodoSeleccionado(periodo);
+  };
+  const handleExportPDF = async () => {
+    console.log("[EstadisticasScreen] Iniciando captura de pantalla...");
+
+    try {
+      const success = await captureAndShare(scrollViewRef);
+
+      if (success) {
+        console.log("[EstadisticasScreen] Captura compartida exitosamente");
+      } else {
+        console.log("[EstadisticasScreen] Error al compartir captura");
+      }
+    } catch (err) {
+      console.error("[EstadisticasScreen] Error en handleExportPDF:", err);
+    }
   };
 
   if (error) {
@@ -107,10 +152,32 @@ const EstadisticasScreen = () => {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {/* Botón de filtros avanzados */}
+        <TouchableOpacity
+          style={[
+            styles.advancedFilterButton,
+            hasFilters && styles.advancedFilterButtonActive,
+          ]}
+          onPress={() => setFilterModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name="tune"
+            size={24}
+            color={hasFilters ? colors.surface : colors.textPrimary}
+          />
+          {activeFiltersCount > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Contenido principal */}
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -144,23 +211,86 @@ const EstadisticasScreen = () => {
               </Text>
             </View>
 
+            {/* Indicador de filtros activos */}
+            {hasFilters && (
+              <View style={styles.activeFiltersContainer}>
+                <View style={styles.activeFiltersHeader}>
+                  <MaterialCommunityIcons
+                    name="filter-check"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.activeFiltersTitle}>
+                    Filtros activos ({activeFiltersCount})
+                  </Text>
+                  <TouchableOpacity
+                    onPress={clearFilters}
+                    style={styles.clearFiltersButton}
+                  >
+                    <Text style={styles.clearFiltersText}>Limpiar</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.activeFiltersList}>
+                  {filters.materiales.length > 0 && (
+                    <View style={styles.filterChip}>
+                      <MaterialCommunityIcons
+                        name="package-variant"
+                        size={14}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.filterChipText}>
+                        {filters.materiales.length} material(es)
+                      </Text>
+                    </View>
+                  )}
+                  {filters.sindicatos.length > 0 && (
+                    <View style={styles.filterChip}>
+                      <MaterialCommunityIcons
+                        name="account-group"
+                        size={14}
+                        color={colors.secondary}
+                      />
+                      <Text style={styles.filterChipText}>
+                        {filters.sindicatos.length} sindicato(s)
+                      </Text>
+                    </View>
+                  )}
+                  {filters.mostrarComparativa && (
+                    <View style={styles.filterChip}>
+                      <MaterialCommunityIcons
+                        name="compare"
+                        size={14}
+                        color={colors.accent}
+                      />
+                      <Text style={styles.filterChipText}>
+                        Comparativa activa
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+
             {/* KPIs principales */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Resumen General</Text>
-                <TrendIndicator
-                  direction="up"
-                  percentage={12.5}
-                  size="small"
-                  showBackground={true}
-                />
+                {displayData.totales.totalViajes > 0 && (
+                  <TrendIndicator
+                    direction="up"
+                    percentage={12.5}
+                    size="small"
+                    showBackground={true}
+                  />
+                )}
               </View>
 
               <View style={styles.kpiGrid}>
                 <StatCard
                   icon="cube-outline"
                   iconColor={colors.primary}
-                  value={data.totales.totalM3}
+                  value={displayData.totales.totalM3}
                   label="m³ Movidos"
                   suffix=""
                   decimals={1}
@@ -170,7 +300,7 @@ const EstadisticasScreen = () => {
                 <StatCard
                   icon="clock-outline"
                   iconColor={colors.secondary}
-                  value={data.totales.totalHoras}
+                  value={displayData.totales.totalHoras}
                   label="Horas Renta"
                   suffix=""
                   decimals={1}
@@ -180,7 +310,7 @@ const EstadisticasScreen = () => {
                 <StatCard
                   icon="truck-outline"
                   iconColor={colors.accent}
-                  value={data.totales.totalViajes}
+                  value={displayData.totales.totalViajes}
                   label="Viajes Total"
                   suffix=""
                   decimals={0}
@@ -190,7 +320,7 @@ const EstadisticasScreen = () => {
                 <StatCard
                   icon="cash"
                   iconColor="#1A936F"
-                  value={data.totales.costoTotal / 1000}
+                  value={displayData.totales.costoTotal / 1000}
                   label="Costo Total"
                   prefix="$"
                   suffix="K"
@@ -208,8 +338,10 @@ const EstadisticasScreen = () => {
                 <ComparisonCard
                   title="Material"
                   icon="package-variant"
-                  currentValue={data.totales.costoMaterial / 1000}
-                  previousValue={(data.totales.costoMaterial / 1000) * 0.92}
+                  currentValue={displayData.totales.costoMaterial / 1000}
+                  previousValue={
+                    (displayData.totales.costoMaterial / 1000) * 0.92
+                  }
                   prefix="$"
                   suffix="K"
                   decimals={1}
@@ -219,8 +351,8 @@ const EstadisticasScreen = () => {
                 <ComparisonCard
                   title="Renta"
                   icon="truck-cargo-container"
-                  currentValue={data.totales.costoRenta / 1000}
-                  previousValue={(data.totales.costoRenta / 1000) * 1.05}
+                  currentValue={displayData.totales.costoRenta / 1000}
+                  previousValue={(displayData.totales.costoRenta / 1000) * 1.05}
                   prefix="$"
                   suffix="K"
                   decimals={1}
@@ -232,7 +364,11 @@ const EstadisticasScreen = () => {
             {/* Gráfico: Distribución de Material */}
             <PieChartCard
               title="Distribución por Material"
-              subtitle="Top 5 materiales más solicitados"
+              subtitle={
+                hasFilters
+                  ? "Datos filtrados"
+                  : "Top 5 materiales más solicitados"
+              }
               icon="package-variant"
               iconColor={colors.primary}
               data={chartData.materialPieData}
@@ -273,22 +409,11 @@ const EstadisticasScreen = () => {
               showValuesOnTopOfBars={true}
             />
 
-            {/* Info de datos */}
-            <View style={styles.infoBox}>
-              <MaterialCommunityIcons
-                name="information"
-                size={20}
-                color={colors.textSecondary}
-              />
-              <Text style={styles.infoText}>
-                Mostrando {data.valesMaterial.length} vales de material y{" "}
-                {data.valesRenta.length} vales de renta
-              </Text>
-            </View>
-
             {/* Card de Ahorros - Impacto */}
             <SavingsCard
-              totalVales={data.valesMaterial.length + data.valesRenta.length}
+              totalVales={
+                displayData.valesMaterial.length + displayData.valesRenta.length
+              }
               periodoLabel={periodos
                 .find((p) => p.id === periodoSeleccionado)
                 ?.label.toLowerCase()}
@@ -299,25 +424,28 @@ const EstadisticasScreen = () => {
               stats={[
                 {
                   icon: "file-document",
-                  value: data.valesMaterial.length,
+                  value: displayData.valesMaterial.length,
                   label: "Vales Material",
                   color: colors.primary,
                 },
                 {
                   icon: "truck-cargo-container",
-                  value: data.valesRenta.length,
+                  value: displayData.valesRenta.length,
                   label: "Vales Renta",
                   color: colors.secondary,
                 },
                 {
                   icon: "calendar-today",
-                  value: data.totales.totalDias.toFixed(0),
+                  value: displayData.totales.totalDias.toFixed(0),
                   label: "Días de Renta",
                   color: colors.accent,
                 },
                 {
                   icon: "map-marker-distance",
-                  value: "N/A",
+                  value:
+                    displayData.totales.totalDistancia > 0
+                      ? `${displayData.totales.totalDistancia.toFixed(1)} km`
+                      : "0 km",
                   label: "Distancia Total",
                   color: "#F77F00",
                 },
@@ -328,11 +456,54 @@ const EstadisticasScreen = () => {
             <TopOperadoresList
               data={chartData.topOperadoresData}
               title="Top 5 Operadores"
-              subtitle="Operadores más activos del periodo"
+              subtitle={
+                hasFilters
+                  ? "Basado en filtros activos"
+                  : "Operadores más activos del periodo"
+              }
             />
+
+            {/* Info de datos */}
+            <View style={styles.infoBox}>
+              <MaterialCommunityIcons
+                name="information"
+                size={20}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.infoText}>
+                Mostrando {displayData.valesMaterial.length} vales de material y{" "}
+                {displayData.valesRenta.length} vales de renta
+                {hasFilters && " (filtrados)"}
+              </Text>
+            </View>
           </>
         )}
       </ScrollView>
+
+      {/* Marca de agua para capturas */}
+      {!loading && displayData.totales.totalViajes > 0 && (
+        <WatermarkOverlay
+          periodo={periodos.find((p) => p.id === periodoSeleccionado)?.label}
+        />
+      )}
+      {/* Botón flotante de exportación */}
+      {!loading && displayData.totales.totalViajes > 0 && (
+        <ExportButton
+          onPress={handleExportPDF}
+          loading={generating}
+          disabled={generating}
+        />
+      )}
+
+      {/* Modal de filtros avanzados */}
+      <FilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        onApply={applyFilters}
+        materiales={materiales}
+        sindicatos={sindicatos}
+        currentFilters={filters}
+      />
     </View>
   );
 };
@@ -347,8 +518,11 @@ const styles = StyleSheet.create({
 
   // Barra de filtros
   filterBar: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surface,
     paddingVertical: 12,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     elevation: 2,
@@ -358,7 +532,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   filterScrollContent: {
-    paddingHorizontal: 16,
+    paddingRight: 8,
     gap: 8,
   },
   filterButton: {
@@ -385,13 +559,47 @@ const styles = StyleSheet.create({
     color: colors.surface,
   },
 
+  // Botón de filtros avanzados
+  advancedFilterButton: {
+    padding: 8,
+    marginLeft: 12,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    position: "relative",
+  },
+  advancedFilterButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: colors.accent,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  filterBadgeText: {
+    color: colors.surface,
+    fontSize: 11,
+    fontWeight: "bold",
+  },
+
   // Scroll y contenido
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
 
   // Loading
@@ -457,6 +665,59 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  // Indicador de filtros activos
+  activeFiltersContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderLeftWidth: 4,
+  },
+  activeFiltersHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 8,
+  },
+  activeFiltersTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  clearFiltersButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: colors.background,
+    borderRadius: 6,
+  },
+  clearFiltersText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+  activeFiltersList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.background,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  filterChipText: {
+    fontSize: 12,
+    color: colors.textPrimary,
+    fontWeight: "500",
+  },
+
   // Secciones
   section: {
     marginBottom: 24,
@@ -467,6 +728,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: 12,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
 
   // Grid de KPIs
   kpiGrid: {
@@ -474,56 +741,10 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 12,
   },
-  kpiCard: {
-    flex: 1,
-    minWidth: "45%",
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    elevation: 1,
-    shadowColor: colors.shadow.color,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  kpiValue: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-    marginTop: 8,
-  },
-  kpiLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-    textAlign: "center",
-  },
 
-  // Placeholder
-  chartPlaceholder: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 32,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderStyle: "dashed",
-  },
-  placeholderText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    marginTop: 12,
-  },
-  placeholderSubtext: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 8,
-    textAlign: "center",
-    lineHeight: 20,
+  // Comparativas
+  comparisonGrid: {
+    gap: 12,
   },
 
   // Info box
@@ -541,14 +762,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 18,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  comparisonGrid: {
-    gap: 12,
   },
 });

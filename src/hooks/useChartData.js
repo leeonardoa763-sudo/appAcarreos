@@ -10,8 +10,6 @@ import { statsColors } from "../config/statsColors";
 export const useChartData = (data) => {
   // Distribución de m³ por tipo de material (Gráfico de Pastel)
   const materialPieData = useMemo(() => {
-    console.log("[useChartData] Calculando distribución de materiales...");
-
     const materialMap = new Map();
 
     data.valesMaterial.forEach((vale) => {
@@ -41,7 +39,6 @@ export const useChartData = (data) => {
       .sort((a, b) => b.value - a.value)
       .slice(0, 5); // Top 5 materiales
 
-    console.log(`[useChartData] Materiales procesados: ${chartData.length}`);
     return chartData;
   }, [data.valesMaterial]);
 
@@ -74,8 +71,6 @@ export const useChartData = (data) => {
 
   // Distribución por sindicato (Gráfico de Pastel)
   const sindicatoPieData = useMemo(() => {
-    console.log("[useChartData] Calculando distribución por sindicato...");
-
     const sindicatoMap = new Map();
 
     // Contar vales de material por sindicato
@@ -104,15 +99,10 @@ export const useChartData = (data) => {
         legendFontSize: 12,
       }))
       .sort((a, b) => b.value - a.value);
-
-    console.log(`[useChartData] Sindicatos procesados: ${chartData.length}`);
-    return chartData;
   }, [data.valesMaterial]);
 
   // Tendencia temporal de m³ por semana (Gráfico de Línea/Barras)
   const tendenciaM3Data = useMemo(() => {
-    console.log("[useChartData] Calculando tendencia de m³...");
-
     const weekMap = new Map();
 
     data.valesMaterial.forEach((vale) => {
@@ -143,8 +133,6 @@ export const useChartData = (data) => {
       ([, value]) => Math.round(value * 10) / 10,
     );
 
-    console.log(`[useChartData] Semanas procesadas: ${labels.length}`);
-
     return {
       labels,
       datasets: [
@@ -157,8 +145,6 @@ export const useChartData = (data) => {
 
   // Tendencia temporal de horas de renta por semana
   const tendenciaHorasData = useMemo(() => {
-    console.log("[useChartData] Calculando tendencia de horas...");
-
     const weekMap = new Map();
 
     data.valesRenta.forEach((vale) => {
@@ -187,8 +173,6 @@ export const useChartData = (data) => {
       ([, value]) => Math.round(value * 10) / 10,
     );
 
-    console.log(`[useChartData] Semanas procesadas: ${labels.length}`);
-
     return {
       labels,
       datasets: [
@@ -201,28 +185,32 @@ export const useChartData = (data) => {
 
   // Top 5 operadores más activos
   const topOperadoresData = useMemo(() => {
-    console.log("[useChartData] Calculando top operadores...");
-
     const operadorMap = new Map();
 
     // Contar vales de material
     data.valesMaterial.forEach((vale) => {
-      const operador = vale.operadores?.nombre_completo || "Sin asignar";
+      const operador = vale.operadores?.nombre_completo || "Sin Operador";
       operadorMap.set(operador, (operadorMap.get(operador) || 0) + 1);
     });
 
     // Contar vales de renta
     data.valesRenta.forEach((vale) => {
-      const operador = vale.operadores?.nombre_completo || "Sin asignar";
+      const operador = vale.operadores?.nombre_completo || "Sin Operador";
       operadorMap.set(operador, (operadorMap.get(operador) || 0) + 1);
     });
 
-    const topOperadores = Array.from(operadorMap.entries())
+    // Filtrar "Sin Operador" si existe y hay otros operadores
+    const entries = Array.from(operadorMap.entries());
+    const filteredEntries =
+      entries.length > 1
+        ? entries.filter(([nombre]) => nombre !== "Sin Operador")
+        : entries;
+
+    const topOperadores = filteredEntries
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([nombre, viajes]) => ({ nombre, viajes }));
 
-    console.log(`[useChartData] Top operadores: ${topOperadores.length}`);
     return topOperadores;
   }, [data.valesMaterial, data.valesRenta]);
 
