@@ -10,29 +10,40 @@ import TrendIndicator from "./TrendIndicator";
  * ComparisonCard
  *
  * Card para mostrar comparativas entre periodos
- * Muestra valor actual vs anterior con tendencia
+ * Muestra valor actual vs anterior con tendencia (opcional)
  */
 const ComparisonCard = ({
   title,
   icon,
-  currentValue,
-  previousValue,
+  currentValue = 0,
+  previousValue = null, // Ahora es opcional
   suffix = "",
   prefix = "",
   decimals = 0,
-  invertTrend = false, // Si true, bajada es positiva (ej: costos)
+  invertTrend = false,
 }) => {
+  // Validar valores
+  const safeCurrentValue = currentValue || 0;
+  const safePreviousValue = previousValue || 0;
+
+  // Solo calcular comparación si hay previousValue
+  const showComparison = previousValue !== null && previousValue !== undefined;
+
   // Calcular diferencia y porcentaje
-  const difference = currentValue - previousValue;
+  const difference = showComparison ? safeCurrentValue - safePreviousValue : 0;
   const percentage =
-    previousValue !== 0 ? (difference / previousValue) * 100 : 0;
+    showComparison && safePreviousValue !== 0
+      ? (difference / safePreviousValue) * 100
+      : 0;
 
   // Determinar dirección de tendencia
   let direction = "neutral";
-  if (difference > 0) {
-    direction = invertTrend ? "down" : "up";
-  } else if (difference < 0) {
-    direction = invertTrend ? "up" : "down";
+  if (showComparison) {
+    if (difference > 0) {
+      direction = invertTrend ? "down" : "up";
+    } else if (difference < 0) {
+      direction = invertTrend ? "up" : "down";
+    }
   }
 
   return (
@@ -46,36 +57,44 @@ const ComparisonCard = ({
       {/* Valores */}
       <View style={styles.content}>
         <View style={styles.valueContainer}>
-          <Text style={styles.label}>Actual</Text>
+          <Text style={styles.label}>
+            {showComparison ? "Actual" : "Total"}
+          </Text>
           <Text style={styles.currentValue}>
             {prefix}
-            {currentValue.toFixed(decimals)}
+            {safeCurrentValue.toFixed(decimals)}
             {suffix}
           </Text>
         </View>
 
-        <View style={styles.separator} />
+        {showComparison && (
+          <>
+            <View style={styles.separator} />
 
-        <View style={styles.valueContainer}>
-          <Text style={styles.label}>Anterior</Text>
-          <Text style={styles.previousValue}>
-            {prefix}
-            {previousValue.toFixed(decimals)}
-            {suffix}
-          </Text>
+            <View style={styles.valueContainer}>
+              <Text style={styles.label}>Anterior</Text>
+              <Text style={styles.previousValue}>
+                {prefix}
+                {safePreviousValue.toFixed(decimals)}
+                {suffix}
+              </Text>
+            </View>
+          </>
+        )}
+      </View>
+
+      {/* Tendencia - Solo si hay comparación */}
+      {showComparison && (
+        <View style={styles.trendContainer}>
+          <TrendIndicator
+            direction={direction}
+            percentage={percentage}
+            label="vs periodo anterior"
+            size="medium"
+            showBackground={true}
+          />
         </View>
-      </View>
-
-      {/* Tendencia */}
-      <View style={styles.trendContainer}>
-        <TrendIndicator
-          direction={direction}
-          percentage={percentage}
-          label="vs periodo anterior"
-          size="medium"
-          showBackground={true}
-        />
-      </View>
+      )}
     </View>
   );
 };
@@ -110,7 +129,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    marginBottom: 12,
   },
   valueContainer: {
     flex: 1,
@@ -141,6 +159,6 @@ const styles = StyleSheet.create({
   },
   trendContainer: {
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 12,
   },
 });

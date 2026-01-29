@@ -4,10 +4,11 @@ import { useState, useCallback, useMemo } from "react";
 
 /**
  * Hook para gestionar filtros de estadísticas
- * Filtra datos según materiales, sindicatos y otros criterios
+ * Filtra datos según obra, materiales, sindicatos y otros criterios
  */
 export const useStatsFilters = (data) => {
   const [filters, setFilters] = useState({
+    obraId: null,
     materiales: [],
     sindicatos: [],
     mostrarComparativa: false,
@@ -15,12 +16,15 @@ export const useStatsFilters = (data) => {
 
   // Aplicar filtros
   const applyFilters = useCallback((newFilters) => {
+    console.log("[useStatsFilters] Aplicando filtros:", newFilters);
     setFilters(newFilters);
   }, []);
 
   // Limpiar filtros
   const clearFilters = useCallback(() => {
+    console.log("[useStatsFilters] Limpiando filtros");
     setFilters({
+      obraId: null,
       materiales: [],
       sindicatos: [],
       mostrarComparativa: false,
@@ -101,42 +105,56 @@ export const useStatsFilters = (data) => {
         ) {
           totalHoras += Number(detalle.total_horas || 0);
           totalDias += Number(detalle.total_dias || 0);
-          totalViajes += Number(detalle.numero_viajes || 1);
+          totalViajes += Number(detalle.numero_viajes || 0);
           costoRenta += Number(detalle.costo_total || 0);
         }
       });
     });
 
-    const totales = {
-      totalM3: Math.round(totalM3 * 100) / 100,
-      totalHoras: Math.round(totalHoras * 100) / 100,
-      totalDias: Math.round(totalDias * 100) / 100,
-      totalViajes,
-      totalDistancia: Math.round(totalDistancia * 10) / 10,
-      costoTotal: Math.round((costoMaterial + costoRenta) * 100) / 100,
-      costoMaterial: Math.round(costoMaterial * 100) / 100,
-      costoRenta: Math.round(costoRenta * 100) / 100,
-    };
+    const costoTotal = costoMaterial + costoRenta;
 
-    return totales;
+    return {
+      totalM3,
+      totalHoras,
+      totalDias,
+      totalViajes,
+      totalDistancia,
+      costoTotal,
+      costoMaterial,
+      costoRenta,
+    };
   }, [filteredMaterialData, filteredRentaData, filters]);
 
-  // Datos completos filtrados
-  const filteredData = useMemo(
-    () => ({
+  // Datos filtrados completos
+  const filteredData = useMemo(() => {
+    return {
       valesMaterial: filteredMaterialData,
       valesRenta: filteredRentaData,
       totales: filteredTotales,
-    }),
-    [filteredMaterialData, filteredRentaData, filteredTotales],
-  );
+    };
+  }, [filteredMaterialData, filteredRentaData, filteredTotales]);
 
-  // Contador de filtros activos
+  // Contar filtros activos
   const activeFiltersCount = useMemo(() => {
+    let count = 0;
+
+    // No contar obraId como filtro activo si es null (todas las obras)
+    // Solo cuenta como filtro si se seleccionó una obra específica
+    if (filters.obraId !== null) count += 1;
+
+    count += filters.materiales.length;
+    count += filters.sindicatos.length;
+    if (filters.mostrarComparativa) count += 1;
+
+    return count;
+  }, [filters]);
+
+  // Verificar si hay filtros activos
+  const hasFilters = useMemo(() => {
     return (
-      filters.materiales.length +
-      filters.sindicatos.length +
-      (filters.mostrarComparativa ? 1 : 0)
+      filters.materiales.length > 0 ||
+      filters.sindicatos.length > 0 ||
+      filters.mostrarComparativa
     );
   }, [filters]);
 
@@ -146,6 +164,6 @@ export const useStatsFilters = (data) => {
     applyFilters,
     clearFilters,
     activeFiltersCount,
-    hasFilters: activeFiltersCount > 0,
+    hasFilters,
   };
 };

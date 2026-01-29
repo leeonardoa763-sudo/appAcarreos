@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../config/supabase";
-import { useAuth } from "./useAuth";
 
 /**
  * Hook para gestionar estadísticas de vales
  * Obtiene y procesa datos de material y renta para dashboards
+ * Filtrado por residente y obra
  */
-export const useEstadisticas = (periodo = "mes") => {
-  const { userProfile } = useAuth();
-
+export const useEstadisticas = (
+  periodo = "fetchValesRentames",
+  residenteId = null,
+  obraId = null,
+) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState({
@@ -26,42 +28,170 @@ export const useEstadisticas = (periodo = "mes") => {
       costoMaterial: 0,
       costoRenta: 0,
     },
+    periodoAnterior: {
+      totalM3: 0,
+      totalHoras: 0,
+      totalDias: 0,
+      totalViajes: 0,
+      totalDistancia: 0,
+      costoTotal: 0,
+      costoMaterial: 0,
+      costoRenta: 0,
+    },
   });
 
-  // Calcular rango de fechas según periodo
+  // Calcular rango de fechas según periodo (MES COMPLETO del calendario)
   const calcularRangoFechas = useCallback(() => {
     const hoy = new Date();
-    let fechaInicio;
+    let fechaInicio, fechaFin;
 
     switch (periodo) {
       case "semana":
+        // Últimos 7 días
         fechaInicio = new Date(hoy);
         fechaInicio.setDate(hoy.getDate() - 7);
+        fechaFin = new Date(hoy);
         break;
+
       case "mes":
-        fechaInicio = new Date(hoy);
-        fechaInicio.setMonth(hoy.getMonth() - 1);
+        // Mes actual completo (del 1 al último día del mes)
+        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+        fechaFin = new Date(
+          hoy.getFullYear(),
+          hoy.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+        );
         break;
+
       case "trimestre":
-        fechaInicio = new Date(hoy);
-        fechaInicio.setMonth(hoy.getMonth() - 3);
+        // Últimos 3 meses completos
+        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 3, 1);
+        fechaFin = new Date(
+          hoy.getFullYear(),
+          hoy.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+        );
         break;
+
       case "semestre":
-        fechaInicio = new Date(hoy);
-        fechaInicio.setMonth(hoy.getMonth() - 6);
+        // Últimos 6 meses completos
+        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 6, 1);
+        fechaFin = new Date(
+          hoy.getFullYear(),
+          hoy.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+        );
         break;
+
       case "año":
-        fechaInicio = new Date(hoy);
-        fechaInicio.setFullYear(hoy.getFullYear() - 1);
+        // Últimos 12 meses completos
+        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 12, 1);
+        fechaFin = new Date(
+          hoy.getFullYear(),
+          hoy.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+        );
         break;
+
       default:
-        fechaInicio = new Date(hoy);
-        fechaInicio.setMonth(hoy.getMonth() - 1);
+        // Default: mes actual
+        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+        fechaFin = new Date(
+          hoy.getFullYear(),
+          hoy.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+        );
     }
 
     return {
       fechaInicio: fechaInicio.toISOString(),
-      fechaFin: hoy.toISOString(),
+      fechaFin: fechaFin.toISOString(),
+    };
+  }, [periodo]);
+
+  // Calcular rango del periodo anterior (para comparaciones)
+  const calcularRangoPeriodoAnterior = useCallback(() => {
+    const hoy = new Date();
+    let fechaInicio, fechaFin;
+
+    switch (periodo) {
+      case "semana":
+        // Semana anterior (7 días antes)
+        fechaInicio = new Date(hoy);
+        fechaInicio.setDate(hoy.getDate() - 14);
+        fechaFin = new Date(hoy);
+        fechaFin.setDate(hoy.getDate() - 7);
+        break;
+
+      case "mes":
+        // Mes anterior completo
+        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+        fechaFin = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 23, 59, 59);
+        break;
+
+      case "trimestre":
+        // Trimestre anterior (3 meses antes)
+        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 6, 1);
+        fechaFin = new Date(
+          hoy.getFullYear(),
+          hoy.getMonth() - 3,
+          0,
+          23,
+          59,
+          59,
+        );
+        break;
+
+      case "semestre":
+        // Semestre anterior (6 meses antes)
+        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 12, 1);
+        fechaFin = new Date(
+          hoy.getFullYear(),
+          hoy.getMonth() - 6,
+          0,
+          23,
+          59,
+          59,
+        );
+        break;
+
+      case "año":
+        // Año anterior (12 meses antes)
+        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 24, 1);
+        fechaFin = new Date(
+          hoy.getFullYear(),
+          hoy.getMonth() - 12,
+          0,
+          23,
+          59,
+          59,
+        );
+        break;
+
+      default:
+        // Default: mes anterior
+        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+        fechaFin = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 23, 59, 59);
+    }
+
+    return {
+      fechaInicio: fechaInicio.toISOString(),
+      fechaFin: fechaFin.toISOString(),
     };
   }, [periodo]);
 
@@ -69,8 +199,9 @@ export const useEstadisticas = (periodo = "mes") => {
   const fetchValesMaterial = useCallback(
     async (fechaInicio, fechaFin) => {
       console.log("[useEstadisticas] Fetching vales de material...");
+      console.log("[useEstadisticas] Filtros:", { residenteId, obraId });
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("vales")
         .select(
           `
@@ -99,11 +230,23 @@ export const useEstadisticas = (periodo = "mes") => {
     `,
         )
         .eq("tipo_vale", "material")
-        .eq("id_obra", userProfile?.id_current_obra)
         .in("estado", ["emitido", "verificado", "conciliado"])
         .gte("fecha_creacion", fechaInicio)
-        .lte("fecha_creacion", fechaFin)
-        .order("fecha_creacion", { ascending: false });
+        .lte("fecha_creacion", fechaFin);
+
+      // Filtrar por residente
+      if (residenteId) {
+        query = query.eq("id_persona_creador", residenteId);
+      }
+
+      // Filtrar por obra (null = todas las obras del residente)
+      if (obraId) {
+        query = query.eq("id_obra", obraId);
+      }
+
+      query = query.order("fecha_creacion", { ascending: false });
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("[useEstadisticas] Error fetching material:", error);
@@ -115,15 +258,16 @@ export const useEstadisticas = (periodo = "mes") => {
       );
       return data || [];
     },
-    [userProfile],
+    [residenteId, obraId],
   );
 
   // Fetch vales de renta
   const fetchValesRenta = useCallback(
     async (fechaInicio, fechaFin) => {
       console.log("[useEstadisticas] Fetching vales de renta...");
+      console.log("[useEstadisticas] Filtros:", { residenteId, obraId });
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("vales")
         .select(
           `
@@ -142,16 +286,31 @@ export const useEstadisticas = (periodo = "mes") => {
         costo_total,
         material!vale_renta_detalle_id_material_fkey (
           material
+        ),
+        sindicatos!vale_renta_detalle_id_sindicato_fkey (
+          sindicato
         )
       )
     `,
         )
         .eq("tipo_vale", "renta")
-        .eq("id_obra", userProfile?.id_current_obra)
         .in("estado", ["emitido", "verificado", "conciliado"])
         .gte("fecha_creacion", fechaInicio)
-        .lte("fecha_creacion", fechaFin)
-        .order("fecha_creacion", { ascending: false });
+        .lte("fecha_creacion", fechaFin);
+
+      // Filtrar por residente
+      if (residenteId) {
+        query = query.eq("id_persona_creador", residenteId);
+      }
+
+      // Filtrar por obra (null = todas las obras del residente)
+      if (obraId) {
+        query = query.eq("id_obra", obraId);
+      }
+
+      query = query.order("fecha_creacion", { ascending: false });
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("[useEstadisticas] Error fetching renta:", error);
@@ -163,111 +322,114 @@ export const useEstadisticas = (periodo = "mes") => {
       );
       return data || [];
     },
-    [userProfile],
+    [residenteId, obraId],
   );
 
-  // Calcular totales a partir de los datos
-  const calcularTotales = useCallback((valesMaterial, valesRenta) => {
-    console.log("[useEstadisticas] Calculando totales...");
+  // Procesar y calcular totales
+  const procesarDatos = useCallback((valesMaterial, valesRenta) => {
+    console.log("[useEstadisticas] Procesando datos...");
 
-    let totalM3 = 0;
-    let totalHoras = 0;
-    let totalDias = 0;
-    let totalViajes = 0;
-    let costoMaterial = 0;
-    let costoRenta = 0;
-    let totalDistancia = 0;
+    // Calcular totales de material
+    const totalM3 = valesMaterial.reduce((acc, vale) => {
+      const detalle = vale.vale_material_detalles?.[0];
+      return (
+        acc + (detalle?.volumen_real_m3 || detalle?.cantidad_pedida_m3 || 0)
+      );
+    }, 0);
 
-    // Sumar material
-    valesMaterial.forEach((vale) => {
-      vale.vale_material_detalles?.forEach((detalle) => {
-        totalM3 += Number(
-          detalle.volumen_real_m3 || detalle.cantidad_pedida_m3 || 0,
-        );
-        totalViajes += 1;
-        costoMaterial += Number(detalle.costo_total || 0);
-        totalDistancia += Number(detalle.distancia_km || 0);
-      });
-    });
+    const costoMaterial = valesMaterial.reduce((acc, vale) => {
+      const detalle = vale.vale_material_detalles?.[0];
+      return acc + (detalle?.costo_total || 0);
+    }, 0);
 
-    // Sumar renta
-    valesRenta.forEach((vale) => {
-      vale.vale_renta_detalle?.forEach((detalle) => {
-        totalHoras += Number(detalle.total_horas || 0);
-        totalDias += Number(detalle.total_dias || 0);
-        totalViajes += Number(detalle.numero_viajes || 1);
-        costoRenta += Number(detalle.costo_total || 0);
-      });
-    });
+    const totalDistancia = valesMaterial.reduce((acc, vale) => {
+      const detalle = vale.vale_material_detalles?.[0];
+      return acc + (detalle?.distancia_km || 0);
+    }, 0);
 
-    const totales = {
-      totalM3: Math.round(totalM3 * 100) / 100,
-      totalHoras: Math.round(totalHoras * 100) / 100,
-      totalDias: Math.round(totalDias * 100) / 100,
+    // Calcular totales de renta
+    const totalHoras = valesRenta.reduce((acc, vale) => {
+      const detalle = vale.vale_renta_detalle?.[0];
+      return acc + (detalle?.total_horas || 0);
+    }, 0);
+
+    const totalDias = valesRenta.reduce((acc, vale) => {
+      const detalle = vale.vale_renta_detalle?.[0];
+      return acc + (detalle?.total_dias || 0);
+    }, 0);
+
+    const costoRenta = valesRenta.reduce((acc, vale) => {
+      const detalle = vale.vale_renta_detalle?.[0];
+      return acc + (detalle?.costo_total || 0);
+    }, 0);
+
+    const totalViajes = valesMaterial.length + valesRenta.length;
+    const costoTotal = costoMaterial + costoRenta;
+
+    console.log("[useEstadisticas] Totales calculados:", {
+      totalM3,
+      totalHoras,
+      totalDias,
       totalViajes,
-      totalDistancia: Math.round(totalDistancia * 10) / 10,
-      costoTotal: Math.round((costoMaterial + costoRenta) * 100) / 100,
-      costoMaterial: Math.round(costoMaterial * 100) / 100,
-      costoRenta: Math.round(costoRenta * 100) / 100,
-    };
+      totalDistancia,
+      costoTotal,
+    });
 
-    console.log("[useEstadisticas] Totales calculados:", totales);
-    return totales;
+    return {
+      valesMaterial,
+      valesRenta,
+      totales: {
+        totalM3,
+        totalHoras,
+        totalDias,
+        totalViajes,
+        totalDistancia,
+        costoTotal,
+        costoMaterial,
+        costoRenta,
+      },
+    };
   }, []);
 
   // Cargar datos
-  const cargarDatos = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log(`[useEstadisticas] Cargando datos para periodo: ${periodo}`);
-
       const { fechaInicio, fechaFin } = calcularRangoFechas();
-      console.log(`[useEstadisticas] Rango: ${fechaInicio} - ${fechaFin}`);
+      console.log("[useEstadisticas] Rango de fechas:", {
+        fechaInicio,
+        fechaFin,
+        periodo,
+      });
 
+      // Fetch ambos tipos de vales en paralelo
       const [valesMaterial, valesRenta] = await Promise.all([
         fetchValesMaterial(fechaInicio, fechaFin),
         fetchValesRenta(fechaInicio, fechaFin),
       ]);
 
-      const totales = calcularTotales(valesMaterial, valesRenta);
-
-      setData({
-        valesMaterial,
-        valesRenta,
-        totales,
-      });
-
-      console.log("[useEstadisticas] Datos cargados exitosamente");
+      // Procesar y setear datos
+      const processedData = procesarDatos(valesMaterial, valesRenta);
+      setData(processedData);
     } catch (err) {
-      console.error("[useEstadisticas] Error cargando datos:", err);
-      setError(err.message);
+      console.error("[useEstadisticas] Error:", err);
+      setError(err.message || "Error al cargar estadísticas");
     } finally {
       setLoading(false);
     }
-  }, [
-    periodo,
-    calcularRangoFechas,
-    fetchValesMaterial,
-    fetchValesRenta,
-    calcularTotales,
-  ]);
+  }, [calcularRangoFechas, fetchValesMaterial, fetchValesRenta, procesarDatos]);
 
-  // Cargar datos al montar o cambiar periodo
+  // Ejecutar al montar o cuando cambien las dependencias
   useEffect(() => {
-    if (userProfile?.id_current_obra) {
-      cargarDatos();
-    } else {
-      console.log("[useEstadisticas] Sin obra asignada, no se cargan datos");
-      setLoading(false);
-    }
-  }, [userProfile, cargarDatos]);
+    loadData();
+  }, [loadData]);
 
   return {
     data,
     loading,
     error,
-    refetch: cargarDatos,
+    refetch: loadData,
   };
 };

@@ -8,7 +8,7 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  Platform,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
@@ -17,16 +17,21 @@ import { colors } from "../../config/colors";
  * FilterModal
  *
  * Modal de filtros avanzados para estadísticas
- * Permite filtrar por material, sindicato y comparativas
+ * Permite filtrar por obra, material, sindicato y comparativas
  */
 const FilterModal = ({
   visible,
   onClose,
   onApply,
+  obras = [],
   materiales = [],
   sindicatos = [],
   currentFilters = {},
+  loadingObras = false,
 }) => {
+  const [selectedObra, setSelectedObra] = useState(
+    currentFilters.obraId || null,
+  );
   const [selectedMateriales, setSelectedMateriales] = useState(
     currentFilters.materiales || [],
   );
@@ -75,6 +80,7 @@ const FilterModal = ({
 
   const handleApply = () => {
     onApply({
+      obraId: selectedObra,
       materiales: selectedMateriales,
       sindicatos: selectedSindicatos,
       mostrarComparativa,
@@ -83,12 +89,14 @@ const FilterModal = ({
   };
 
   const handleReset = () => {
+    setSelectedObra(null);
     setSelectedMateriales([]);
     setSelectedSindicatos([]);
     setMostrarComparativa(false);
   };
 
   const activeFiltersCount =
+    (selectedObra ? 1 : 0) +
     selectedMateriales.length +
     selectedSindicatos.length +
     (mostrarComparativa ? 1 : 0);
@@ -131,6 +139,101 @@ const FilterModal = ({
             style={styles.scrollView}
             showsVerticalScrollIndicator={false}
           >
+            {/* Sección: Obra */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <MaterialCommunityIcons
+                  name="office-building"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={styles.sectionTitle}>Obra</Text>
+              </View>
+              <Text style={styles.sectionDescription}>
+                Selecciona una obra específica o deja "Todas" para ver el
+                consolidado
+              </Text>
+
+              {loadingObras ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={styles.loadingText}>Cargando obras...</Text>
+                </View>
+              ) : (
+                <>
+                  {/* Opción: Todas las obras */}
+                  <TouchableOpacity
+                    style={styles.radioItem}
+                    onPress={() => setSelectedObra(null)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name={
+                        selectedObra === null
+                          ? "radiobox-marked"
+                          : "radiobox-blank"
+                      }
+                      size={24}
+                      color={
+                        selectedObra === null
+                          ? colors.primary
+                          : colors.textSecondary
+                      }
+                    />
+                    <View style={styles.radioContent}>
+                      <Text style={styles.radioLabel}>Todas las obras</Text>
+                      <Text style={styles.radioDescription}>
+                        Ver consolidado de todas tus obras
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Lista de obras */}
+                  {obras.map((obra) => (
+                    <TouchableOpacity
+                      key={obra.id}
+                      style={styles.radioItem}
+                      onPress={() => setSelectedObra(obra.id)}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons
+                        name={
+                          selectedObra === obra.id
+                            ? "radiobox-marked"
+                            : "radiobox-blank"
+                        }
+                        size={24}
+                        color={
+                          selectedObra === obra.id
+                            ? colors.primary
+                            : colors.textSecondary
+                        }
+                      />
+                      <View style={styles.radioContent}>
+                        <Text style={styles.radioLabel}>{obra.nombre}</Text>
+                        <Text style={styles.radioDescription}>
+                          {obra.empresa} • CC: {obra.cc}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+
+                  {obras.length === 0 && (
+                    <View style={styles.emptyState}>
+                      <MaterialCommunityIcons
+                        name="alert-circle-outline"
+                        size={32}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={styles.emptyText}>
+                        No tienes obras asignadas
+                      </Text>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+
             {/* Sección: Comparativa */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Comparativa</Text>
@@ -298,19 +401,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: "85%",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    height: "90%", // ← Cambio de maxHeight a height
+    paddingBottom: 20,
   },
+
+  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -326,29 +421,33 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   badge: {
     backgroundColor: colors.primary,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
   },
   badgeText: {
     color: colors.surface,
     fontSize: 12,
-    fontWeight: "bold",
+    fontWeight: "700",
   },
   closeButton: {
     padding: 4,
   },
+
+  // ScrollView
   scrollView: {
-    maxHeight: "70%",
+    flex: 1,
   },
+
+  // Sections
   section: {
     padding: 20,
     borderBottomWidth: 1,
@@ -358,18 +457,49 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: 12,
+    gap: 8,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: colors.textPrimary,
+    flex: 1,
+  },
+  sectionDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 18,
   },
   selectAllText: {
-    fontSize: 13,
-    color: colors.primary,
+    fontSize: 14,
     fontWeight: "600",
+    color: colors.primary,
   },
+
+  // Radio items (para obra)
+  radioItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 12,
+    gap: 12,
+  },
+  radioContent: {
+    flex: 1,
+  },
+  radioLabel: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  radioDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+
+  // Checkbox items
   checkboxItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -381,23 +511,45 @@ const styles = StyleSheet.create({
   },
   checkboxLabel: {
     fontSize: 15,
+    fontWeight: "500",
     color: colors.textPrimary,
+    marginBottom: 2,
   },
   checkboxDescription: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textSecondary,
-    marginTop: 2,
+  },
+
+  // Loading
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+
+  // Empty state
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 32,
   },
   emptyText: {
     fontSize: 14,
     color: colors.textSecondary,
-    fontStyle: "italic",
+    marginTop: 8,
     textAlign: "center",
-    paddingVertical: 16,
   },
+
+  // Footer
   footer: {
     flexDirection: "row",
     padding: 20,
+    paddingTop: 16,
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
