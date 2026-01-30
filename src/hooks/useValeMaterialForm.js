@@ -61,13 +61,13 @@ export const useValeMaterialForm = (obraData, materiales = []) => {
           setFormData((prev) => ({ ...prev, distancia: "" }));
           Alert.alert(
             "Distancia no configurada",
-            "No hay una distancia registrada para este banco y obra. Contacta al administrador."
+            "No hay una distancia registrada para este banco y obra. Contacta al administrador.",
           );
         }
       } catch (error) {
         console.error(
           "[useValeMaterialForm] Error consultando distancia:",
-          error
+          error,
         );
         Alert.alert("Error", "No se pudo obtener la distancia");
       }
@@ -91,7 +91,7 @@ export const useValeMaterialForm = (obraData, materiales = []) => {
     if (errorCapacidad) newErrors.capacidad = errorCapacidad;
 
     const errorCantidad = validateCantidadSolicitada(
-      formData.cantidadSolicitada
+      formData.cantidadSolicitada,
     );
     if (errorCantidad) newErrors.cantidadSolicitada = errorCantidad;
 
@@ -102,18 +102,18 @@ export const useValeMaterialForm = (obraData, materiales = []) => {
     if (errorSindicato) newErrors.sindicatoId = errorSindicato;
 
     const errorOperador = validateOperadorId(
-      formData.selectedOperador?.id_operador
+      formData.selectedOperador?.id_operador,
     );
     if (errorOperador) newErrors.operadorId = errorOperador;
 
     const errorVehiculo = validateVehiculoId(
-      formData.selectedVehiculo?.id_vehiculo
+      formData.selectedVehiculo?.id_vehiculo,
     );
     if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
 
-    // Validar requisición (obligatoria solo para tipo 1)
+    // ✅ VALIDACIÓN REQUISICIÓN: Obligatoria solo para materiales tipo 1
     const materialSeleccionado = materiales.find(
-      (m) => m.id_material === formData.materialId
+      (m) => m.id_material === formData.materialId,
     );
     const esTipo1 = materialSeleccionado?.id_tipo_de_material === 1;
 

@@ -22,6 +22,7 @@ const PieChartCard = ({
   data = [],
   showPercentage = true,
   showValues = true,
+  valueFormatter = null,
 }) => {
   const isEmpty = !data || data.length === 0;
 
@@ -71,7 +72,9 @@ const PieChartCard = ({
                     <View style={styles.legendValues}>
                       {showValues && (
                         <Text style={styles.legendValue}>
-                          {item.value.toFixed(1)}
+                          {valueFormatter
+                            ? valueFormatter(item.value, item.name)
+                            : item.value.toFixed(1)}
                         </Text>
                       )}
                       {showPercentage && (

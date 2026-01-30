@@ -198,9 +198,6 @@ export const useEstadisticas = (
   // Fetch vales de material
   const fetchValesMaterial = useCallback(
     async (fechaInicio, fechaFin) => {
-      console.log("[useEstadisticas] Fetching vales de material...");
-      console.log("[useEstadisticas] Filtros:", { residenteId, obraId });
-
       let query = supabase
         .from("vales")
         .select(
@@ -216,6 +213,7 @@ export const useEstadisticas = (
         cantidad_pedida_m3,
         volumen_real_m3,
         costo_total,
+        requisicion,
         distancia_km,
         material!vale_material_detalles_id_material_fkey (
           material,
@@ -253,9 +251,6 @@ export const useEstadisticas = (
         throw error;
       }
 
-      console.log(
-        `[useEstadisticas] Vales material obtenidos: ${data?.length || 0}`,
-      );
       return data || [];
     },
     [residenteId, obraId],
@@ -264,9 +259,6 @@ export const useEstadisticas = (
   // Fetch vales de renta
   const fetchValesRenta = useCallback(
     async (fechaInicio, fechaFin) => {
-      console.log("[useEstadisticas] Fetching vales de renta...");
-      console.log("[useEstadisticas] Filtros:", { residenteId, obraId });
-
       let query = supabase
         .from("vales")
         .select(
@@ -317,9 +309,6 @@ export const useEstadisticas = (
         throw error;
       }
 
-      console.log(
-        `[useEstadisticas] Vales renta obtenidos: ${data?.length || 0}`,
-      );
       return data || [];
     },
     [residenteId, obraId],
@@ -327,8 +316,6 @@ export const useEstadisticas = (
 
   // Procesar y calcular totales
   const procesarDatos = useCallback((valesMaterial, valesRenta) => {
-    console.log("[useEstadisticas] Procesando datos...");
-
     // Calcular totales de material
     const totalM3 = valesMaterial.reduce((acc, vale) => {
       const detalle = vale.vale_material_detalles?.[0];
@@ -366,15 +353,6 @@ export const useEstadisticas = (
     const totalViajes = valesMaterial.length + valesRenta.length;
     const costoTotal = costoMaterial + costoRenta;
 
-    console.log("[useEstadisticas] Totales calculados:", {
-      totalM3,
-      totalHoras,
-      totalDias,
-      totalViajes,
-      totalDistancia,
-      costoTotal,
-    });
-
     return {
       valesMaterial,
       valesRenta,
@@ -391,35 +369,58 @@ export const useEstadisticas = (
     };
   }, []);
 
-  // Cargar datos
+  // Cargar datos del periodo actual Y anterior
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
+      // Obtener rangos de fechas
       const { fechaInicio, fechaFin } = calcularRangoFechas();
-      console.log("[useEstadisticas] Rango de fechas:", {
-        fechaInicio,
-        fechaFin,
-        periodo,
-      });
+      const { fechaInicio: fechaInicioAnterior, fechaFin: fechaFinAnterior } =
+        calcularRangoPeriodoAnterior();
 
-      // Fetch ambos tipos de vales en paralelo
-      const [valesMaterial, valesRenta] = await Promise.all([
+      // Fetch periodo actual Y anterior en paralelo
+      const [
+        valesMaterial,
+        valesRenta,
+        valesMaterialAnterior,
+        valesRentaAnterior,
+      ] = await Promise.all([
         fetchValesMaterial(fechaInicio, fechaFin),
         fetchValesRenta(fechaInicio, fechaFin),
+        fetchValesMaterial(fechaInicioAnterior, fechaFinAnterior),
+        fetchValesRenta(fechaInicioAnterior, fechaFinAnterior),
       ]);
 
-      // Procesar y setear datos
+      // Procesar datos del periodo actual
       const processedData = procesarDatos(valesMaterial, valesRenta);
-      setData(processedData);
+
+      // Procesar datos del periodo anterior
+      const processedDataAnterior = procesarDatos(
+        valesMaterialAnterior,
+        valesRentaAnterior,
+      );
+
+      // Combinar ambos periodos en el estado
+      setData({
+        ...processedData,
+        periodoAnterior: processedDataAnterior.totales,
+      });
     } catch (err) {
       console.error("[useEstadisticas] Error:", err);
       setError(err.message || "Error al cargar estadísticas");
     } finally {
       setLoading(false);
     }
-  }, [calcularRangoFechas, fetchValesMaterial, fetchValesRenta, procesarDatos]);
+  }, [
+    periodo,
+    calcularRangoFechas,
+    calcularRangoPeriodoAnterior,
+    fetchValesMaterial,
+    fetchValesRenta,
+    procesarDatos,
+  ]);
 
   // Ejecutar al montar o cuando cambien las dependencias
   useEffect(() => {

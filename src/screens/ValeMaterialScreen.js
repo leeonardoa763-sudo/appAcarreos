@@ -72,7 +72,7 @@ const ValeMaterialScreen = () => {
     errors,
     validateForm,
     resetForm: resetFormData,
-  } = useValeMaterialForm(obraData);
+  } = useValeMaterialForm(obraData, materiales); // ✅ Agregado segundo parámetro
 
   const {
     materialSeleccionado,
@@ -115,7 +115,7 @@ const ValeMaterialScreen = () => {
   useEffect(() => {
     if (formData.materialId && materiales.length > 0) {
       const material = materiales.find(
-        (m) => m.id_material === formData.materialId
+        (m) => m.id_material === formData.materialId,
       );
       setMaterialSeleccionado(material || null);
     } else {
@@ -154,7 +154,7 @@ const ValeMaterialScreen = () => {
     if (!validateForm()) {
       Alert.alert(
         "Campos incompletos",
-        "Por favor completa todos los campos requeridos"
+        "Por favor completa todos los campos requeridos",
       );
       return;
     }
@@ -170,7 +170,7 @@ const ValeMaterialScreen = () => {
         obraData,
         userProfile,
         generateFolio,
-        materiales
+        materiales,
       );
 
       // Proteger setState

@@ -28,7 +28,8 @@ import { useStatsFilters } from "../hooks/useStatsFilters";
 import { useFilterCatalogos } from "../hooks/useFilterCatalogos";
 import { useAuth } from "../hooks/useAuth";
 import { useObras } from "../hooks/useObras";
-
+import { useObraData } from "../hooks/useObraData";
+import MaterialesPorRequisicionModal from "../componets/stats/MaterialesPorRequisicionModal";
 // Importar componentes modulares
 import StatsHeader from "../componets/stats/StatsHeader";
 import ActiveFiltersIndicator from "../componets/stats/ActiveFiltersIndicator";
@@ -38,12 +39,14 @@ const EstadisticasScreen = () => {
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState("mes");
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [materialesModalVisible, setMaterialesModalVisible] = useState(false);
 
   // ========== REFS ==========
   const scrollViewRef = useRef(null);
 
   // ========== HOOKS ==========
   const { userProfile } = useAuth();
+  const { obraData } = useObraData(userProfile);
 
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
@@ -144,49 +147,42 @@ const EstadisticasScreen = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Resumen General</Text>
-            {displayData.totales.totalViajes > 0 && (
-              <TrendIndicator
-                direction="up"
-                percentage={12.5}
-                size="small"
-                showBackground={true}
-              />
-            )}
           </View>
 
-          <View style={styles.kpiGrid}>
-            <StatCard
+          {/* Grid vertical - un card por fila */}
+          <View style={styles.kpiColumn}>
+            <ComparisonCard
+              title="Material Movido"
               icon="cube-outline"
-              iconColor={colors.primary}
-              value={displayData.totales.totalM3}
-              label="m³ Movidos"
-              suffix=""
+              currentValue={displayData.totales.totalM3}
+              previousValue={displayData.periodoAnterior?.totalM3}
+              suffix=" m³"
               decimals={1}
             />
 
-            <StatCard
+            <ComparisonCard
+              title="Horas de Renta"
               icon="clock-outline"
-              iconColor={colors.secondary}
-              value={displayData.totales.totalHoras}
-              label="Horas Renta"
-              suffix=""
+              currentValue={displayData.totales.totalHoras}
+              previousValue={displayData.periodoAnterior?.totalHoras}
+              suffix=" hrs"
               decimals={1}
             />
 
-            <StatCard
+            <ComparisonCard
+              title="Viajes Total"
               icon="truck-outline"
-              iconColor={colors.accent}
-              value={displayData.totales.totalViajes}
-              label="Viajes Total"
+              currentValue={displayData.totales.totalViajes}
+              previousValue={displayData.periodoAnterior?.totalViajes}
               suffix=""
               decimals={0}
             />
 
-            <StatCard
+            <ComparisonCard
+              title="Costo Total"
               icon="cash"
-              iconColor="#1A936F"
-              value={displayData.totales.costoTotal / 1000}
-              label="Costo Total"
+              currentValue={displayData.totales.costoTotal / 1000}
+              previousValue={displayData.periodoAnterior?.costoTotal / 1000}
               prefix="$"
               suffix="K"
               decimals={1}
@@ -203,6 +199,9 @@ const EstadisticasScreen = () => {
               title="Material"
               icon="package-variant"
               currentValue={(displayData.totales.costoMaterial || 0) / 1000}
+              previousValue={
+                (displayData.periodoAnterior?.costoMaterial || 0) / 1000
+              }
               prefix="$"
               suffix="K"
               decimals={1}
@@ -212,12 +211,38 @@ const EstadisticasScreen = () => {
               title="Renta"
               icon="truck-cargo-container"
               currentValue={(displayData.totales.costoRenta || 0) / 1000}
+              previousValue={
+                (displayData.periodoAnterior?.costoRenta || 0) / 1000
+              }
               prefix="$"
               suffix="K"
               decimals={1}
             />
           </View>
         </View>
+
+        {/* Botón para ver materiales por requisición */}
+        <TouchableOpacity
+          style={styles.viewDetailsButton}
+          onPress={() => setMaterialesModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.buttonContent}>
+            <MaterialCommunityIcons
+              name="clipboard-text-multiple"
+              size={20}
+              color={colors.primary}
+            />
+            <Text style={styles.buttonText}>
+              Ver Materiales por Requisición
+            </Text>
+          </View>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={24}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
 
         {/* Gráfico: Distribución de Material */}
         <PieChartCard
@@ -241,6 +266,10 @@ const EstadisticasScreen = () => {
           data={chartData.costoPieData}
           showPercentage={true}
           showValues={true}
+          valueFormatter={(value, name) => {
+            // Formatear como moneda con símbolo de pesos
+            return `$${(value / 1000).toFixed(1)}K`;
+          }}
         />
 
         {/* Gráfico: Tendencia de m³ */}
@@ -353,6 +382,14 @@ const EstadisticasScreen = () => {
         currentFilters={{ ...filters, obraId: obraSeleccionada }}
         loadingObras={loadingObras}
       />
+
+      {/* Modal de materiales por requisición */}
+      <MaterialesPorRequisicionModal
+        visible={materialesModalVisible}
+        onClose={() => setMaterialesModalVisible(false)}
+        valesMaterial={displayData.valesMaterial}
+        obraData={obraData}
+      />
     </View>
   );
 };
@@ -448,6 +485,35 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 
+  // Botón para ver detalles
+  viewDetailsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.shadow.color,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  buttonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.primary,
+    marginLeft: 10,
+  },
+
   // Info box
   infoBox: {
     flexDirection: "row",
@@ -463,5 +529,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  // Grid de KPIs
+  kpiGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  //columna de KPIs (uno debajo del otro)
+  kpiColumn: {
+    flexDirection: "column",
+    gap: 12,
   },
 });

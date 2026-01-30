@@ -38,9 +38,6 @@ const FilterModal = ({
   const [selectedSindicatos, setSelectedSindicatos] = useState(
     currentFilters.sindicatos || [],
   );
-  const [mostrarComparativa, setMostrarComparativa] = useState(
-    currentFilters.mostrarComparativa || false,
-  );
 
   const handleToggleMaterial = (materialId) => {
     setSelectedMateriales((prev) => {
@@ -83,7 +80,6 @@ const FilterModal = ({
       obraId: selectedObra,
       materiales: selectedMateriales,
       sindicatos: selectedSindicatos,
-      mostrarComparativa,
     });
     onClose();
   };
@@ -92,14 +88,12 @@ const FilterModal = ({
     setSelectedObra(null);
     setSelectedMateriales([]);
     setSelectedSindicatos([]);
-    setMostrarComparativa(false);
   };
 
   const activeFiltersCount =
     (selectedObra ? 1 : 0) +
     selectedMateriales.length +
-    selectedSindicatos.length +
-    (mostrarComparativa ? 1 : 0);
+    selectedSindicatos.length;
 
   return (
     <Modal
@@ -232,36 +226,6 @@ const FilterModal = ({
                   )}
                 </>
               )}
-            </View>
-
-            {/* Sección: Comparativa */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Comparativa</Text>
-              <TouchableOpacity
-                style={styles.checkboxItem}
-                onPress={() => setMostrarComparativa(!mostrarComparativa)}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={
-                    mostrarComparativa
-                      ? "checkbox-marked"
-                      : "checkbox-blank-outline"
-                  }
-                  size={24}
-                  color={
-                    mostrarComparativa ? colors.primary : colors.textSecondary
-                  }
-                />
-                <View style={styles.checkboxContent}>
-                  <Text style={styles.checkboxLabel}>
-                    Comparar con periodo anterior
-                  </Text>
-                  <Text style={styles.checkboxDescription}>
-                    Muestra tendencias y cambios porcentuales
-                  </Text>
-                </View>
-              </TouchableOpacity>
             </View>
 
             {/* Sección: Materiales */}

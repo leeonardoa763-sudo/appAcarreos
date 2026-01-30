@@ -15,13 +15,13 @@ import { LinearGradient } from "expo-linear-gradient";
  */
 const SavingsCard = ({ totalVales, periodoLabel = "este mes" }) => {
   // Cálculos de ahorro (estimaciones basadas en vales físicos)
-  const tiempoPromedioFisico = 45; // minutos por vale físico
-  const tiempoPromedioDigital = 3; // minutos por vale digital
+  const tiempoPromedioFisico = 3; // minutos por vale físico
+  const tiempoPromedioDigital = 1; // minutos por vale digital
   const tiempoAhorradoPorVale = tiempoPromedioFisico - tiempoPromedioDigital; // 42 min
   const tiempoTotalAhorrado = (totalVales * tiempoAhorradoPorVale) / 60; // en horas
 
-  const hojasAhorradas = totalVales * 1; // 1 hoja por vale
-  const erroresEvitados = Math.round(totalVales * 0.08); // 8% de error estimado en físicos
+  const valesAhorrados = totalVales * 1; // 1 hoja por vale
+  const erroresEvitados = Math.round(totalVales * 0.01); // 1% de error estimado en físicos
 
   const porcentajeEficiencia = Math.round(
     ((tiempoPromedioFisico - tiempoPromedioDigital) / tiempoPromedioFisico) *
@@ -63,12 +63,12 @@ const SavingsCard = ({ totalVales, periodoLabel = "este mes" }) => {
           {/* Papel ahorrado */}
           <View style={styles.metricCard}>
             <MaterialCommunityIcons
-              name="file-document-remove"
+              name="file-cancel"
               size={28}
               color="#FFFFFF"
             />
-            <Text style={styles.metricValue}>{hojasAhorradas}</Text>
-            <Text style={styles.metricLabel}>Hojas Ahorradas</Text>
+            <Text style={styles.metricValue}>{valesAhorrados}</Text>
+            <Text style={styles.metricLabel}>Vales Físicos Evitados</Text>
           </View>
 
           {/* Errores evitados */}
