@@ -10,13 +10,22 @@ import { statsColors } from "../../config/statsColors";
  *
  * Indicador visual de tendencias (subida/bajada/neutral)
  * Muestra flecha, porcentaje y label opcional
+ *
+ * Props:
+ * - direction: 'up' | 'down' | 'neutral'
+ * - percentage: number - Porcentaje de cambio
+ * - label: string - Label descriptivo
+ * - size: 'small' | 'medium' | 'large'
+ * - showBackground: boolean - Mostrar fondo de color
+ * - lightMode: boolean - Modo claro para usar sobre gradientes (texto blanco)
  */
 const TrendIndicator = ({
-  direction = "neutral", // 'up' | 'down' | 'neutral'
+  direction = "neutral",
   percentage,
   label = "",
-  size = "medium", // 'small' | 'medium' | 'large'
+  size = "medium",
   showBackground = true,
+  lightMode = false, // NUEVO: modo claro para gradientes
 }) => {
   const getIconName = () => {
     switch (direction) {
@@ -32,6 +41,12 @@ const TrendIndicator = ({
   };
 
   const getColor = () => {
+    // En modo claro, usar siempre blanco
+    if (lightMode) {
+      return "#FFFFFF";
+    }
+
+    // En modo oscuro, usar colores semánticos
     switch (direction) {
       case "up":
         return statsColors.trend.positive;
@@ -45,6 +60,12 @@ const TrendIndicator = ({
   };
 
   const getBackgroundColor = () => {
+    // En modo claro sobre gradiente, fondo semi-transparente blanco
+    if (lightMode) {
+      return "rgba(255, 255, 255, 0.25)";
+    }
+
+    // En modo oscuro, fondo con opacidad del color
     const baseColor = getColor();
     return baseColor + "15"; // Agregar opacidad
   };
@@ -90,7 +111,15 @@ const TrendIndicator = ({
       )}
 
       {label !== "" && (
-        <Text style={[styles.label, { fontSize: currentSize.text - 1 }]}>
+        <Text
+          style={[
+            styles.label,
+            {
+              fontSize: currentSize.text - 1,
+              color: lightMode ? "rgba(255,255,255,0.9)" : "#7F8C8D",
+            },
+          ]}
+        >
           {label}
         </Text>
       )}
@@ -111,7 +140,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   label: {
-    color: "#7F8C8D",
     marginLeft: 4,
   },
 });

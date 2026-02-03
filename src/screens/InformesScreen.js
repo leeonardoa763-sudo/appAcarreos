@@ -4,7 +4,7 @@
  * PANTALLA DE EXPORTACIÓN DE INFORMES CSV
  *
  * FUNCIONALIDADES:
- * - Selector de semanas con vales emitidos
+ * - Selector de semanas personalizado (CustomWeekPicker)
  * - Checkboxes para seleccionar tipo de vale (Material/Renta)
  * - Exportación a CSV con filtro de semana
  * - Pull-to-refresh para actualizar semanas
@@ -21,7 +21,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  RefreshControl, // ← NUEVO
+  RefreshControl,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -39,8 +39,8 @@ import { useValesExport } from "../hooks/useValesExport";
 import { getCurrentWeek, getCurrentYear } from "../utils/dateUtils";
 
 // Components
-import ExportCheckbox from "../componets/common/ExportCheckbox";
-import FormPicker from "../componets/forms/FormPicker";
+import ExportRadioButton from "../componets/common/ExportRadioButton";
+import CustomWeekPicker from "../componets/forms/CustomWeekPicker";
 import PrimaryButton from "../componets/common/PrimaryButton";
 
 const InformesScreen = () => {
@@ -51,11 +51,10 @@ const InformesScreen = () => {
   // Estados
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [selectedYear] = useState(getCurrentYear());
-  const [exportMaterial, setExportMaterial] = useState(false);
-  const [exportRenta, setExportRenta] = useState(false);
+  const [exportType, setExportType] = useState(null); // 'material' | 'renta' | 'todos'
   const [weeksOptions, setWeeksOptions] = useState([]);
   const [loadingWeeks, setLoadingWeeks] = useState(true);
-  const [refreshing, setRefreshing] = useState(false); // ← NUEVO
+  const [refreshing, setRefreshing] = useState(false);
 
   /**
    * Carga las semanas que tienen vales al montar el componente
@@ -94,7 +93,7 @@ const InformesScreen = () => {
   };
 
   /**
-   * ← NUEVA FUNCIÓN: Maneja el pull-to-refresh
+   * Maneja el pull-to-refresh
    */
   const onRefresh = async () => {
     setRefreshing(true);
@@ -112,10 +111,10 @@ const InformesScreen = () => {
   };
 
   /**
-   * Maneja la exportación según los checkboxes seleccionados
+   * Maneja la exportación según el tipo seleccionado
    */
   const handleExport = async () => {
-    if (!exportMaterial && !exportRenta) {
+    if (!exportType) {
       return;
     }
 
@@ -125,14 +124,22 @@ const InformesScreen = () => {
 
     let successCount = 0;
 
-    if (exportMaterial) {
+    // Exportar según tipo seleccionado
+    if (exportType === "material") {
       const success = await exportMaterialCSV(selectedWeek, selectedYear);
       if (success) successCount++;
-    }
-
-    if (exportRenta) {
+    } else if (exportType === "renta") {
       const success = await exportRentaCSV(selectedWeek, selectedYear);
       if (success) successCount++;
+    } else if (exportType === "todos") {
+      // Exportar ambos tipos
+      const successMaterial = await exportMaterialCSV(
+        selectedWeek,
+        selectedYear,
+      );
+      const successRenta = await exportRentaCSV(selectedWeek, selectedYear);
+      if (successMaterial) successCount++;
+      if (successRenta) successCount++;
     }
   };
 
@@ -142,7 +149,6 @@ const InformesScreen = () => {
         style={commonStyles.scrollView}
         contentContainerStyle={commonStyles.scrollContent}
         refreshControl={
-          // ← NUEVO
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
@@ -168,15 +174,6 @@ const InformesScreen = () => {
 
         {/* Selector de Semana */}
         <View style={commonStyles.section}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons
-              name="calendar-week"
-              size={20}
-              color={colors.textPrimary}
-            />
-            <Text style={styles.sectionTitle}>Seleccionar Semana</Text>
-          </View>
-
           {loadingWeeks ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.primary} />
@@ -198,8 +195,8 @@ const InformesScreen = () => {
             </View>
           ) : (
             <>
-              <FormPicker
-                label="Semana"
+              <CustomWeekPicker
+                label="Seleccionar Semana"
                 value={selectedWeek}
                 onValueChange={(value) => {
                   setSelectedWeek(value);
@@ -207,6 +204,7 @@ const InformesScreen = () => {
                 items={weeksOptions}
                 placeholder="Selecciona una semana"
                 enabled={!loading}
+                icon="calendar-week"
               />
 
               {selectedWeek && (
@@ -231,32 +229,34 @@ const InformesScreen = () => {
             <View style={commonStyles.section}>
               <View style={styles.sectionHeader}>
                 <MaterialCommunityIcons
-                  name="checkbox-multiple-marked"
+                  name="file-document-multiple"
                   size={20}
                   color={colors.textPrimary}
                 />
                 <Text style={styles.sectionTitle}>Tipo de Exportación</Text>
               </View>
 
-              <ExportCheckbox
+              <ExportRadioButton
                 label="Vales de Material"
+                description="Exportar solo vales de acarreo de material"
                 icon="package-variant"
                 iconColor={colors.primary}
-                checked={exportMaterial}
-                onToggle={() => setExportMaterial(!exportMaterial)}
+                selected={exportType === "material"}
+                onSelect={() => setExportType("material")}
                 disabled={loading || !selectedWeek}
               />
 
-              <ExportCheckbox
+              <ExportRadioButton
                 label="Vales de Renta"
+                description="Exportar solo vales de renta de equipo"
                 icon="truck-cargo-container"
                 iconColor={colors.secondary}
-                checked={exportRenta}
-                onToggle={() => setExportRenta(!exportRenta)}
+                selected={exportType === "renta"}
+                onSelect={() => setExportType("renta")}
                 disabled={loading || !selectedWeek}
               />
 
-              {!exportMaterial && !exportRenta && (
+              {!exportType && (
                 <View style={styles.warningBox}>
                   <MaterialCommunityIcons
                     name="alert-circle"
@@ -264,7 +264,7 @@ const InformesScreen = () => {
                     color={colors.warning}
                   />
                   <Text style={styles.warningText}>
-                    Selecciona al menos un tipo de vale para exportar
+                    Selecciona un tipo de vale para exportar
                   </Text>
                 </View>
               )}
@@ -289,9 +289,7 @@ const InformesScreen = () => {
                 title={loading ? "Exportando..." : "Exportar"}
                 onPress={handleExport}
                 loading={loading}
-                disabled={
-                  (!exportMaterial && !exportRenta) || loading || !selectedWeek
-                }
+                disabled={!exportType || loading || !selectedWeek}
                 icon="file-export"
                 backgroundColor={colors.accent}
               />

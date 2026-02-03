@@ -1,5 +1,4 @@
 // src/components/stats/BarChartCard.js
-
 import React from "react";
 import { Dimensions } from "react-native";
 import { BarChart } from "react-native-chart-kit";
@@ -26,23 +25,48 @@ const BarChartCard = ({
 }) => {
   const isEmpty = !data || !data.labels || data.labels.length === 0;
 
+  // Determinar color de las barras basado en el sufijo
+  const getBarColor = (opacity = 1) => {
+    // Si es m³, usar color azul cielo (material)
+    if (yAxisSuffix.includes("m³")) {
+      const baseColor = statsColors.gradients.material[0]; // #0984E3
+      const r = parseInt(baseColor.slice(1, 3), 16);
+      const g = parseInt(baseColor.slice(3, 5), 16);
+      const b = parseInt(baseColor.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    }
+
+    // Si es horas, usar color turquesa (renta)
+    if (yAxisSuffix.includes("h")) {
+      const baseColor = statsColors.gradients.rental[0]; // #00B894
+      const r = parseInt(baseColor.slice(1, 3), 16);
+      const g = parseInt(baseColor.slice(3, 5), 16);
+      const b = parseInt(baseColor.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    }
+
+    // Por defecto, usar color primario
+    return `rgba(255, 107, 53, ${opacity})`;
+  };
+
   const chartConfig = {
-    backgroundColor: colors.surface,
-    backgroundGradientFrom: colors.surface,
-    backgroundGradientTo: colors.surface,
+    backgroundColor: "#FFFFFF",
+    backgroundGradientFrom: "#FFFFFF",
+    backgroundGradientTo: "#F8F9FA",
     decimalPlaces: 1,
-    color: (opacity = 1) => `rgba(255, 107, 53, ${opacity})`,
+    color: getBarColor,
     labelColor: (opacity = 1) => `rgba(127, 140, 141, ${opacity})`,
     style: {
       borderRadius: 16,
     },
     propsForBackgroundLines: {
-      strokeDasharray: "",
-      stroke: colors.border,
-      strokeWidth: 1,
+      strokeDasharray: "5,5",
+      stroke: "#E5E7EB",
+      strokeWidth: 0.5,
     },
     propsForLabels: {
-      fontSize: 10,
+      fontSize: 11,
+      fontWeight: "600",
     },
   };
 
@@ -59,7 +83,7 @@ const BarChartCard = ({
         <BarChart
           data={data}
           width={screenWidth - 80}
-          height={220}
+          height={240}
           yAxisSuffix={yAxisSuffix}
           chartConfig={chartConfig}
           style={{
@@ -67,7 +91,7 @@ const BarChartCard = ({
           }}
           showValuesOnTopOfBars={showValuesOnTopOfBars}
           fromZero={true}
-          segments={4}
+          segments={5}
         />
       )}
     </ChartCard>

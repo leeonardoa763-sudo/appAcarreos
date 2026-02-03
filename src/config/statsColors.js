@@ -5,49 +5,107 @@
  *
  * PALETA DE COLORES EXTENDIDA PARA ESTADÍSTICAS
  * Colores adicionales para gráficos, gradientes y visualizaciones
+ * NO modifica colors.js principal para no afectar otras partes de la app
  */
 
 export const statsColors = {
-  // Gradientes modernos para backgrounds
+  // ====================================
+  // GRADIENTES MODERNOS PARA MÓDULOS
+  // ====================================
   gradients: {
-    primary: ["#FF6B35", "#FF8C42"],
-    success: ["#1A936F", "#88D498"],
-    info: ["#004E89", "#0077B6"],
-    warning: ["#F77F00", "#FCBF49"],
-    accent: ["#6A4C93", "#9D84B7"],
+    // Resumen General - Naranja coral suave
+    summary: ["#FF6B6B", "#FF8E53"],
+
+    // Impacto Digital - Verde esmeralda (el que ya te gustó)
+    digital: ["#1A936F", "#88D498"],
+
+    // Comparativa de Costos - Morado lavanda profesional
+    financial: ["#6C5CE7", "#A29BFE"],
+
+    // Material/M³ - Azul cielo vibrante
+    material: ["#0984E3", "#74B9FF"],
+
+    // Renta/Horas - Turquesa tropical
+    rental: ["#00B894", "#55EFC4"],
+
+    // Viajes - Amarillo cálido
+    trips: ["#FDCB6E", "#FFA502"],
+
+    // Distancia - Rosa coral
+    distance: ["#FD79A8", "#FDCB6E"],
+
+    // Análisis - Índigo profundo
+    analysis: ["#5F27CD", "#341F97"],
   },
 
-  // Paleta para gráficos (8 colores distintos y accesibles)
+  // ====================================
+  // PALETA PARA GRÁFICOS MEJORADA
+  // ====================================
   chartPalette: [
-    "#FF6B35", // Naranja primary
-    "#1A936F", // Verde accent
-    "#004E89", // Azul secondary
-    "#F77F00", // Naranja warning
-    "#6A4C93", // Púrpura
-    "#00B4D8", // Cyan
-    "#E63946", // Rojo
-    "#06FFA5", // Mint
+    "#FF6B6B", // Coral
+    "#4ECDC4", // Turquesa
+    "#45B7D1", // Azul cielo
+    "#FFA07A", // Salmón
+    "#98D8C8", // Menta
+    "#6C5CE7", // Morado
+    "#FDCB6E", // Amarillo
+    "#FF7675", // Rosa
+    "#74B9FF", // Azul claro
+    "#55EFC4", // Verde agua
   ],
 
-  // Colores específicos por tipo de material
+  // ====================================
+  // GRADIENTES PARA GRÁFICAS
+  // ====================================
+  chartGradients: {
+    // Para gráficas de barras - Material
+    materialBar: ["#0984E3", "#74B9FF"],
+
+    // Para gráficas de barras - Renta
+    rentalBar: ["#00B894", "#55EFC4"],
+
+    // Para gráficas de pastel - caliente
+    pieWarm: ["#FF6B6B", "#FFA502"],
+
+    // Para gráficas de pastel - frío
+    pieCool: ["#0984E3", "#00B894"],
+  },
+
+  // ====================================
+  // COLORES ESPECÍFICOS POR TIPO DE MATERIAL
+  // ====================================
   materials: {
-    arena: "#FFB627",
-    grava: "#95A3A4",
-    tepetate: "#CD6155",
-    otros: "#5DADE2",
+    arena: "#FFD93D", // Amarillo arena
+    grava: "#95A3A4", // Gris grava
+    tepetate: "#D63031", // Rojo tierra
+    otros: "#74B9FF", // Azul otros
   },
 
-  // Colores semánticos para tendencias
+  // ====================================
+  // COLORES SEMÁNTICOS PARA TENDENCIAS
+  // ====================================
   trend: {
-    positive: "#1A936F",
-    negative: "#E63946",
-    neutral: "#7F8C8D",
+    positive: "#00B894", // Verde turquesa
+    negative: "#FF7675", // Rosa coral
+    neutral: "#B2BEC3", // Gris neutro
   },
 
-  // Backgrounds con opacidad
+  // ====================================
+  // BACKGROUNDS CON OPACIDAD
+  // ====================================
   backgrounds: {
-    cardLight: "rgba(255,107,53,0.05)",
-    cardDark: "rgba(0,78,137,0.05)",
-    overlay: "rgba(44,62,80,0.9)",
+    screen: "#F8F9FA", // Fondo de pantalla (gris muy claro)
+    cardLight: "rgba(255,255,255,0.95)", // Fondo de tarjetas
+    overlay: "rgba(44,62,80,0.85)", // Overlay oscuro
+    gradientOverlay: "rgba(255,255,255,0.1)", // Overlay sobre gradientes
+  },
+
+  // ====================================
+  // COLORES PARA ICONOS EN GRADIENTES
+  // ====================================
+  iconColors: {
+    onLight: "#2D3436", // Icono sobre fondo claro
+    onDark: "#FFFFFF", // Icono sobre fondo oscuro
+    onGradient: "#FFFFFF", // Icono sobre gradiente
   },
 };

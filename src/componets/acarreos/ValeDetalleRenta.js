@@ -7,7 +7,7 @@
  * FUNCIONALIDAD:
  * - Muestra detalles completos del vale de renta
  * - Permite capturar hora fin y número de viajes
- * - Soporta renta por día completo
+ * - Soporta renta por día completo y medio día
  * - Muestra tarifas del sindicato y precio final
  * - Completa el vale y actualiza estado a "emitido"
  * - Genera PDF automáticamente después de completar
@@ -36,6 +36,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const [horaFin, setHoraFin] = useState(null);
   const [numeroViajes, setNumeroViajes] = useState(1);
   const [esRentaPorDia, setEsRentaPorDia] = useState(false);
+  const [esRentaPorMedioDia, setEsRentaPorMedioDia] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successData, setSuccessData] = useState(null);
@@ -64,6 +65,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       setHoraFin(null);
       setNumeroViajes(1);
       setEsRentaPorDia(false);
+      setEsRentaPorMedioDia(false);
     }
   }, [vale?.id_vale, detalleRenta]);
 
@@ -95,7 +97,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const handleGuardarHoraFin = useCallback(async () => {
     if (!canComplete) return;
 
-    if (!esRentaPorDia && !horaFin) {
+    if (!esRentaPorDia && !esRentaPorMedioDia && !horaFin) {
       Alert.alert("Error", "Por favor selecciona la hora de fin");
       return;
     }
@@ -107,12 +109,22 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       let horaFinFinal;
       let totalHoras = 0;
       let totalDias = 0;
+      let costoTotal = 0;
 
       if (esRentaPorDia) {
+        // Día completo
         totalDias = 1;
         totalHoras = 0;
         horaFinFinal = null;
+        costoTotal = parseFloat(preciosRenta.costo_dia);
+      } else if (esRentaPorMedioDia) {
+        // Medio día
+        totalDias = 0.5;
+        totalHoras = 0;
+        horaFinFinal = null;
+        costoTotal = parseFloat(preciosRenta.costo_dia) / 2;
       } else {
+        // Por horas
         horaFinFinal = horaFin.toISOString();
         const diffMs = horaFin - horaInicio;
         totalHoras = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
@@ -120,13 +132,14 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         if (totalHoras <= 0) {
           Alert.alert(
             "Error",
-            "La hora de fin debe ser posterior a la hora de inicio"
+            "La hora de fin debe ser posterior a la hora de inicio",
           );
           setSaving(false);
           return;
         }
 
         totalDias = 0;
+        costoTotal = parseFloat(preciosRenta.costo_hr) * totalHoras;
       }
 
       const { data, error } = await supabase.rpc("completar_vale_renta", {
@@ -137,6 +150,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         p_total_dias: totalDias,
         p_numero_viajes: numeroViajes,
         p_es_renta_por_dia: esRentaPorDia,
+        p_costo_total: costoTotal,
       });
 
       if (error) {
@@ -150,6 +164,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             total_horas: totalHoras,
             total_dias: totalDias,
             numero_viajes: numeroViajes,
+            costo_total: costoTotal,
           })
           .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle);
 
@@ -174,6 +189,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             total_horas: totalHoras,
             total_dias: totalDias,
             numero_viajes: numeroViajes,
+            costo_total: costoTotal,
           },
         ],
       };
@@ -184,6 +200,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         totalDias,
         numeroViajes,
         esRentaPorDia,
+        esRentaPorMedioDia,
       });
 
       setShowSuccessModal(true);
@@ -197,10 +214,12 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   }, [
     canComplete,
     esRentaPorDia,
+    esRentaPorMedioDia,
     horaFin,
     numeroViajes,
     detalleRenta,
     vale?.id_vale,
+    preciosRenta,
   ]);
 
   const handleCloseSuccess = useCallback(() => {
@@ -410,14 +429,26 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             <FormCheckbox
               label="Renta por día completo"
               value={esRentaPorDia}
-              onChange={setEsRentaPorDia}
+              onChange={(value) => {
+                setEsRentaPorDia(value);
+                if (value) setEsRentaPorMedioDia(false);
+              }}
+            />
+
+            <FormCheckbox
+              label="Renta por medio día"
+              value={esRentaPorMedioDia}
+              onChange={(value) => {
+                setEsRentaPorMedioDia(value);
+                if (value) setEsRentaPorDia(false);
+              }}
             />
 
             <CustomTimePicker
               label="Hora de Fin"
               value={horaFin}
               onChange={setHoraFin}
-              disabled={esRentaPorDia}
+              disabled={esRentaPorDia || esRentaPorMedioDia}
             />
 
             <FormNumberInput
@@ -433,7 +464,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
               title="Completar Vale"
               onPress={handleGuardarHoraFin}
               loading={saving}
-              disabled={!esRentaPorDia && !horaFin}
+              disabled={!esRentaPorDia && !esRentaPorMedioDia && !horaFin}
               icon="check-circle"
               backgroundColor={colors.accent}
             />
@@ -441,7 +472,9 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             <Text style={styles.helperText}>
               {esRentaPorDia
                 ? "Renta por día completo seleccionada"
-                : "Hora de fin requerida para renta por hora"}
+                : esRentaPorMedioDia
+                  ? "Renta por medio día seleccionada"
+                  : "Hora de fin requerida para renta por hora"}
             </Text>
           </View>
         )}
@@ -456,7 +489,9 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         message={
           successData?.esRentaPorDia
             ? `Renta por día completo\nViajes: ${successData?.numeroViajes}\n\n¿Deseas generar el PDF ahora?`
-            : `Total de horas: ${successData?.totalHoras} hrs\nViajes: ${successData?.numeroViajes}\n\n¿Deseas generar el PDF ahora?`
+            : successData?.esRentaPorMedioDia
+              ? `Renta por medio día\nViajes: ${successData?.numeroViajes}\n\n¿Deseas generar el PDF ahora?`
+              : `Total de horas: ${successData?.totalHoras} hrs\nViajes: ${successData?.numeroViajes}\n\n¿Deseas generar el PDF ahora?`
         }
         primaryAction={{
           text: "Generar PDF",

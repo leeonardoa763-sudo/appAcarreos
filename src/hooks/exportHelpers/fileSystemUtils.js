@@ -58,8 +58,10 @@ export const shareCSVFile = async (csvContent, filename) => {
     const workingDir = await getWorkingDirectory();
     const fileUri = `${workingDir}${filename}`;
 
-    // Crear archivo temporal
-    await FileSystem.writeAsStringAsync(fileUri, csvWithBOM);
+    // Crear archivo temporal con codificación UTF-8 explícita
+    await FileSystem.writeAsStringAsync(fileUri, csvWithBOM, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
 
     console.log("[fileSystemUtils] ✅ Archivo creado");
 
@@ -86,7 +88,7 @@ export const shareCSVFile = async (csvContent, filename) => {
         UTI: "public.comma-separated-values-text",
       }),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout compartiendo")), 30000)
+        setTimeout(() => reject(new Error("Timeout compartiendo")), 30000),
       ),
     ]);
 

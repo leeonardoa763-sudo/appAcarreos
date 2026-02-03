@@ -33,6 +33,7 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
 
   // Detectar si es renta por día
   const esRentaPorDia = detalle.es_renta_por_dia === true;
+  const esRentaPorMedioDia = detalle.total_dias === 0.5;
 
   // Formatear horas
   const horaInicio = detalle.hora_inicio
@@ -40,19 +41,26 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
     : "N/A";
 
   const horaFin = esRentaPorDia
-    ? "Dia completo"
-    : detalle.hora_fin
-    ? formatearHoraRecibo(detalle.hora_fin)
-    : "Pendiente";
+    ? "Día completo"
+    : esRentaPorMedioDia
+      ? "Medio día"
+      : detalle.hora_fin
+        ? formatearHora(detalle.hora_fin)
+        : "Pendiente";
 
   // Formatear totales
-  const totalHoras = esRentaPorDia
-    ? "N/A"
-    : detalle.total_horas
-    ? `${detalle.total_horas} hrs`
-    : "N/A";
+  const totalHoras =
+    esRentaPorDia || esRentaPorMedioDia
+      ? "N/A"
+      : detalle.total_horas
+        ? `${detalle.total_horas} hrs`
+        : "N/A";
 
-  const totalDias = esRentaPorDia ? "1 dia" : "N/A";
+  const totalDias = esRentaPorDia
+    ? "1 día"
+    : esRentaPorMedioDia
+      ? "0.5 días"
+      : "N/A";
 
   // Obtener tarifas
   const precioRenta = detalle.precios_renta || {};
@@ -66,8 +74,21 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   // Calcular costo total
   let costoTotal;
   if (esRentaPorDia && precioRenta.costo_dia) {
-    costoTotal = `$${parseFloat(precioRenta.costo_dia).toFixed(2)}`;
-  } else if (!esRentaPorDia && precioRenta.costo_hr && detalle.total_horas) {
+    costoTotal = `$${parseFloat(precioRenta.costo_dia).toFixed(2)} MXN`;
+    console.log("[pdfRentaGenerator] Costo calculado por día:", costoTotal);
+  } else if (esRentaPorMedioDia && precioRenta.costo_dia) {
+    const costo = parseFloat(precioRenta.costo_dia) / 2;
+    costoTotal = `$${costo.toFixed(2)} MXN`;
+    console.log(
+      "[pdfRentaGenerator] Costo calculado por medio día:",
+      costoTotal,
+    );
+  } else if (
+    !esRentaPorDia &&
+    !esRentaPorMedioDia &&
+    precioRenta.costo_hr &&
+    detalle.total_horas
+  ) {
     const costo =
       parseFloat(precioRenta.costo_hr) * parseFloat(detalle.total_horas);
     costoTotal = `$${costo.toFixed(2)}`;
@@ -254,7 +275,7 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
 export const generateAndShareRentaRecibo = async (
   valeData,
   colorCopia,
-  qrDataUrl
+  qrDataUrl,
 ) => {
   try {
     console.log("[pdfRentaGeneratorRecibo] Generando PDF recibo:", {
@@ -274,12 +295,12 @@ export const generateAndShareRentaRecibo = async (
     const renamedUri = await renamePDFWithAutoName(
       uri,
       valeData.folio,
-      colorCopia
+      colorCopia,
     );
 
     console.log(
       "[pdfRentaGeneratorRecibo] PDF generado exitosamente:",
-      renamedUri
+      renamedUri,
     );
 
     if (await Sharing.isAvailableAsync()) {
@@ -296,7 +317,7 @@ export const generateAndShareRentaRecibo = async (
   } catch (error) {
     console.error(
       "[pdfRentaGeneratorRecibo] Error generando PDF recibo:",
-      error
+      error,
     );
     throw error;
   }

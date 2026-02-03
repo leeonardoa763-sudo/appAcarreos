@@ -33,8 +33,8 @@ export const useChartData = (data) => {
         value: Math.round(value * 100) / 100,
         color:
           statsColors.chartPalette[index % statsColors.chartPalette.length],
-        legendFontColor: "#7F8C8D",
-        legendFontSize: 12,
+        legendFontColor: "#2C3E50",
+        legendFontSize: 13,
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5); // Top 5 materiales
@@ -55,16 +55,16 @@ export const useChartData = (data) => {
       {
         name: "Material",
         value: costoMaterial,
-        color: statsColors.chartPalette[0],
-        legendFontColor: "#7F8C8D",
-        legendFontSize: 12,
+        color: statsColors.gradients.material[0],
+        legendFontColor: "#2C3E50",
+        legendFontSize: 13,
       },
       {
         name: "Renta",
         value: costoRenta,
-        color: statsColors.chartPalette[1],
-        legendFontColor: "#7F8C8D",
-        legendFontSize: 12,
+        color: statsColors.gradients.rental[0],
+        legendFontColor: "#2C3E50",
+        legendFontSize: 13,
       },
     ];
   }, [data.totales]);
@@ -95,8 +95,8 @@ export const useChartData = (data) => {
         value: Math.round(value * 100) / 100,
         color:
           statsColors.chartPalette[index % statsColors.chartPalette.length],
-        legendFontColor: "#7F8C8D",
-        legendFontSize: 12,
+        legendFontColor: "#2C3E50",
+        legendFontSize: 13,
       }))
       .sort((a, b) => b.value - a.value);
   }, [data.valesMaterial]);

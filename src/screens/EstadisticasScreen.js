@@ -149,13 +149,14 @@ const EstadisticasScreen = () => {
             <Text style={styles.sectionTitle}>Resumen General</Text>
           </View>
 
-          {/* Grid vertical - un card por fila */}
+          {/* Grid vertical - un card por fila CON GRADIENTES */}
           <View style={styles.kpiColumn}>
             <ComparisonCard
               title="Material Movido"
               icon="cube-outline"
               currentValue={displayData.totales.totalM3}
               previousValue={displayData.periodoAnterior?.totalM3}
+              gradient={statsColors.gradients.material} // ← AGREGAR ESTA LÍNEA
               suffix=" m³"
               decimals={1}
             />
@@ -165,6 +166,7 @@ const EstadisticasScreen = () => {
               icon="clock-outline"
               currentValue={displayData.totales.totalHoras}
               previousValue={displayData.periodoAnterior?.totalHoras}
+              gradient={statsColors.gradients.rental} // ← AGREGAR ESTA LÍNEA
               suffix=" hrs"
               decimals={1}
             />
@@ -174,6 +176,7 @@ const EstadisticasScreen = () => {
               icon="truck-outline"
               currentValue={displayData.totales.totalViajes}
               previousValue={displayData.periodoAnterior?.totalViajes}
+              gradient={statsColors.gradients.trips} // ← AGREGAR ESTA LÍNEA
               suffix=""
               decimals={0}
             />
@@ -183,6 +186,7 @@ const EstadisticasScreen = () => {
               icon="cash"
               currentValue={displayData.totales.costoTotal / 1000}
               previousValue={displayData.periodoAnterior?.costoTotal / 1000}
+              gradient={statsColors.gradients.financial} // ← AGREGAR ESTA LÍNEA
               prefix="$"
               suffix="K"
               decimals={1}
@@ -202,6 +206,7 @@ const EstadisticasScreen = () => {
               previousValue={
                 (displayData.periodoAnterior?.costoMaterial || 0) / 1000
               }
+              gradient={statsColors.gradients.material}
               prefix="$"
               suffix="K"
               decimals={1}
@@ -214,6 +219,7 @@ const EstadisticasScreen = () => {
               previousValue={
                 (displayData.periodoAnterior?.costoRenta || 0) / 1000
               }
+              gradient={statsColors.gradients.rental}
               prefix="$"
               suffix="K"
               decimals={1}
@@ -399,7 +405,7 @@ export default EstadisticasScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: statsColors.backgrounds.screen, // Nuevo fondo gris claro
   },
 
   // ScrollView

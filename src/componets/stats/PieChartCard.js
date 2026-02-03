@@ -1,10 +1,10 @@
 // src/components/stats/PieChartCard.js
-
 import React from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { PieChart } from "react-native-chart-kit";
 import ChartCard from "./ChartCard";
 import { colors } from "../../config/colors";
+import { statsColors } from "../../config/statsColors";
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -47,7 +47,7 @@ const PieChartCard = ({
           <PieChart
             data={data}
             width={screenWidth - 80}
-            height={200}
+            height={220}
             chartConfig={chartConfig}
             accessor="value"
             backgroundColor="transparent"
@@ -68,7 +68,9 @@ const PieChartCard = ({
                     style={[styles.legendDot, { backgroundColor: item.color }]}
                   />
                   <View style={styles.legendTextContainer}>
-                    <Text style={styles.legendName}>{item.name}</Text>
+                    <Text style={styles.legendName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
                     <View style={styles.legendValues}>
                       {showValues && (
                         <Text style={styles.legendValue}>
@@ -78,9 +80,11 @@ const PieChartCard = ({
                         </Text>
                       )}
                       {showPercentage && (
-                        <Text style={styles.legendPercentage}>
-                          ({percentage}%)
-                        </Text>
+                        <View style={styles.percentageBadge}>
+                          <Text style={styles.legendPercentage}>
+                            {percentage}%
+                          </Text>
+                        </View>
                       )}
                     </View>
                   </View>
@@ -97,24 +101,36 @@ const PieChartCard = ({
 export default PieChartCard;
 
 const styles = StyleSheet.create({
+  chartWrapper: {
+    width: "100%",
+    alignItems: "center",
+  },
   legendContainer: {
     width: "100%",
-    marginTop: 16,
+    marginTop: 20,
+    paddingHorizontal: 4,
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    marginBottom: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: statsColors.backgrounds.cardLight,
+    borderRadius: 10,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: "transparent",
   },
   legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     marginRight: 12,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
   },
   legendTextContainer: {
     flex: 1,
@@ -123,27 +139,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   legendName: {
-    fontSize: 13,
-    fontWeight: "500",
+    fontSize: 14,
+    fontWeight: "600",
     color: colors.textPrimary,
     flex: 1,
+    marginRight: 8,
   },
   legendValues: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
   legendValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: colors.textPrimary,
   },
+  percentageBadge: {
+    backgroundColor: colors.primary + "15",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
   legendPercentage: {
     fontSize: 12,
-    color: colors.textSecondary,
-  },
-  chartWrapper: {
-    width: "100%",
-    alignItems: "center",
+    fontWeight: "700",
+    color: colors.primary,
   },
 });

@@ -56,6 +56,7 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
 
   // ✅ SIMPLIFICADO: Usar campo booleano directo
   const esRentaPorDia = detalle.es_renta_por_dia === true;
+  const esRentaPorMedioDia = detalle.total_dias === 0.5;
 
   console.log("[pdfRentaGenerator] Es renta por día:", esRentaPorDia);
 
@@ -66,19 +67,26 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
 
   const horaFin = esRentaPorDia
     ? "Día completo"
-    : detalle.hora_fin
-    ? formatearHora(detalle.hora_fin)
-    : "Pendiente";
+    : esRentaPorMedioDia
+      ? "Medio día"
+      : detalle.hora_fin
+        ? formatearHora(detalle.hora_fin)
+        : "Pendiente";
 
   // Formatear total de horas
-  const totalHoras = esRentaPorDia
-    ? "N/A"
-    : detalle.total_horas
-    ? `${detalle.total_horas} hrs`
-    : "N/A";
+  const totalHoras =
+    esRentaPorDia || esRentaPorMedioDia
+      ? "N/A"
+      : detalle.total_horas
+        ? `${detalle.total_horas} hrs`
+        : "N/A";
 
   // Formatear total de días
-  const totalDias = esRentaPorDia ? "1 día" : "N/A";
+  const totalDias = esRentaPorDia
+    ? "1 día"
+    : esRentaPorMedioDia
+      ? "0.5 días"
+      : "N/A";
 
   // Obtener tarifas
   const precioRenta = detalle.precios_renta || {};
@@ -94,7 +102,19 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
   if (esRentaPorDia && precioRenta.costo_dia) {
     costoTotal = `$${parseFloat(precioRenta.costo_dia).toFixed(2)} MXN`;
     console.log("[pdfRentaGenerator] Costo calculado por día:", costoTotal);
-  } else if (!esRentaPorDia && precioRenta.costo_hr && detalle.total_horas) {
+  } else if (esRentaPorMedioDia && precioRenta.costo_dia) {
+    const costo = parseFloat(precioRenta.costo_dia) / 2;
+    costoTotal = `$${costo.toFixed(2)} MXN`;
+    console.log(
+      "[pdfRentaGenerator] Costo calculado por medio día:",
+      costoTotal,
+    );
+  } else if (
+    !esRentaPorDia &&
+    !esRentaPorMedioDia &&
+    precioRenta.costo_hr &&
+    detalle.total_horas
+  ) {
     const costo =
       parseFloat(precioRenta.costo_hr) * parseFloat(detalle.total_horas);
     costoTotal = `$${costo.toFixed(2)} MXN`;
@@ -242,12 +262,12 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
           <div class="info-row">
             <span class="info-label">Residente</span>
             <span class="info-value">${valeData.persona.nombre} ${
-                valeData.persona.primer_apellido
-              }${
-                valeData.persona.segundo_apellido
-                  ? " " + valeData.persona.segundo_apellido
-                  : ""
-              }</span>
+              valeData.persona.primer_apellido
+            }${
+              valeData.persona.segundo_apellido
+                ? " " + valeData.persona.segundo_apellido
+                : ""
+            }</span>
           </div>
         </div>
         `
@@ -301,7 +321,7 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
 export const generateAndSharePDFRenta = async (
   valeData,
   colorCopia = "blanco",
-  qrDataUrl
+  qrDataUrl,
 ) => {
   try {
     if (!valeData || !valeData.folio) {
@@ -327,7 +347,7 @@ export const generateAndSharePDFRenta = async (
 
     if (!isAvailable) {
       throw new Error(
-        "La función de compartir no está disponible en este dispositivo"
+        "La función de compartir no está disponible en este dispositivo",
       );
     }
 
