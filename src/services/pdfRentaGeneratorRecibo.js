@@ -45,7 +45,7 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
     : esRentaPorMedioDia
       ? "Medio día"
       : detalle.hora_fin
-        ? formatearHora(detalle.hora_fin)
+        ? formatearHoraRecibo(detalle.hora_fin)
         : "Pendiente";
 
   // Formatear totales
