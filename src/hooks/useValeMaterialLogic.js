@@ -41,14 +41,15 @@ export const useValeMaterialLogic = (materiales) => {
     obraData,
     userProfile,
     generateFolio,
-    materiales
+    materiales,
+    obraDataParaFolio,
   ) => {
     console.log("[useValeMaterialLogic] Iniciando creación de vale...");
     setSubmitting(true);
 
     try {
       // PASO 1: Generar folio
-      const folio = await generateFolio();
+      const folio = await generateFolio(obraDataParaFolio);
       console.log("[useValeMaterialLogic] Folio generado:", folio);
 
       // PASO 2: Verificar folio único
@@ -87,7 +88,7 @@ export const useValeMaterialLogic = (materiales) => {
       if (errorVale) {
         console.error(
           "[useValeMaterialLogic] Error insertando vale:",
-          errorVale
+          errorVale,
         );
         throw errorVale;
       }
@@ -99,7 +100,7 @@ export const useValeMaterialLogic = (materiales) => {
       // PASO 5: NO calcular precio en creación inicial
       // Ahora TODOS los vales se completan después de creados
       console.log(
-        "[useValeMaterialLogic] Creando vale sin precio - se completará después"
+        "[useValeMaterialLogic] Creando vale sin precio - se completará después",
       );
 
       // PASO 6: Insertar detalles
@@ -122,7 +123,7 @@ export const useValeMaterialLogic = (materiales) => {
       if (errorDetalle) {
         console.error(
           "[useValeMaterialLogic] Error insertando detalles:",
-          errorDetalle
+          errorDetalle,
         );
         throw errorDetalle;
       }
@@ -171,7 +172,7 @@ export const useValeMaterialLogic = (materiales) => {
             banco
           )
         )
-      `
+      `,
         )
         .eq("id_vale", valeNuevo.id_vale)
         .single();
@@ -179,7 +180,7 @@ export const useValeMaterialLogic = (materiales) => {
       if (errorConsulta) {
         console.error(
           "[useValeMaterialLogic] Error consultando vale:",
-          errorConsulta
+          errorConsulta,
         );
         throw errorConsulta;
       }

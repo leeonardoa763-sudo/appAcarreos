@@ -3,18 +3,18 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { View, Text, Alert, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
 // Config
 import { colors } from "../config/colors";
 import { commonStyles } from "../styles/";
+import { supabase } from "../config/supabase";
 
 // Hooks personalizados
 import { useAuth } from "../hooks/useAuth";
 import { useCatalogos } from "../hooks/useCatalogos";
 import { useFolioGenerator } from "../hooks/useFolioGenerator";
-
 import { useValeMaterialForm } from "../hooks/useValeMaterialForm";
 import { useValeMaterialLogic } from "../hooks/useValeMaterialLogic";
 import { useValeMaterialPDF } from "../hooks/useValeMaterialPDF";
@@ -26,7 +26,6 @@ import PrimaryButton from "../componets/common/PrimaryButton";
 import QRCodeGenerator from "../componets/common/QRCodeGenerator";
 import SuccessModal from "../componets/common/SuccessModal";
 import FormInput from "../componets/forms/FormInput";
-import FormPicker from "../componets/forms/FormPicker";
 import CustomModalPicker from "../componets/forms/CustomModalPicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
@@ -39,7 +38,6 @@ const ValeMaterialScreen = () => {
   const isMounted = useRef(true);
 
   // Datos de obra
-
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
   // Catálogos
@@ -58,15 +56,21 @@ const ValeMaterialScreen = () => {
     "vehiculos",
   ]);
 
-  // Generador de folios
-  const generateFolio = useFolioGenerator();
+  // Estados locales
+  const [valeCreado, setValeCreado] = useState(null);
+  const [folioCreado, setFolioCreado] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [obraSeleccionada, setObraSeleccionada] = useState(null);
+  const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
+
+  // Hooks de formulario y lógica
   const {
     formData,
     setFormData,
     errors,
     validateForm,
     resetForm: resetFormData,
-  } = useValeMaterialForm(materiales, obraSeleccionada, obras); // ← Esto está bien, no cambiar
+  } = useValeMaterialForm(materiales);
 
   const {
     materialSeleccionado,
@@ -88,21 +92,18 @@ const ValeMaterialScreen = () => {
     setMounted,
   } = useValeMaterialPDF(navigation);
 
-  // Estados locales
-  const [valeCreado, setValeCreado] = useState(null);
-  const [folioCreado, setFolioCreado] = useState(null);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [obraSeleccionada, setObraSeleccionada] = useState(null);
+  // Generador de folios CON obraData
+  const generateFolio = useFolioGenerator(obraDataParaFolio);
 
+  // Efecto: Cleanup al desmontar
   useEffect(() => {
     return () => {
       isMounted.current = false;
-      // Marcar el hook PDF como desmontado también
       if (typeof setMounted === "function") {
         setMounted(false);
       }
     };
-  }, []);
+  }, [setMounted]);
 
   // Efecto: Actualizar material seleccionado
   useEffect(() => {
@@ -116,31 +117,107 @@ const ValeMaterialScreen = () => {
     }
   }, [formData.materialId, materiales, setMaterialSeleccionado]);
 
-  // ✅ AGREGAR ESTE - Log para debug de obras
-  useEffect(() => {
-    console.log("[ValeMaterialScreen] 📊 Obras actualizadas:", obras);
-    console.log("[ValeMaterialScreen] 🔢 Cantidad de obras:", obras.length);
-    console.log("[ValeMaterialScreen] 🔄 Loading obras:", loadingObras);
-    console.log("[ValeMaterialScreen] 🎯 Obra seleccionada:", obraSeleccionada);
-    console.log("[ValeMaterialScreen] 👤 ID Persona:", userProfile?.id_persona);
-  }, [obras, loadingObras, obraSeleccionada, userProfile]);
-
-  // Efecto para pre-seleccionar obra automáticamente
+  // Efecto: Pre-seleccionar obra automáticamente
   useEffect(() => {
     if (obras.length > 0 && !obraSeleccionada) {
-      console.log(
-        "[ValeMaterialScreen] 🎯 Pre-seleccionando obra automáticamente",
-      );
-
-      // Seleccionar la obra principal (primera de la lista)
       const obraPrincipal = obras.find((o) => o.esPrincipal) || obras[0];
-      console.log(
-        "[ValeMaterialScreen] ✅ Seleccionando obra:",
-        obraPrincipal.nombre,
-      );
       setObraSeleccionada(obraPrincipal.id);
     }
   }, [obras, obraSeleccionada]);
+
+  useEffect(() => {
+    if (obraSeleccionada && obras.length > 0) {
+      const obraActual = obras.find((o) => o.id === obraSeleccionada);
+
+      if (obraActual) {
+        console.log(
+          "[ValeMaterialScreen] 🔍 Obra actual completa:",
+          obraActual,
+        );
+
+        const obraData = {
+          id_obra: obraActual.id,
+          obra: obraActual.nombre,
+          cc: obraActual.cc,
+          empresas: {
+            id_empresa: obraActual.id_empresa, // ✅ Ahora usa el valor real
+            empresa: obraActual.empresa,
+            sufijo: obraActual.sufijo,
+            logo: obraActual.logo,
+          },
+        };
+
+        console.log(
+          "[ValeMaterialScreen] 📋 obraData construido:",
+          JSON.stringify(obraData, null, 2),
+        );
+        setObraDataParaFolio(obraData);
+      } else {
+        setObraDataParaFolio(null);
+      }
+    } else {
+      setObraDataParaFolio(null);
+    }
+  }, [obraSeleccionada, obras]);
+
+  // Efecto: Calcular distancia cuando cambia banco u obra
+  useEffect(() => {
+    const calcularDistancia = async () => {
+      console.log("[ValeMaterialScreen] 🔍 Calculando distancia");
+      console.log("[ValeMaterialScreen] 📍 Banco ID:", formData.bancoId);
+      console.log("[ValeMaterialScreen] 🏗️ Obra ID:", obraSeleccionada);
+
+      if (!formData.bancoId || !obraSeleccionada) {
+        console.log(
+          "[ValeMaterialScreen] ⚠️ Falta banco u obra, limpiando distancia",
+        );
+        setFormData((prev) => ({ ...prev, distancia: "" }));
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("distancias_banco_obra")
+          .select("distancia_km")
+          .eq("id_banco", formData.bancoId)
+          .eq("id_obra", obraSeleccionada)
+          .maybeSingle();
+
+        if (error) {
+          console.error("[ValeMaterialScreen] ❌ Error query:", error);
+          throw error;
+        }
+
+        console.log("[ValeMaterialScreen] 📊 Resultado:", data);
+
+        if (data && data.distancia_km) {
+          const distanciaStr = data.distancia_km.toString();
+          console.log(
+            "[ValeMaterialScreen] ✅ Distancia encontrada:",
+            distanciaStr,
+            "km",
+          );
+          setFormData((prev) => ({ ...prev, distancia: distanciaStr }));
+        } else {
+          console.log("[ValeMaterialScreen] ⚠️ No se encontró distancia");
+          setFormData((prev) => ({ ...prev, distancia: "" }));
+
+          const obraActual = obras.find((o) => o.id === obraSeleccionada);
+          const nombreObra = obraActual ? obraActual.nombre : "esta obra";
+
+          Alert.alert(
+            "Distancia no configurada",
+            `No hay una distancia registrada entre el banco seleccionado y ${nombreObra}. Contacta al administrador.`,
+          );
+        }
+      } catch (error) {
+        console.error("[ValeMaterialScreen] 💥 Error:", error);
+        Alert.alert("Error", "No se pudo obtener la distancia");
+      }
+    };
+
+    calcularDistancia();
+  }, [formData.bancoId, obraSeleccionada, obras]);
 
   // Efecto: Compartir PDF cuando QR esté listo
   useEffect(() => {
@@ -149,7 +226,7 @@ const ValeMaterialScreen = () => {
     }
   }, [qrDataUrl, shouldSharePDF, valeCreado, generarCopiaRoja, compartirPDF]);
 
-  // Efecto: Reset al salir (PROTEGIDO)
+  // Efecto: Reset al salir
   useEffect(() => {
     const unsubscribe = navigation.addListener("blur", () => {
       if (isMounted.current) {
@@ -183,24 +260,20 @@ const ValeMaterialScreen = () => {
       return;
     }
 
-    const obraActual = obras.find((o) => o.id === obraSeleccionada);
-    if (!obraActual) {
-      Alert.alert("Error", "Obra seleccionada no válida");
+    if (!obraDataParaFolio) {
+      Alert.alert("Error", "Datos de obra no disponibles. Intenta de nuevo.");
       return;
     }
+
+    console.log(
+      "[ValeMaterialScreen] 🏗️ Creando vale con obraData:",
+      obraDataParaFolio,
+    );
 
     try {
       const { valeCompleto, folio } = await crearVale(
         formData,
-        {
-          id_obra: obraActual.id,
-          obra: obraActual.nombre,
-          cc: obraActual.cc,
-          empresas: {
-            empresa: obraActual.empresa,
-            sufijo: obraActual.sufijo,
-          },
-        },
+        obraDataParaFolio,
         userProfile,
         generateFolio,
         materiales,
@@ -223,13 +296,9 @@ const ValeMaterialScreen = () => {
 
   // Función: Manejar compartir desde modal
   const handleCompartirDesdeModal = async () => {
-    //  Cerrar modal PRIMERO
     setShowSuccessModal(false);
-
-    //  Esperar a que el modal se cierre completamente
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    //  Ahora compartir
     if (qrDataUrl) {
       compartirPDF(valeCreado, generarCopiaRoja);
     } else {
@@ -285,11 +354,7 @@ const ValeMaterialScreen = () => {
           <CustomModalPicker
             label="Obra"
             value={obraSeleccionada}
-            onValueChange={(value) => {
-              setObraSeleccionada(value);
-              const obra = obras.find((o) => o.id === value);
-              // Aquí podrías actualizar formData.obraId si lo necesitas
-            }}
+            onValueChange={(value) => setObraSeleccionada(value)}
             items={obras.map((o) => ({
               id: o.id,
               label: o.cc ? `${o.cc} - ${o.nombre}` : o.nombre,
@@ -385,13 +450,12 @@ const ValeMaterialScreen = () => {
             error={errors.distancia}
           />
 
-          {/*  Campo Requisición (solo tipo 1) */}
+          {/* Campo Requisición (solo tipo 1) */}
           {materialSeleccionado?.id_tipo_de_material === 1 && (
             <FormInput
               label="Requisición"
               value={formData.requisicion}
               onChangeText={(value) => {
-                // Convertir a mayúsculas y permitir solo letras, números y guiones
                 const formatted = value
                   .toUpperCase()
                   .replace(/[^A-Z0-9-]/g, "");
@@ -464,7 +528,7 @@ const ValeMaterialScreen = () => {
         primaryAction={{
           text: "Compartir PDF",
           icon: "file-pdf-box",
-          onPress: handleCompartirDesdeModal, // ← Usar la nueva función
+          onPress: handleCompartirDesdeModal,
         }}
         onClose={() => {
           setShowSuccessModal(false);
