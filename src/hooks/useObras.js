@@ -39,9 +39,11 @@ export const useObras = (personaId) => {
               id_obra,
               obra,
               cc,
+              id_empresa,
               empresas:id_empresa (
                 empresa,
-                sufijo
+                sufijo,
+                logo 
               )
             )
           `,

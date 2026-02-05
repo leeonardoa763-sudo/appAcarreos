@@ -130,11 +130,6 @@ const ValeMaterialScreen = () => {
       const obraActual = obras.find((o) => o.id === obraSeleccionada);
 
       if (obraActual) {
-        console.log(
-          "[ValeMaterialScreen] 🔍 Obra actual completa:",
-          obraActual,
-        );
-
         const obraData = {
           id_obra: obraActual.id,
           obra: obraActual.nombre,
@@ -147,10 +142,6 @@ const ValeMaterialScreen = () => {
           },
         };
 
-        console.log(
-          "[ValeMaterialScreen] 📋 obraData construido:",
-          JSON.stringify(obraData, null, 2),
-        );
         setObraDataParaFolio(obraData);
       } else {
         setObraDataParaFolio(null);
@@ -163,10 +154,6 @@ const ValeMaterialScreen = () => {
   // Efecto: Calcular distancia cuando cambia banco u obra
   useEffect(() => {
     const calcularDistancia = async () => {
-      console.log("[ValeMaterialScreen] 🔍 Calculando distancia");
-      console.log("[ValeMaterialScreen] 📍 Banco ID:", formData.bancoId);
-      console.log("[ValeMaterialScreen] 🏗️ Obra ID:", obraSeleccionada);
-
       if (!formData.bancoId || !obraSeleccionada) {
         console.log(
           "[ValeMaterialScreen] ⚠️ Falta banco u obra, limpiando distancia",
@@ -187,8 +174,6 @@ const ValeMaterialScreen = () => {
           console.error("[ValeMaterialScreen] ❌ Error query:", error);
           throw error;
         }
-
-        console.log("[ValeMaterialScreen] 📊 Resultado:", data);
 
         if (data && data.distancia_km) {
           const distanciaStr = data.distancia_km.toString();

@@ -37,14 +37,6 @@ const GenerarPDFButton = ({
   autoTrigger = false,
 }) => {
   console.log("[GenerarPDFButton] Componente montado");
-  console.log("[GenerarPDFButton] Props recibidas:", {
-    folio: valeData?.folio,
-    tipoVale,
-    colorCopia,
-    disabled,
-    autoTrigger,
-    tieneQR: !!valeData?.qr_verification_url,
-  });
 
   const [generating, setGenerating] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState(null);
@@ -92,7 +84,7 @@ const GenerarPDFButton = ({
         console.error("[GenerarPDFButton] Timeout generando QR");
         Alert.alert(
           "Error",
-          "El código QR tardó demasiado en generarse. Intenta de nuevo."
+          "El código QR tardó demasiado en generarse. Intenta de nuevo.",
         );
         setGenerating(false);
         setShouldGeneratePDF(false);
@@ -101,8 +93,6 @@ const GenerarPDFButton = ({
   };
 
   const handleQRGenerated = (dataUrl) => {
-    console.log("[GenerarPDFButton] QR generado:", dataUrl?.substring(0, 50));
-
     if (qrTimeoutRef.current) {
       clearTimeout(qrTimeoutRef.current);
     }
@@ -158,7 +148,7 @@ const GenerarPDFButton = ({
         "[GenerarPDFButton] Llamando a",
         tipoVale === "renta"
           ? "generateAndSharePDFRenta"
-          : "generateAndSharePDF"
+          : "generateAndSharePDF",
       );
 
       const uri = await generarFn(valeData, colorCopia, qrUrl);
@@ -175,7 +165,7 @@ const GenerarPDFButton = ({
               if (onSuccess) onSuccess();
             },
           },
-        ]
+        ],
       );
     } catch (error) {
       console.error("[GenerarPDFButton] Error completo:", error);

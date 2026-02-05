@@ -22,7 +22,7 @@ import { commonStyles } from "../styles";
 import { useAuth } from "../hooks/useAuth";
 import { useCatalogos } from "../hooks/useCatalogos";
 import { useFolioGenerator } from "../hooks/useFolioGenerator";
-import { useObraData } from "../hooks/useObraData";
+import { useObras } from "../hooks/useObras";
 
 // Validaciones
 import {
@@ -56,12 +56,8 @@ const ValeRentaScreen = () => {
   // Refs para control
   const isMounted = useRef(true);
 
-  // Hook para obtener datos de la obra del usuario
-  const {
-    obraData,
-    loading: loadingObra,
-    error: errorObra,
-  } = useObraData(userProfile);
+  // Hook para obtener obras del usuario
+  const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
   // Hook para catálogos
   const {
@@ -79,8 +75,8 @@ const ValeRentaScreen = () => {
     "vehiculos",
   ]);
 
-  // Hook para generar folio
-  const generateFolio = useFolioGenerator(obraData);
+  // Hook para generar folio CON obraDataParaFolio
+  const generateFolio = useFolioGenerator(obraDataParaFolio);
 
   // Estados del formulario
   const [formData, setFormData] = useState({
@@ -97,6 +93,8 @@ const ValeRentaScreen = () => {
   const [errors, setErrors] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [valeCreado, setValeCreado] = useState(null);
+  const [obraSeleccionada, setObraSeleccionada] = useState(null);
+  const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
 
   // Cleanup al desmontar
   useEffect(() => {
@@ -104,6 +102,41 @@ const ValeRentaScreen = () => {
       isMounted.current = false;
     };
   }, []);
+
+  // Efecto: Pre-seleccionar obra automáticamente
+  useEffect(() => {
+    if (obras.length > 0 && !obraSeleccionada) {
+      const obraPrincipal = obras.find((o) => o.esPrincipal) || obras[0];
+      setObraSeleccionada(obraPrincipal.id);
+    }
+  }, [obras, obraSeleccionada]);
+
+  // Efecto: Construir obraData para folio
+  useEffect(() => {
+    if (obraSeleccionada && obras.length > 0) {
+      const obraActual = obras.find((o) => o.id === obraSeleccionada);
+
+      if (obraActual) {
+        const obraData = {
+          id_obra: obraActual.id,
+          obra: obraActual.nombre,
+          cc: obraActual.cc,
+          empresas: {
+            id_empresa: obraActual.id_empresa,
+            empresa: obraActual.empresa,
+            sufijo: obraActual.sufijo,
+            logo: obraActual.logo,
+          },
+        };
+
+        setObraDataParaFolio(obraData);
+      } else {
+        setObraDataParaFolio(null);
+      }
+    } else {
+      setObraDataParaFolio(null);
+    }
+  }, [obraSeleccionada, obras]);
 
   // Validaciones
   const validateForm = () => {
@@ -145,7 +178,7 @@ const ValeRentaScreen = () => {
       return;
     }
 
-    if (!obraData) {
+    if (!obraDataParaFolio) {
       Alert.alert("Error", "No se encontraron datos de la obra");
       return;
     }
@@ -172,8 +205,8 @@ const ValeRentaScreen = () => {
         .insert({
           folio: folio,
           tipo_vale: "renta",
-          id_obra: obraData.id_obra,
-          id_empresa: obraData.empresas.id_empresa,
+          id_obra: obraDataParaFolio.id_obra,
+          id_empresa: obraDataParaFolio.empresas.id_empresa,
           id_persona_creador: userProfile.id_persona,
           id_operador: formData.selectedOperador.id_operador,
           id_vehiculo: formData.selectedVehiculo.id_vehiculo,
@@ -272,7 +305,8 @@ const ValeRentaScreen = () => {
     }
   };
 
-  if (loadingObra || loadingCatalogos) {
+  // Loading
+  if (loadingObras || loadingCatalogos) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -281,11 +315,12 @@ const ValeRentaScreen = () => {
     );
   }
 
-  if (!obraData) {
+  // Sin obras asignadas
+  if (!loadingObras && obras.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.errorText}>
-          No tienes una obra asignada. Contacta al administrador.
+          No tienes obras asignadas. Contacta al administrador.
         </Text>
       </View>
     );
@@ -306,16 +341,27 @@ const ValeRentaScreen = () => {
             infoMessage="Información general del vale de renta. Los campos de obra y empresa se llenan automáticamente según tu perfil."
           />
 
-          <FormInput
+          <CustomModalPicker
             label="Obra"
-            value={obraData.obra || "Sin obra"}
-            onChangeText={() => {}}
-            editable={false}
+            value={obraSeleccionada}
+            onValueChange={(value) => setObraSeleccionada(value)}
+            items={obras.map((o) => ({
+              id: o.id,
+              label: o.cc ? `${o.cc} - ${o.nombre}` : o.nombre,
+            }))}
+            placeholder="Selecciona una obra"
+            enabled={obras.length > 0}
+            loading={loadingObras}
           />
 
           <FormInput
             label="Empresa"
-            value={obraData.empresas?.empresa || "Sin empresa"}
+            value={
+              obraSeleccionada
+                ? obras.find((o) => o.id === obraSeleccionada)?.empresa ||
+                  "Sin empresa"
+                : "Selecciona una obra primero"
+            }
             onChangeText={() => {}}
             editable={false}
           />

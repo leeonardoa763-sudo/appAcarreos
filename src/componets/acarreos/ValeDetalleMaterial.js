@@ -73,7 +73,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
       // Estados para otros tipos
       setPesoToneladas(detalleMaterial.peso_ton || null);
       setFolioBanco(
-        detalleMaterial.folio_banco ? String(detalleMaterial.folio_banco) : ""
+        detalleMaterial.folio_banco ? String(detalleMaterial.folio_banco) : "",
       );
 
       // ✅ NUEVO: Inicializar cantidad para tipo 3
@@ -112,7 +112,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
       console.log(
         "[ValeDetalleMaterial] Completando tipo 3 con cantidad:",
-        cantidadConfirmada
+        cantidadConfirmada,
       );
 
       // PASO 1: Obtener tipo de material y sindicato
@@ -142,7 +142,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         materialData.id_tipo_de_material,
         vehiculoData.id_sindicato,
         detalleMaterial.distancia_km,
-        cantidadConfirmada
+        cantidadConfirmada,
       );
 
       console.log("[ValeDetalleMaterial] Precio calculado:", costos);
@@ -224,7 +224,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               banco
             )
           )
-        `
+        `,
         )
         .eq("id_vale", vale.id_vale)
         .single();
@@ -288,11 +288,11 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
       if (errorValidacion) {
         console.error(
           "[ValeDetalleMaterial] Error validando peso específico:",
-          errorValidacion
+          errorValidacion,
         );
         Alert.alert(
           "Error",
-          "No se pudo verificar el peso específico del material"
+          "No se pudo verificar el peso específico del material",
         );
         return;
       }
@@ -301,19 +301,19 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         Alert.alert(
           "Material sin peso específico",
           "El material de este vale no tiene configurado un peso específico para el banco seleccionado. Por favor, contacte al administrador para que lo configure antes de completar el vale.",
-          [{ text: "Entendido" }]
+          [{ text: "Entendido" }],
         );
         return;
       }
 
       console.log(
         "[ValeDetalleMaterial] Peso específico confirmado:",
-        pesoEspecificoValidacion.peso_especifico
+        pesoEspecificoValidacion.peso_especifico,
       );
     } catch (error) {
       console.error(
         "[ValeDetalleMaterial] Error inesperado validando peso específico:",
-        error
+        error,
       );
       Alert.alert("Error", "Ocurrió un error al validar el material");
       return;
@@ -338,13 +338,13 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           p_folio_banco: folioLimpio,
           p_id_material: detalleMaterial.id_material,
           p_id_banco: detalleMaterial.id_banco,
-        }
+        },
       );
 
       if (error) {
         // Fallback: método manual
         console.log(
-          "[ValeDetalleMaterial] Usando método manual (RPC no disponible)"
+          "[ValeDetalleMaterial] Usando método manual (RPC no disponible)",
         );
 
         // PASO 1: Obtener peso específico (ahora ya sabemos que existe)
@@ -358,7 +358,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         if (errorPeso) {
           console.error(
             "[ValeDetalleMaterial] Error obteniendo peso específico:",
-            errorPeso
+            errorPeso,
           );
           throw new Error("No se encontró el peso específico del material");
         }
@@ -371,7 +371,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         console.log("[ValeDetalleMaterial] Peso específico:", pesoEspecifico);
         console.log(
           "[ValeDetalleMaterial] Volumen real redondeado:",
-          volumenReal
+          volumenReal,
         );
 
         // PASO 2: Obtener datos del material para calcular precio
@@ -384,7 +384,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         if (errorMaterial || !materialData) {
           console.error(
             "[ValeDetalleMaterial] Error obteniendo tipo de material:",
-            errorMaterial
+            errorMaterial,
           );
           throw new Error("No se pudo obtener el tipo de material");
         }
@@ -399,7 +399,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         if (errorVehiculo || !vehiculoData) {
           console.error(
             "[ValeDetalleMaterial] Error obteniendo sindicato:",
-            errorVehiculo
+            errorVehiculo,
           );
           throw new Error("No se pudo obtener el sindicato del vehículo");
         }
@@ -410,7 +410,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           materialData.id_tipo_de_material,
           vehiculoData.id_sindicato,
           detalleMaterial.distancia_km,
-          volumenReal
+          volumenReal,
         );
 
         console.log("[ValeDetalleMaterial] Precio calculado:", costos);
@@ -433,7 +433,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         if (errorUpdate) {
           console.error(
             "[ValeDetalleMaterial] Error actualizando detalles:",
-            errorUpdate
+            errorUpdate,
           );
           throw errorUpdate;
         }
@@ -447,7 +447,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         if (errorEstado) {
           console.error(
             "[ValeDetalleMaterial] Error actualizando estado:",
-            errorEstado
+            errorEstado,
           );
           throw errorEstado;
         }
@@ -495,7 +495,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               banco
             )
           )
-        `
+        `,
           )
           .eq("id_vale", vale.id_vale)
           .single();
@@ -503,7 +503,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         if (errorConsulta) {
           console.error(
             "[ValeDetalleMaterial] Error consultando vale:",
-            errorConsulta
+            errorConsulta,
           );
           throw errorConsulta;
         }
@@ -714,7 +714,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
                 icon="currency-usd"
                 label="Tarifa 1er Km"
                 value={`$${parseFloat(detalleMaterial.tarifa_primer_km).toFixed(
-                  2
+                  2,
                 )} MXN`}
               />
             )}
@@ -724,7 +724,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
                 icon="currency-usd"
                 label="Tarifa Subsecuente"
                 value={`$${parseFloat(
-                  detalleMaterial.tarifa_subsecuente
+                  detalleMaterial.tarifa_subsecuente,
                 ).toFixed(2)} MXN/km`}
               />
             )}
@@ -735,7 +735,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
                   icon="currency-usd"
                   label="Costo Total"
                   value={`$${parseFloat(detalleMaterial.costo_total).toFixed(
-                    2
+                    2,
                   )} MXN`}
                 />
               </View>
@@ -782,7 +782,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Completar Vale</Text>
             <Text style={styles.sectionSubtitle}>
-              Captura el peso y folio del banco para completar el vale
+              Captura el peso y la remision del banco para completar el vale
             </Text>
 
             <FormDecimalInput
@@ -798,7 +798,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             />
 
             <FormInput
-              label="Folio del Banco"
+              label="Remision del Banco"
               value={folioBanco}
               onChangeText={setFolioBanco}
               placeholder="Ej: 123456789"
