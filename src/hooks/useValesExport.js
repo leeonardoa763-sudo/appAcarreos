@@ -8,6 +8,7 @@
  * - Maneja estados loading y errores
  * - Muestra alertas al usuario
  * - Comparte CSV igual que PDFs
+ * - MODIFICADO: Soporta múltiples obras asignadas
  *
  * USADO EN:
  * - InformesScreen
@@ -35,19 +36,49 @@ import {
 // File System
 import { saveAndShareCSV } from "./exportHelpers/fileSystemUtils";
 
-export const useValesExport = (userProfile) => {
+export const useValesExport = (obrasAsignadas = []) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   /**
-   * Obtiene semanas con vales emitidos
+   * Obtiene array de IDs de todas las obras asignadas
+   */
+  const getObrasIds = () => {
+    // Validar que obrasAsignadas sea un array válido
+    if (!Array.isArray(obrasAsignadas) || obrasAsignadas.length === 0) {
+      console.warn(
+        "[useValesExport] ⚠️ No hay obras asignadas o no es un array válido",
+      );
+      return [];
+    }
+
+    const ids = obrasAsignadas.map((obra) => obra.id).filter(Boolean);
+    console.log("[useValesExport] 🏗️ IDs de obras a exportar:", ids);
+    console.log("[useValesExport] 🏗️ Total de obras:", ids.length);
+    return ids;
+  };
+
+  /**
+   * Obtiene semanas que tienen vales emitidos
+   * MODIFICADO: Busca en todas las obras asignadas
    */
   const fetchWeeksWithVales = async () => {
-    return await fetchWeeksQuery(userProfile?.id_current_obra);
+    const obrasIds = getObrasIds();
+
+    if (obrasIds.length === 0) {
+      console.warn(
+        "[useValesExport] ⚠️ No se pueden obtener semanas sin obras",
+      );
+      return [];
+    }
+
+    console.log("[useValesExport] Buscando semanas para obras:", obrasIds);
+    return await fetchWeeksQuery(obrasIds);
   };
 
   /**
    * Exporta vales de material a CSV
+   * MODIFICADO: Exporta de todas las obras asignadas
    */
   const exportMaterialCSV = async (weekNumber, year) => {
     console.log("[useValesExport] === INICIO EXPORTACIÓN MATERIAL ===");
@@ -55,25 +86,38 @@ export const useValesExport = (userProfile) => {
       setLoading(true);
       setError(null);
 
-      console.log("[useValesExport] 1️⃣ Fetching vales...");
-      const vales = await fetchValesMaterial(
-        weekNumber,
-        year,
-        userProfile.id_current_obra
-      );
+      const obrasIds = getObrasIds();
+
+      if (obrasIds.length === 0) {
+        Alert.alert("Sin Obras", "No tienes obras asignadas para exportar.", [
+          { text: "OK" },
+        ]);
+        setLoading(false);
+        return false;
+      }
+
+      console.log("[useValesExport] 1️⃣ Fetching vales de material...");
+      console.log("[useValesExport] Semana:", weekNumber, "Año:", year);
+      console.log("[useValesExport] Obras IDs:", obrasIds);
+
+      const vales = await fetchValesMaterial(weekNumber, year, obrasIds);
 
       if (!vales || vales.length === 0) {
         console.log("[useValesExport] ⚠️ No hay vales para exportar");
         Alert.alert(
           "Sin Datos",
           `No se encontraron vales de material emitidos para la Semana ${weekNumber} del ${year}`,
-          [{ text: "OK" }]
+          [{ text: "OK" }],
         );
         setLoading(false);
         return false;
       }
 
-      console.log("[useValesExport] 2️⃣ Transformando datos...");
+      console.log(
+        "[useValesExport] 2️⃣ Transformando",
+        vales.length,
+        "vales...",
+      );
       const transformedData = transformMaterialData(vales);
 
       console.log("[useValesExport] 3️⃣ Convirtiendo a CSV...");
@@ -84,10 +128,18 @@ export const useValesExport = (userProfile) => {
       await saveAndShareCSV(csvContent, filename);
 
       console.log("[useValesExport] ✅ Exportación completada");
+
+      // Mostrar mensaje con cantidad de obras incluidas
+      const obrasNombres = obrasAsignadas.map((o) => o.nombre).join(", ");
+      const mensajeObras =
+        obrasAsignadas.length > 1
+          ? `de ${obrasAsignadas.length} obras (${obrasNombres})`
+          : `de ${obrasNombres}`;
+
       Alert.alert(
         "Exportación Exitosa",
-        `Se exportaron ${vales.length} vales de material`,
-        [{ text: "OK" }]
+        `Se exportaron ${vales.length} vales de material ${mensajeObras}`,
+        [{ text: "OK" }],
       );
 
       setLoading(false);
@@ -101,7 +153,7 @@ export const useValesExport = (userProfile) => {
       Alert.alert(
         "Error",
         `No se pudo exportar los vales de material.\n\nDetalle: ${err.message}`,
-        [{ text: "OK" }]
+        [{ text: "OK" }],
       );
       return false;
     } finally {
@@ -111,6 +163,7 @@ export const useValesExport = (userProfile) => {
 
   /**
    * Exporta vales de renta a CSV
+   * MODIFICADO: Exporta de todas las obras asignadas
    */
   const exportRentaCSV = async (weekNumber, year) => {
     console.log("[useValesExport] === INICIO EXPORTACIÓN RENTA ===");
@@ -118,25 +171,38 @@ export const useValesExport = (userProfile) => {
       setLoading(true);
       setError(null);
 
-      console.log("[useValesExport] 1️⃣ Fetching vales...");
-      const vales = await fetchValesRenta(
-        weekNumber,
-        year,
-        userProfile.id_current_obra
-      );
+      const obrasIds = getObrasIds();
+
+      if (obrasIds.length === 0) {
+        Alert.alert("Sin Obras", "No tienes obras asignadas para exportar.", [
+          { text: "OK" },
+        ]);
+        setLoading(false);
+        return false;
+      }
+
+      console.log("[useValesExport] 1️⃣ Fetching vales de renta...");
+      console.log("[useValesExport] Semana:", weekNumber, "Año:", year);
+      console.log("[useValesExport] Obras IDs:", obrasIds);
+
+      const vales = await fetchValesRenta(weekNumber, year, obrasIds);
 
       if (!vales || vales.length === 0) {
         console.log("[useValesExport] ⚠️ No hay vales para exportar");
         Alert.alert(
           "Sin Datos",
           `No se encontraron vales de renta emitidos para la Semana ${weekNumber} del ${year}`,
-          [{ text: "OK" }]
+          [{ text: "OK" }],
         );
         setLoading(false);
         return false;
       }
 
-      console.log("[useValesExport] 2️⃣ Transformando datos...");
+      console.log(
+        "[useValesExport] 2️⃣ Transformando",
+        vales.length,
+        "vales...",
+      );
       const transformedData = transformRentaData(vales);
 
       console.log("[useValesExport] 3️⃣ Convirtiendo a CSV...");
@@ -147,10 +213,18 @@ export const useValesExport = (userProfile) => {
       await saveAndShareCSV(csvContent, filename);
 
       console.log("[useValesExport] ✅ Exportación completada");
+
+      // Mostrar mensaje con cantidad de obras incluidas
+      const obrasNombres = obrasAsignadas.map((o) => o.nombre).join(", ");
+      const mensajeObras =
+        obrasAsignadas.length > 1
+          ? `de ${obrasAsignadas.length} obras (${obrasNombres})`
+          : `de ${obrasNombres}`;
+
       Alert.alert(
         "Exportación Exitosa",
-        `Se exportaron ${vales.length} vales de renta`,
-        [{ text: "OK" }]
+        `Se exportaron ${vales.length} vales de renta ${mensajeObras}`,
+        [{ text: "OK" }],
       );
 
       setLoading(false);
@@ -164,7 +238,7 @@ export const useValesExport = (userProfile) => {
       Alert.alert(
         "Error",
         `No se pudo exportar los vales de renta.\n\nDetalle: ${err.message}`,
-        [{ text: "OK" }]
+        [{ text: "OK" }],
       );
       return false;
     } finally {

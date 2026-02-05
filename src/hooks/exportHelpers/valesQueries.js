@@ -5,6 +5,7 @@
  * - Obtención de semanas con vales
  * - Queries de vales de material
  * - Queries de vales de renta
+ * MODIFICADO: Soporta múltiples obras asignadas
  */
 
 import { supabase } from "../../config/supabase";
@@ -12,17 +13,21 @@ import { getWeekDateRange, getWeeksFromVales } from "../../utils/dateUtils";
 
 /**
  * Obtiene todas las semanas que tienen vales emitidos
+ * MODIFICADO: Ahora acepta array de obras en lugar de una sola
  */
-export const fetchWeeksWithVales = async (idObra) => {
+export const fetchWeeksWithVales = async (obrasIds) => {
   try {
-    if (!idObra) {
+    if (!obrasIds || obrasIds.length === 0) {
+      console.log("[valesQueries] No hay obras para buscar semanas");
       return [];
     }
+
+    console.log("[valesQueries] Buscando semanas para obras:", obrasIds);
 
     const { data, error } = await supabase
       .from("vales_con_semanas")
       .select("numero_semana, anio_semana, fecha_creacion")
-      .eq("id_obra", idObra)
+      .in("id_obra", obrasIds) // ✅ CAMBIO: Múltiples obras
       .order("fecha_creacion", { ascending: false });
 
     if (error) {
@@ -31,8 +36,11 @@ export const fetchWeeksWithVales = async (idObra) => {
     }
 
     if (!data || data.length === 0) {
+      console.log("[valesQueries] No se encontraron vales con semanas");
       return [];
     }
+
+    console.log("[valesQueries] ✅ Registros encontrados:", data.length);
 
     // Agrupar por semana
     const semanasUnicas = new Map();
@@ -46,10 +54,15 @@ export const fetchWeeksWithVales = async (idObra) => {
       }
     });
 
+    console.log(
+      "[valesQueries] ✅ Semanas únicas encontradas:",
+      semanasUnicas.size,
+    );
+
     return getWeeksFromVales(
       Array.from(semanasUnicas.values()).map((s) => ({
         fecha_creacion: s.fecha_creacion,
-      }))
+      })),
     );
   } catch (err) {
     console.error("[valesQueries] ❌ Error obteniendo semanas:", err);
@@ -59,8 +72,9 @@ export const fetchWeeksWithVales = async (idObra) => {
 
 /**
  * Obtiene vales de material con todos sus datos relacionados
+ * MODIFICADO: Ahora acepta array de obras en lugar de una sola
  */
-export const fetchValesMaterial = async (weekNumber, year, idObra) => {
+export const fetchValesMaterial = async (weekNumber, year, obrasIds) => {
   const { startDate, endDate } = getWeekDateRange(weekNumber, year);
 
   const { data, error } = await supabase
@@ -90,11 +104,11 @@ export const fetchValesMaterial = async (weekNumber, year, idObra) => {
         tarifa_subsecuente,
         requisicion
       )
-    `
+    `,
     )
     .eq("tipo_vale", "material")
     .in("estado", ["emitido", "verificado", "conciliado"])
-    .eq("id_obra", idObra)
+    .in("id_obra", obrasIds) // ✅ CAMBIO: Múltiples obras
     .gte("fecha_creacion", startDate.toISOString())
     .lte("fecha_creacion", endDate.toISOString())
     .order("fecha_creacion", { ascending: false });
@@ -105,8 +119,9 @@ export const fetchValesMaterial = async (weekNumber, year, idObra) => {
 
 /**
  * Obtiene vales de renta con todos sus datos relacionados
+ * MODIFICADO: Ahora acepta array de obras en lugar de una sola
  */
-export const fetchValesRenta = async (weekNumber, year, idObra) => {
+export const fetchValesRenta = async (weekNumber, year, obrasIds) => {
   const { startDate, endDate } = getWeekDateRange(weekNumber, year);
 
   const { data, error } = await supabase
@@ -132,11 +147,11 @@ export const fetchValesRenta = async (weekNumber, year, idObra) => {
         costo_total,
         precios_renta!vale_renta_detalle_id_precios_renta_fkey(costo_hr, costo_dia)
       )
-    `
+    `,
     )
     .eq("tipo_vale", "renta")
     .in("estado", ["emitido", "verificado", "conciliado"])
-    .eq("id_obra", idObra)
+    .in("id_obra", obrasIds) // ✅ CAMBIO: Múltiples obras
     .gte("fecha_creacion", startDate.toISOString())
     .lte("fecha_creacion", endDate.toISOString())
     .order("fecha_creacion", { ascending: false });

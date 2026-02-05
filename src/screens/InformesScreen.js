@@ -33,6 +33,7 @@ import { commonStyles } from "../styles";
 
 // Hooks
 import { useAuth } from "../hooks/useAuth";
+import { useObras } from "../hooks/useObras";
 import { useValesExport } from "../hooks/useValesExport";
 
 // Utils
@@ -45,8 +46,9 @@ import PrimaryButton from "../componets/common/PrimaryButton";
 
 const InformesScreen = () => {
   const { userProfile } = useAuth();
+  const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
   const { loading, fetchWeeksWithVales, exportMaterialCSV, exportRentaCSV } =
-    useValesExport(userProfile);
+    useValesExport(obras);
 
   // Estados
   const [selectedWeek, setSelectedWeek] = useState(null);
@@ -58,17 +60,28 @@ const InformesScreen = () => {
 
   /**
    * Carga las semanas que tienen vales al montar el componente
-   * SOLO cuando userProfile esté disponible
+   * SOLO cuando userProfile Y obras estén disponibles
    */
   useEffect(() => {
-    if (userProfile?.id_persona) {
+    if (userProfile?.id_persona && !loadingObras && obras.length > 0) {
       loadWeeks();
     }
-  }, [userProfile]);
+  }, [userProfile, obras, loadingObras]);
 
   const loadWeeks = async () => {
     try {
       setLoadingWeeks(true);
+
+      // Validar que tengamos obras disponibles
+      if (!obras || obras.length === 0) {
+        console.log(
+          "[InformesScreen] No hay obras disponibles para cargar semanas",
+        );
+        setWeeksOptions([]);
+        setLoadingWeeks(false);
+        return;
+      }
+
       const weeks = await fetchWeeksWithVales();
 
       setWeeksOptions(weeks);
