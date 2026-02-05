@@ -55,9 +55,16 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       !vale ||
       (lastValeId.current === vale.id_vale && isInitialized.current)
     ) {
+      console.log(
+        "[ValeDetalleRenta] ⚠️ useEffect: Vale ya inicializado o no existe",
+      );
       return;
     }
 
+    console.log(
+      "[ValeDetalleRenta] ✅ useEffect: Inicializando vale",
+      vale.id_vale,
+    );
     lastValeId.current = vale.id_vale;
     isInitialized.current = true;
 
@@ -66,6 +73,9 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       setNumeroViajes(1);
       setEsRentaPorDia(false);
       setEsRentaPorMedioDia(false);
+      console.log("[ValeDetalleRenta] ✅ Estados reseteados");
+    } else {
+      console.log("[ValeDetalleRenta] ⚠️ No hay detalleRenta para inicializar");
     }
   }, [vale?.id_vale, detalleRenta]);
 
@@ -241,8 +251,14 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   }, [updatedVale]);
 
   if (!vale || !detalleRenta) {
+    console.log("[ValeDetalleRenta] ❌ RENDER ABORTADO:", {
+      valeExiste: !!vale,
+      detalleRentaExiste: !!detalleRenta,
+    });
     return null;
   }
+
+  console.log("[ValeDetalleRenta] ✅ RENDER OK - Mostrando componente");
 
   const InfoRow = ({ icon, label, value }) => (
     <View style={styles.infoRow}>

@@ -76,7 +76,8 @@ const ValeRentaScreen = () => {
   ]);
 
   // Hook para generar folio CON obraDataParaFolio
-  const generateFolio = useFolioGenerator(obraDataParaFolio);
+
+  const { generateFolio } = useFolioGenerator();
 
   // Estados del formulario
   const [formData, setFormData] = useState({
@@ -186,7 +187,7 @@ const ValeRentaScreen = () => {
     try {
       setSubmitting(true);
 
-      const folio = await generateFolio();
+      const folio = await generateFolio(obraDataParaFolio);
 
       // Verificar que el folio no exista
       const { data: verificacion } = await supabase

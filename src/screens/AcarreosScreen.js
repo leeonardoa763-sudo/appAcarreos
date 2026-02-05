@@ -57,7 +57,7 @@ const AcarreosScreen = () => {
       if (isMounted.current && userProfile?.id_persona && !isFetching.current) {
         fetchVales();
       }
-    }, [userProfile?.id_persona])
+    }, [userProfile?.id_persona]),
   );
 
   const fetchVales = async () => {
@@ -123,7 +123,7 @@ const AcarreosScreen = () => {
               costo_dia
             )
           )
-        `
+        `,
         )
         .eq("id_persona_creador", userProfile.id_persona)
         .order("fecha_creacion", { ascending: false });

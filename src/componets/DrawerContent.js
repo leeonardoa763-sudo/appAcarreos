@@ -52,26 +52,26 @@ const DrawerContent = (props) => {
               Alert.alert(
                 "Dispositivo Olvidado",
                 "Las credenciales han sido borradas. La próxima vez deberás iniciar sesión manualmente.",
-                [{ text: "Entendido" }]
+                [{ text: "Entendido" }],
               );
 
               console.log(
-                "[DrawerContent] ✅ Credenciales borradas exitosamente"
+                "[DrawerContent] ✅ Credenciales borradas exitosamente",
               );
             } catch (error) {
               console.error(
                 "[DrawerContent] ❌ Error borrando credenciales:",
-                error
+                error,
               );
               Alert.alert(
                 "Error",
                 "No se pudieron borrar las credenciales. Intenta de nuevo.",
-                [{ text: "OK" }]
+                [{ text: "OK" }],
               );
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -88,7 +88,7 @@ const DrawerContent = (props) => {
           props.navigation.closeDrawer();
           await signOut();
           console.log(
-            "[DrawerContent] Logout completado, AuthGuard redirigirá a Login"
+            "[DrawerContent] Logout completado, AuthGuard redirigirá a Login",
           );
         },
       },
@@ -148,19 +148,6 @@ const DrawerContent = (props) => {
           <Text style={styles.menuText}>Configuración</Text>
         </TouchableOpacity>
 
-        {userProfile?.obras?.obra && (
-          <TouchableOpacity style={styles.menuItem}>
-            <MaterialCommunityIcons
-              name="office-building"
-              size={24}
-              color={colors.secondary}
-            />
-            <Text style={[styles.menuText, styles.obraText]}>
-              {userProfile.obras.obra}
-            </Text>
-          </TouchableOpacity>
-        )}
-
         <View style={styles.divider} />
 
         {/* 🆕 Opción "Olvidar este dispositivo" (solo si hay credenciales) */}
@@ -200,7 +187,9 @@ const DrawerContent = (props) => {
 
       {/* Footer */}
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Control Acarreos v1.0</Text>
+        <Text style={styles.footerText}>
+          Creador: Ing Leonardo Aguilar Saucedo
+        </Text>
         {/* 🆕 Indicador si hay credenciales guardadas */}
         {hasStoredCredentials && (
           <View style={styles.credentialsIndicator}>

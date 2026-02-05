@@ -11,12 +11,16 @@
  * USADO EN:
  * - ValeRentaScreen
  * - ValeMaterialScreen
+ *
+ * EJEMPLO DE USO:
+ * const { generateFolio } = useFolioGenerator();
+ * const folio = await generateFolio(obraData);
  */
 
 import { supabase } from "../config/supabase";
 
-export const useFolioGenerator = (obraData) => {
-  const generateFolio = async () => {
+export const useFolioGenerator = () => {
+  const generateFolio = async (obraData) => {
     console.log("[useFolioGenerator] ========== INICIO ==========");
 
     try {
@@ -78,23 +82,23 @@ export const useFolioGenerator = (obraData) => {
           console.error("[useFolioGenerator] Error en query:", error);
           console.error(
             "[useFolioGenerator] Error detalles:",
-            JSON.stringify(error, null, 2)
+            JSON.stringify(error, null, 2),
           );
           throw error;
         }
 
         // Filtrar folios que empiecen con nuestro prefijo
         const foliosFiltrados = (response.data || []).filter((v) =>
-          v.folio.startsWith(prefijoFolio)
+          v.folio.startsWith(prefijoFolio),
         );
 
         console.log(
           "[useFolioGenerator] Folios totales en obra:",
-          response.data?.length || 0
+          response.data?.length || 0,
         );
         console.log(
           "[useFolioGenerator] Folios con prefijo:",
-          foliosFiltrados.length
+          foliosFiltrados.length,
         );
 
         // Usar solo el primero (ya está ordenado descendente)
@@ -106,7 +110,7 @@ export const useFolioGenerator = (obraData) => {
 
       console.log(
         "[useFolioGenerator] Query exitosa, resultados:",
-        data?.length || 0
+        data?.length || 0,
       );
 
       let siguienteNumero = 1;
@@ -115,7 +119,7 @@ export const useFolioGenerator = (obraData) => {
         const ultimoFolio = data[0].folio;
         console.log(
           "[useFolioGenerator] Último folio encontrado:",
-          ultimoFolio
+          ultimoFolio,
         );
 
         // Extraer número del folio (formato: SUFIJO-CC-00001)
@@ -129,13 +133,13 @@ export const useFolioGenerator = (obraData) => {
         } else {
           console.warn(
             "[useFolioGenerator] No se pudo extraer número del folio:",
-            ultimoFolio
+            ultimoFolio,
           );
           console.log("[useFolioGenerator] Iniciando en 00001");
         }
       } else {
         console.log(
-          "[useFolioGenerator] No hay folios previos, iniciando en 00001"
+          "[useFolioGenerator] No hay folios previos, iniciando en 00001",
         );
       }
 
@@ -157,14 +161,14 @@ export const useFolioGenerator = (obraData) => {
       if (errorVerif) {
         console.error(
           "[useFolioGenerator] Error verificando folio:",
-          errorVerif
+          errorVerif,
         );
         throw new Error(`Error verificando unicidad: ${errorVerif.message}`);
       }
 
       if (existente) {
         console.warn(
-          "[useFolioGenerator] Folio duplicado detectado, incrementando..."
+          "[useFolioGenerator] Folio duplicado detectado, incrementando...",
         );
         siguienteNumero++;
         const nuevoFolioRetry = `${prefijoFolio}${siguienteNumero
@@ -189,5 +193,5 @@ export const useFolioGenerator = (obraData) => {
     }
   };
 
-  return generateFolio;
+  return { generateFolio };
 };
