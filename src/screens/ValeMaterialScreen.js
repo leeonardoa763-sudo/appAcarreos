@@ -1,11 +1,5 @@
 /**
  * screens/ValeMaterialScreen.js
- *
- * CAMBIOS PASO C:
- * - ✅ Ref isMounted agregado
- * - ✅ Protección en setState
- * - ✅ Listener blur protegido
- * - ✅ Cleanup al desmontar
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -20,10 +14,11 @@ import { commonStyles } from "../styles/";
 import { useAuth } from "../hooks/useAuth";
 import { useCatalogos } from "../hooks/useCatalogos";
 import { useFolioGenerator } from "../hooks/useFolioGenerator";
-import { useObraData } from "../hooks/useObraData";
+
 import { useValeMaterialForm } from "../hooks/useValeMaterialForm";
 import { useValeMaterialLogic } from "../hooks/useValeMaterialLogic";
 import { useValeMaterialPDF } from "../hooks/useValeMaterialPDF";
+import { useObras } from "../hooks/useObras";
 
 // Componentes
 import SectionHeader from "../componets/common/SectionHeader";
@@ -44,7 +39,8 @@ const ValeMaterialScreen = () => {
   const isMounted = useRef(true);
 
   // Datos de obra
-  const { obraData, loading: loadingObra } = useObraData(userProfile);
+
+  const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
   // Catálogos
   const {
@@ -63,16 +59,14 @@ const ValeMaterialScreen = () => {
   ]);
 
   // Generador de folios
-  const generateFolio = useFolioGenerator(obraData);
-
-  // Hooks personalizados
+  const generateFolio = useFolioGenerator();
   const {
     formData,
     setFormData,
     errors,
     validateForm,
     resetForm: resetFormData,
-  } = useValeMaterialForm(obraData, materiales); // ✅ Agregado segundo parámetro
+  } = useValeMaterialForm(materiales, obraSeleccionada, obras); // ← Esto está bien, no cambiar
 
   const {
     materialSeleccionado,
@@ -98,12 +92,11 @@ const ValeMaterialScreen = () => {
   const [valeCreado, setValeCreado] = useState(null);
   const [folioCreado, setFolioCreado] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [obraSeleccionada, setObraSeleccionada] = useState(null);
 
-  // Cleanup al desmontar
   useEffect(() => {
     return () => {
       isMounted.current = false;
-
       // Marcar el hook PDF como desmontado también
       if (typeof setMounted === "function") {
         setMounted(false);
@@ -122,6 +115,32 @@ const ValeMaterialScreen = () => {
       setMaterialSeleccionado(null);
     }
   }, [formData.materialId, materiales, setMaterialSeleccionado]);
+
+  // ✅ AGREGAR ESTE - Log para debug de obras
+  useEffect(() => {
+    console.log("[ValeMaterialScreen] 📊 Obras actualizadas:", obras);
+    console.log("[ValeMaterialScreen] 🔢 Cantidad de obras:", obras.length);
+    console.log("[ValeMaterialScreen] 🔄 Loading obras:", loadingObras);
+    console.log("[ValeMaterialScreen] 🎯 Obra seleccionada:", obraSeleccionada);
+    console.log("[ValeMaterialScreen] 👤 ID Persona:", userProfile?.id_persona);
+  }, [obras, loadingObras, obraSeleccionada, userProfile]);
+
+  // Efecto para pre-seleccionar obra automáticamente
+  useEffect(() => {
+    if (obras.length > 0 && !obraSeleccionada) {
+      console.log(
+        "[ValeMaterialScreen] 🎯 Pre-seleccionando obra automáticamente",
+      );
+
+      // Seleccionar la obra principal (primera de la lista)
+      const obraPrincipal = obras.find((o) => o.esPrincipal) || obras[0];
+      console.log(
+        "[ValeMaterialScreen] ✅ Seleccionando obra:",
+        obraPrincipal.nombre,
+      );
+      setObraSeleccionada(obraPrincipal.id);
+    }
+  }, [obras, obraSeleccionada]);
 
   // Efecto: Compartir PDF cuando QR esté listo
   useEffect(() => {
@@ -159,15 +178,29 @@ const ValeMaterialScreen = () => {
       return;
     }
 
-    if (!obraData) {
-      Alert.alert("Error", "No se encontraron datos de la obra");
+    if (!obraSeleccionada) {
+      Alert.alert("Error", "Debes seleccionar una obra");
+      return;
+    }
+
+    const obraActual = obras.find((o) => o.id === obraSeleccionada);
+    if (!obraActual) {
+      Alert.alert("Error", "Obra seleccionada no válida");
       return;
     }
 
     try {
       const { valeCompleto, folio } = await crearVale(
         formData,
-        obraData,
+        {
+          id_obra: obraActual.id,
+          obra: obraActual.nombre,
+          cc: obraActual.cc,
+          empresas: {
+            empresa: obraActual.empresa,
+            sufijo: obraActual.sufijo,
+          },
+        },
         userProfile,
         generateFolio,
         materiales,
@@ -190,13 +223,13 @@ const ValeMaterialScreen = () => {
 
   // Función: Manejar compartir desde modal
   const handleCompartirDesdeModal = async () => {
-    // ✅ Cerrar modal PRIMERO
+    //  Cerrar modal PRIMERO
     setShowSuccessModal(false);
 
-    // ✅ Esperar a que el modal se cierre completamente
+    //  Esperar a que el modal se cierre completamente
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // ✅ Ahora compartir
+    //  Ahora compartir
     if (qrDataUrl) {
       compartirPDF(valeCreado, generarCopiaRoja);
     } else {
@@ -205,7 +238,7 @@ const ValeMaterialScreen = () => {
   };
 
   // Loading
-  if (loadingObra || loadingCatalogos) {
+  if (loadingCatalogos || loadingObras) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -214,12 +247,12 @@ const ValeMaterialScreen = () => {
     );
   }
 
-  // Sin obra
-  if (!obraData) {
+  // Sin obras asignadas
+  if (!loadingObras && obras.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.errorText}>
-          No tienes una obra asignada. Contacta al administrador.
+          No tienes obras asignadas. Contacta al administrador.
         </Text>
       </View>
     );
@@ -249,16 +282,31 @@ const ValeMaterialScreen = () => {
             infoMessage="Información del material a acarrear. Los campos de obra y empresa se llenan automáticamente según tu perfil."
           />
 
-          <FormInput
+          <CustomModalPicker
             label="Obra"
-            value={obraData.obra || "Sin obra"}
-            onChangeText={() => {}}
-            editable={false}
+            value={obraSeleccionada}
+            onValueChange={(value) => {
+              setObraSeleccionada(value);
+              const obra = obras.find((o) => o.id === value);
+              // Aquí podrías actualizar formData.obraId si lo necesitas
+            }}
+            items={obras.map((o) => ({
+              id: o.id,
+              label: o.cc ? `${o.cc} - ${o.nombre}` : o.nombre,
+            }))}
+            placeholder="Selecciona una obra"
+            enabled={obras.length > 0}
+            loading={loadingObras}
           />
 
           <FormInput
             label="Empresa"
-            value={obraData.empresas?.empresa || "Sin empresa"}
+            value={
+              obraSeleccionada
+                ? obras.find((o) => o.id === obraSeleccionada)?.empresa ||
+                  "Sin empresa"
+                : "Selecciona una obra primero"
+            }
             onChangeText={() => {}}
             editable={false}
           />
@@ -337,10 +385,10 @@ const ValeMaterialScreen = () => {
             error={errors.distancia}
           />
 
-          {/* ✅ NUEVO: Campo Requisición (solo tipo 1) */}
+          {/*  Campo Requisición (solo tipo 1) */}
           {materialSeleccionado?.id_tipo_de_material === 1 && (
             <FormInput
-              label="Requisición *"
+              label="Requisición"
               value={formData.requisicion}
               onChangeText={(value) => {
                 // Convertir a mayúsculas y permitir solo letras, números y guiones
@@ -349,7 +397,7 @@ const ValeMaterialScreen = () => {
                   .replace(/[^A-Z0-9-]/g, "");
                 setFormData({ ...formData, requisicion: formatted });
               }}
-              placeholder="Ej: REQ-2024-001"
+              placeholder="Ej: REQ-001"
               maxLength={50}
               error={errors.requisicion}
               autoCapitalize="characters"

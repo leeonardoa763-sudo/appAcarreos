@@ -5,6 +5,7 @@ import { supabase } from "../config/supabase";
 
 /**
  * Hook para obtener las obras asignadas a un residente
+ * Usa SOLO la tabla persona_obra (nueva estructura)
  * Retorna lista de obras para selector de filtros
  */
 export const useObras = (personaId) => {
@@ -15,6 +16,7 @@ export const useObras = (personaId) => {
   useEffect(() => {
     const fetchObras = async () => {
       if (!personaId) {
+        console.log("[useObras] ❌ No hay personaId");
         setObras([]);
         setLoading(false);
         return;
@@ -24,16 +26,18 @@ export const useObras = (personaId) => {
         setLoading(true);
         setError(null);
 
-        console.log("[useObras] Fetching obras para persona:", personaId);
+        console.log("[useObras] 🔍 Fetching obras para persona:", personaId);
 
-        // Obtener obras desde la tabla persona usando id_current_obra
-        // y luego obtener todas las obras disponibles
-        const { data: personaData, error: personaError } = await supabase
-          .from("persona")
-          .select(
-            `
-            id_current_obra,
-            obras:id_current_obra (
+        // Obtener obras SOLO desde persona_obra
+        const { data: personaObrasData, error: personaObrasError } =
+          await supabase
+            .from("persona_obra")
+            .select(
+              `
+            id,
+            persona_id,
+            obra_id,
+            obras!obra_id (
               id_obra,
               obra,
               cc,
@@ -43,36 +47,72 @@ export const useObras = (personaId) => {
               )
             )
           `,
-          )
-          .eq("id_persona", personaId)
-          .single();
+            )
+            .eq("persona_id", personaId)
+            .order("created_at", { ascending: true }); // La primera insertada es la "principal"
 
-        if (personaError) {
-          throw personaError;
+        console.log(
+          "[useObras] 📊 Raw data from persona_obra:",
+          JSON.stringify(personaObrasData, null, 2),
+        );
+        console.log("[useObras] ❗ Error from Supabase:", personaObrasError);
+
+        if (personaObrasError) {
+          throw personaObrasError;
         }
 
-        // Por ahora, solo retornar la obra actual del usuario
-        // Si en el futuro necesitas todas las obras, ajusta el query
-        const obrasFormateadas = personaData.obras
-          ? [
-              {
-                id: personaData.obras.id_obra,
-                nombre: personaData.obras.obra,
-                cc: personaData.obras.cc,
-                empresa: personaData.obras.empresas?.empresa || "Sin empresa",
-                sufijo: personaData.obras.empresas?.sufijo || "",
-              },
-            ]
-          : [];
+        if (!personaObrasData || personaObrasData.length === 0) {
+          console.log("[useObras] ⚠️ No hay obras asignadas a este residente");
+          setObras([]);
+          setLoading(false);
+          return;
+        }
 
-        console.log("[useObras] Obras obtenidas:", obrasFormateadas.length);
+        // Formatear obras obtenidas
+        const obrasFormateadas = personaObrasData
+          .map((item, index) => {
+            console.log(`[useObras] 🔄 Procesando item ${index}:`, item);
+
+            if (!item.obras) {
+              console.log(`[useObras] ⚠️ Item ${index} no tiene campo 'obras'`);
+              return null;
+            }
+
+            const obraFormateada = {
+              id: item.obras.id_obra,
+              nombre: item.obras.obra,
+              cc: item.obras.cc,
+              empresa: item.obras.empresas?.empresa || "Sin empresa",
+              sufijo: item.obras.empresas?.sufijo || "",
+              esPrincipal: index === 0, // La primera es la principal
+            };
+
+            console.log(
+              `[useObras] ✅ Obra ${index} formateada:`,
+              obraFormateada,
+            );
+            return obraFormateada;
+          })
+          .filter(Boolean); // Eliminar nulls
+
+        console.log(
+          "[useObras] 🎯 Total obras obtenidas:",
+          obrasFormateadas.length,
+        );
+        console.log(
+          "[useObras] 📋 Obras finales:",
+          JSON.stringify(obrasFormateadas, null, 2),
+        );
+
         setObras(obrasFormateadas);
       } catch (err) {
-        console.error("[useObras] Error:", err);
+        console.error("[useObras] 💥 Error:", err);
+        console.error("[useObras] 💥 Error message:", err.message);
         setError(err.message);
         setObras([]);
       } finally {
         setLoading(false);
+        console.log("[useObras] 🏁 Fetching completado");
       }
     };
 

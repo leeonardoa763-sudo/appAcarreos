@@ -1,10 +1,6 @@
 /**
  * ValeRentaScreen.js
  *
- * VERSIÓN FINAL - SIN TIMEOUTS NI LOGS
- * - ✅ Navegación robusta con InteractionManager
- * - ✅ No depende de delays arbitrarios
- * - ✅ Funciona con o sin logs
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -126,12 +122,12 @@ const ValeRentaScreen = () => {
     if (errorHora) newErrors.horaInicio = errorHora;
 
     const errorOperador = validateOperadorId(
-      formData.selectedOperador?.id_operador
+      formData.selectedOperador?.id_operador,
     );
     if (errorOperador) newErrors.operadorId = errorOperador;
 
     const errorVehiculo = validateVehiculoId(
-      formData.selectedVehiculo?.id_vehiculo
+      formData.selectedVehiculo?.id_vehiculo,
     );
     if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
 
@@ -144,7 +140,7 @@ const ValeRentaScreen = () => {
     if (!validateForm()) {
       Alert.alert(
         "Campos incompletos",
-        "Por favor completa todos los campos requeridos"
+        "Por favor completa todos los campos requeridos",
       );
       return;
     }
@@ -191,7 +187,7 @@ const ValeRentaScreen = () => {
 
       // Buscar precio de renta
       const precioRenta = preciosRenta.find(
-        (p) => p.id_sindicato === formData.sindicatoId
+        (p) => p.id_sindicato === formData.sindicatoId,
       );
 
       if (!precioRenta) {
