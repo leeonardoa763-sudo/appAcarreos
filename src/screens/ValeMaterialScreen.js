@@ -93,7 +93,7 @@ const ValeMaterialScreen = () => {
   } = useValeMaterialPDF(navigation);
 
   // Generador de folios CON obraData
-  const generateFolio = useFolioGenerator(obraDataParaFolio);
+  const { generateFolio } = useFolioGenerator();
 
   // Efecto: Cleanup al desmontar
   useEffect(() => {

@@ -42,14 +42,13 @@ export const useValeMaterialLogic = (materiales) => {
     userProfile,
     generateFolio,
     materiales,
-    obraDataParaFolio,
   ) => {
     console.log("[useValeMaterialLogic] Iniciando creación de vale...");
     setSubmitting(true);
 
     try {
       // PASO 1: Generar folio
-      const folio = await generateFolio(obraDataParaFolio);
+      const folio = await generateFolio(obraData);
       console.log("[useValeMaterialLogic] Folio generado:", folio);
 
       // PASO 2: Verificar folio único

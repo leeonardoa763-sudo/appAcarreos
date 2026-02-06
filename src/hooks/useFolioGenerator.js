@@ -2,19 +2,6 @@
  * hooks/useFolioGenerator.js
  *
  * Hook para generar folios únicos por obra
- *
- * PROPÓSITO:
- * - Generar folios con formato: SUFIJO-CC-NUMERO
- * - Numeración consecutiva por obra
- * - Validación de duplicados
- *
- * USADO EN:
- * - ValeRentaScreen
- * - ValeMaterialScreen
- *
- * EJEMPLO DE USO:
- * const { generateFolio } = useFolioGenerator();
- * const folio = await generateFolio(obraData);
  */
 
 import { supabase } from "../config/supabase";
@@ -63,57 +50,22 @@ export const useFolioGenerator = () => {
       const prefijoFolio = `${sufijo}-${cc}-`;
       console.log("[useFolioGenerator] Prefijo generado:", prefijoFolio);
 
-      // Consultar último folio - MÉTODO MEJORADO
+      // Consultar último folio
       console.log("[useFolioGenerator] Consultando último folio...");
 
-      let data, error;
+      const { data, error } = await supabase
+        .from("vales")
+        .select("folio")
+        .eq("id_obra", idObra)
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-      try {
-        // Obtener TODOS los folios de la obra y filtrar en JavaScript
-        const response = await supabase
-          .from("vales")
-          .select("folio")
-          .eq("id_obra", idObra)
-          .order("folio", { ascending: false });
-
-        error = response.error;
-
-        if (error) {
-          console.error("[useFolioGenerator] Error en query:", error);
-          console.error(
-            "[useFolioGenerator] Error detalles:",
-            JSON.stringify(error, null, 2),
-          );
-          throw error;
-        }
-
-        // Filtrar folios que empiecen con nuestro prefijo
-        const foliosFiltrados = (response.data || []).filter((v) =>
-          v.folio.startsWith(prefijoFolio),
-        );
-
-        console.log(
-          "[useFolioGenerator] Folios totales en obra:",
-          response.data?.length || 0,
-        );
-        console.log(
-          "[useFolioGenerator] Folios con prefijo:",
-          foliosFiltrados.length,
-        );
-
-        // Usar solo el primero (ya está ordenado descendente)
-        data = foliosFiltrados.length > 0 ? [foliosFiltrados[0]] : [];
-      } catch (queryError) {
-        console.error("[useFolioGenerator] Catch en query:", queryError);
-        throw new Error(`Error en consulta: ${queryError.message}`);
+      if (error) {
+        console.error("[useFolioGenerator] Error consultando folios:", error);
+        throw error;
       }
 
-      console.log(
-        "[useFolioGenerator] Query exitosa, resultados:",
-        data?.length || 0,
-      );
-
-      let siguienteNumero = 1;
+      let nuevoNumero = 1;
 
       if (data && data.length > 0) {
         const ultimoFolio = data[0].folio;
@@ -122,20 +74,19 @@ export const useFolioGenerator = () => {
           ultimoFolio,
         );
 
-        // Extraer número del folio (formato: SUFIJO-CC-00001)
-        const match = ultimoFolio.match(/-(\d{5})$/);
-
-        if (match) {
-          const numeroActual = parseInt(match[1], 10);
-          siguienteNumero = numeroActual + 1;
-          console.log("[useFolioGenerator] Número extraído:", numeroActual);
-          console.log("[useFolioGenerator] Siguiente número:", siguienteNumero);
-        } else {
-          console.warn(
-            "[useFolioGenerator] No se pudo extraer número del folio:",
-            ultimoFolio,
-          );
-          console.log("[useFolioGenerator] Iniciando en 00001");
+        // Extraer el número del folio (última parte después del último guion)
+        const partes = ultimoFolio.split("-");
+        if (partes.length >= 3) {
+          const ultimoNumero = parseInt(partes[partes.length - 1], 10);
+          if (!isNaN(ultimoNumero)) {
+            nuevoNumero = ultimoNumero + 1;
+            console.log(
+              "[useFolioGenerator] Último número:",
+              ultimoNumero,
+              "→ Nuevo número:",
+              nuevoNumero,
+            );
+          }
         }
       } else {
         console.log(
@@ -143,52 +94,16 @@ export const useFolioGenerator = () => {
         );
       }
 
-      // Formatear nuevo folio
-      const numeroFormateado = siguienteNumero.toString().padStart(5, "0");
-      const nuevoFolio = `${prefijoFolio}${numeroFormateado}`;
+      // Formatear número con 5 dígitos (padding con ceros)
+      const numeroFormateado = String(nuevoNumero).padStart(5, "0");
+      const folioGenerado = `${prefijoFolio}${numeroFormateado}`;
 
-      console.log("[useFolioGenerator] Folio propuesto:", nuevoFolio);
-
-      // Verificar que no exista (doble verificación de seguridad)
-      console.log("[useFolioGenerator] Verificando unicidad del folio...");
-
-      const { data: existente, error: errorVerif } = await supabase
-        .from("vales")
-        .select("folio")
-        .eq("folio", nuevoFolio)
-        .maybeSingle();
-
-      if (errorVerif) {
-        console.error(
-          "[useFolioGenerator] Error verificando folio:",
-          errorVerif,
-        );
-        throw new Error(`Error verificando unicidad: ${errorVerif.message}`);
-      }
-
-      if (existente) {
-        console.warn(
-          "[useFolioGenerator] Folio duplicado detectado, incrementando...",
-        );
-        siguienteNumero++;
-        const nuevoFolioRetry = `${prefijoFolio}${siguienteNumero
-          .toString()
-          .padStart(5, "0")}`;
-        console.log("[useFolioGenerator] Folio alternativo:", nuevoFolioRetry);
-        return nuevoFolioRetry;
-      }
-
-      console.log("[useFolioGenerator] ✅ Folio único confirmado:", nuevoFolio);
+      console.log("[useFolioGenerator] Folio generado:", folioGenerado);
       console.log("[useFolioGenerator] ========== FIN ==========");
 
-      return nuevoFolio;
+      return folioGenerado;
     } catch (error) {
-      console.error("[useFolioGenerator] ❌ ERROR FATAL:", error);
-      console.error("[useFolioGenerator] Error tipo:", error.constructor.name);
-      console.error("[useFolioGenerator] Error mensaje:", error.message);
-      console.error("[useFolioGenerator] Error stack:", error.stack);
-
-      // Lanzar el error para que se maneje arriba
+      console.error("[useFolioGenerator] Error:", error);
       throw error;
     }
   };
