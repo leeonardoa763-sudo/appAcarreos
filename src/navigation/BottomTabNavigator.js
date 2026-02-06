@@ -6,6 +6,8 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
+// Hook para obtener rol del usuario
+import { useAuth } from "../hooks/useAuth";
 
 // Componentes
 import CustomHeader from "../componets/CustomHeader.js";
@@ -103,6 +105,10 @@ function ValesStack() {
 
 // Tabs principales
 function MainTabs() {
+  // 🆕 Obtener rol del usuario para mostrar/ocultar tabs
+  const { userRole } = useAuth();
+  const esChecador = userRole === "CHECADOR";
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -152,10 +158,17 @@ function MainTabs() {
         },
       })}
     >
+      {/* Tabs que TODOS los roles ven */}
       <Tab.Screen name="Vales" component={ValesStack} />
       <Tab.Screen name="Acarreos" component={AcarreosScreen} />
-      <Tab.Screen name="Informes" component={InformesScreen} />
-      <Tab.Screen name="Estadísticas" component={EstadisticasScreen} />
+
+      {/* 🆕 Tabs que el CHECADOR NO ve */}
+      {!esChecador && (
+        <>
+          <Tab.Screen name="Informes" component={InformesScreen} />
+          <Tab.Screen name="Estadísticas" component={EstadisticasScreen} />
+        </>
+      )}
     </Tab.Navigator>
   );
 }

@@ -22,7 +22,7 @@ import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { useFocusEffect } from "@react-navigation/native";
-
+import { useObras } from "../hooks/useObras";
 // Estilos
 import { commonStyles, listScreenStyles } from "../styles";
 
@@ -33,6 +33,8 @@ import CollapsibleSection from "../componets/common/CollapsibleSection";
 
 const AcarreosScreen = () => {
   const { userProfile } = useAuth();
+  // 🆕 Obtener obras asignadas (incluir loading)
+  const { obras, loading: obrasLoading } = useObras(userProfile?.id_persona);
 
   const [valesMaterial, setValesMaterial] = useState([]);
   const [valesRenta, setValesRenta] = useState([]);
@@ -54,10 +56,17 @@ const AcarreosScreen = () => {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (isMounted.current && userProfile?.id_persona && !isFetching.current) {
+      // 🆕 Esperar a que obras esté cargado y que haya obras disponibles
+      if (
+        isMounted.current &&
+        userProfile?.id_persona &&
+        !isFetching.current &&
+        !obrasLoading && // ✅ Esperar a que termine de cargar
+        obras.length > 0 // ✅ Asegurar que hay obras
+      ) {
         fetchVales();
       }
-    }, [userProfile?.id_persona]),
+    }, [userProfile?.id_persona, obras, obrasLoading]), // ✅ Agregar dependencias
   );
 
   const fetchVales = async () => {
@@ -75,6 +84,21 @@ const AcarreosScreen = () => {
       if (isMounted.current) {
         setLoading(true);
         setError(null);
+      }
+
+      // 🆕 Obtener IDs de todas las obras asignadas
+      const obrasIds = obras.map((obra) => obra.id).filter(Boolean);
+
+      // Si no hay obras asignadas, retornar vacío
+      if (obrasIds.length === 0) {
+        console.log("[AcarreosScreen] No hay obras asignadas");
+        if (isMounted.current) {
+          setValesMaterial([]);
+          setValesRenta([]);
+          setLoading(false);
+        }
+        isFetching.current = false;
+        return;
       }
 
       const { data: valesData, error: valesError } = await supabase
@@ -125,7 +149,7 @@ const AcarreosScreen = () => {
           )
         `,
         )
-        .eq("id_persona_creador", userProfile.id_persona)
+        .in("id_obra", obrasIds)
         .order("fecha_creacion", { ascending: false });
 
       if (valesError) throw valesError;
