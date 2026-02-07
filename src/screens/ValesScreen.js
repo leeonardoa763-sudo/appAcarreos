@@ -1,4 +1,3 @@
-// screens/ValesScreen.js
 import React, { useState } from "react";
 import {
   View,
@@ -14,6 +13,7 @@ import { useObras } from "../hooks/useObras";
 import { colors } from "../config/colors";
 import UserProfile from "../componets/ButtonsGrid/UserProfile";
 import ButtonsGrid from "../componets/ButtonsGrid/ButtonsGrid";
+import TarifasModal from "../componets/TarifasModal";
 
 const ValesScreen = () => {
   const navigation = useNavigation();
@@ -25,15 +25,14 @@ const ValesScreen = () => {
     refreshProfile,
   } = useAuth();
 
-  // 🆕 Hook para obtener todas las obras del usuario
   const {
     obras,
     loading: obrasLoading,
     error: obrasError,
   } = useObras(userProfile?.id_persona);
 
-  // 🆕 Estado para pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
+  const [tarifasModalVisible, setTarifasModalVisible] = useState(false);
 
   const handleCrearVale = () => {
     navigation.navigate("SeleccionarTipoVale");
@@ -43,15 +42,14 @@ const ValesScreen = () => {
     navigation.navigate("Archivados");
   };
 
-  // 🆕 Función para refrescar datos
+  const handleVerTarifas = () => {
+    setTarifasModalVisible(true);
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      // Refrescar perfil del usuario (por si cambió la obra actual)
       await refreshProfile();
-
-      // El hook useObras se actualizará automáticamente cuando cambie userProfile
-      // debido a su useEffect interno
     } catch (error) {
       console.error("[ValesScreen] Error al refrescar:", error);
     } finally {
@@ -59,7 +57,6 @@ const ValesScreen = () => {
     }
   };
 
-  // Loading inicial
   if (authLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -73,16 +70,23 @@ const ValesScreen = () => {
     {
       onPress: handleCrearVale,
       iconName: "file-document-plus",
-      iconSize: 70,
+      iconSize: 60,
       buttonText: "Crear Vale",
       backgroundColor: colors.primary,
     },
     {
       onPress: handleVerArchivados,
       iconName: "archive",
-      iconSize: 70,
+      iconSize: 60,
       buttonText: "Archivados",
       backgroundColor: colors.secondary,
+    },
+    {
+      onPress: handleVerTarifas,
+      iconName: "file-document-outline",
+      iconSize: 60,
+      buttonText: "Tarifas",
+      backgroundColor: colors.accent,
     },
   ];
 
@@ -104,13 +108,12 @@ const ValesScreen = () => {
       <UserProfile
         userName={userName || "Usuario"}
         userRole={userRole || "Cargando..."}
-        userObra={userProfile?.obras?.obra || "Sin obra asignada"} // Fallback
+        userObra={userProfile?.obras?.obra || "Sin obra asignada"}
         userEmail={userProfile?.current_email || userProfile?.email}
-        obras={obras} // 🆕 Array de obras con CC
-        loading={obrasLoading} // 🆕 Loading de obras
+        obras={obras}
+        loading={obrasLoading}
       />
 
-      {/* Mostrar error de obras si existe */}
       {obrasError && (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>⚠️ {obrasError}</Text>
@@ -118,6 +121,12 @@ const ValesScreen = () => {
       )}
 
       <ButtonsGrid buttons={buttonConfigs} />
+
+      <TarifasModal
+        visible={tarifasModalVisible}
+        onClose={() => setTarifasModalVisible(false)}
+        userObras={obras || []}
+      />
     </ScrollView>
   );
 };

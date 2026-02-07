@@ -35,8 +35,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   iconoBotonContainer: {
-    width: 120,
-    height: 120,
+    width: 100,
+    height: 100,
     borderRadius: 60,
     justifyContent: "center",
     alignItems: "center",
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   textoBoton: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "bold",
     textAlign: "center",
   },
