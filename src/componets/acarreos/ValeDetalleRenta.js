@@ -31,6 +31,7 @@ import SuccessModal from "../common/SuccessModal";
 import PrimaryButton from "../common/PrimaryButton";
 import GenerarPDFButton from "../vale/GenerarPDFButton";
 import CustomTimePicker from "../forms/CustomTimePicker";
+import { useAuth } from "../../hooks/useAuth";
 
 const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const [horaFin, setHoraFin] = useState(null);
@@ -182,7 +183,11 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
 
         const { error: valeError } = await supabase
           .from("vales")
-          .update({ estado: "emitido" })
+          .update({
+            estado: "emitido",
+            id_persona_completador: userProfile.id_persona,
+            fecha_completado: new Date().toISOString(),
+          })
           .eq("id_vale", vale.id_vale);
 
         if (valeError) throw valeError;
@@ -307,6 +312,37 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             label="Sindicato"
             value={vale.vehiculos?.sindicatos?.sindicato || "N/A"}
           />
+
+          {/* ✅ NUEVO: Mostrar quien creó el vale */}
+          <InfoRow
+            icon="account-plus"
+            label="Creado por"
+            value={
+              vale.persona
+                ? `${vale.persona.nombre} ${vale.persona.primer_apellido || ""} ${vale.persona.segundo_apellido || ""}`.trim()
+                : "N/A"
+            }
+          />
+
+          {/* ✅ NUEVO: Mostrar quien completó el vale (solo si está completado) */}
+          {vale.estado !== "en_proceso" &&
+            vale.estado !== "borrador" &&
+            vale.persona_completador && (
+              <InfoRow
+                icon="account-check"
+                label="Completado por"
+                value={`${vale.persona_completador.nombre} ${vale.persona_completador.primer_apellido || ""} ${vale.persona_completador.segundo_apellido || ""}`.trim()}
+              />
+            )}
+
+          {/* ✅ NUEVO: Mostrar fecha de completado (solo si existe) */}
+          {vale.fecha_completado && (
+            <InfoRow
+              icon="calendar-check"
+              label="Fecha completado"
+              value={formatDate(vale.fecha_completado)}
+            />
+          )}
         </View>
 
         {/* Detalles de Renta */}

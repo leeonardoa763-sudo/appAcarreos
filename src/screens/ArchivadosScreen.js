@@ -64,7 +64,7 @@ const ArchivadosScreen = () => {
           obras (obra),
           operadores:id_operador (nombre_completo),
           vehiculos:id_vehiculo (placas)
-        `
+        `,
         )
         .eq("id_persona_creador", userProfile.id_persona)
         .eq("archivado", true)
@@ -103,6 +103,7 @@ const ArchivadosScreen = () => {
           *,
           obras (obra, cc, empresas (empresa, sufijo, logo)),
           persona:id_persona_creador (nombre, primer_apellido, segundo_apellido),
+          persona_completador:id_persona_completador (nombre, primer_apellido, segundo_apellido),
           operadores:id_operador (nombre_completo),
           vehiculos:id_vehiculo (placas, sindicatos:id_sindicato (sindicato)),
           vale_material_detalles (*,
@@ -114,7 +115,7 @@ const ArchivadosScreen = () => {
             sindicatos:id_sindicato (sindicato),
             precios_renta (costo_hr, costo_dia)
           )
-        `
+        `,
         )
         .eq("id_vale", vale.id_vale)
         .single();

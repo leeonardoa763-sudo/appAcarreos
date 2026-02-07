@@ -34,7 +34,7 @@ import GenerarPDFButton from "../vale/GenerarPDFButton";
 
 const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   // Estados para OTROS TIPOS
-  const { userProfile } = useAuth();
+
   const [pesoToneladas, setPesoToneladas] = useState(null);
   const [folioBanco, setFolioBanco] = useState("");
 
@@ -94,7 +94,18 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
   //  NUEVO: Completar vale TIPO 3 (solo cantidad)
   const handleCompletarValeTipo3 = useCallback(async () => {
+    console.log("[DEBUG] userProfile:", userProfile);
+    console.log("[DEBUG] userProfile.id_persona:", userProfile?.id_persona);
+
     if (!canComplete || !esTipo3) return;
+
+    if (!userProfile?.id_persona) {
+      Alert.alert(
+        "Error",
+        "No se pudo obtener la información del usuario. Por favor cierra sesión e inicia sesión nuevamente.",
+      );
+      return;
+    }
 
     // Validaciones
     if (!cantidadConfirmada || cantidadConfirmada <= 0) {
@@ -174,12 +185,12 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
       // PASO 4: Actualizar estado del vale a "emitido"
       const { error: errorEstado } = await supabase
         .from("vales")
-        .update({ estado: "emitido" })
+        .update({
+          estado: "emitido",
+          id_persona_completador: userProfile.id_persona,
+          fecha_completado: new Date().toISOString(),
+        })
         .eq("id_vale", vale.id_vale);
-
-      if (errorEstado) {
-        throw errorEstado;
-      }
 
       // PASO 5: Consultar vale completo actualizado
       const { data: valeConsultado, error: errorConsulta } = await supabase
@@ -199,6 +210,11 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             )
           ),
           persona:id_persona_creador (
+            nombre,
+            primer_apellido,
+            segundo_apellido
+          ),
+          persona_completador:id_persona_completador (
             nombre,
             primer_apellido,
             segundo_apellido
@@ -257,6 +273,14 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   // Completar vale OTROS TIPOS (peso + folio) - CÓDIGO EXISTENTE
   const handleCompletarVale = useCallback(async () => {
     if (!canComplete || esTipo3) return; // ✅ Agregar validación para NO ejecutar si es tipo 3
+
+    if (!userProfile?.id_persona) {
+      Alert.alert(
+        "Error",
+        "No se pudo obtener la información del usuario. Por favor cierra sesión e inicia sesión nuevamente.",
+      );
+      return;
+    }
 
     // Validaciones de campos
     if (!pesoToneladas || pesoToneladas <= 0) {
@@ -441,7 +465,11 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         // Actualizar estado del vale a "emitido"
         const { error: errorEstado } = await supabase
           .from("vales")
-          .update({ estado: "emitido" })
+          .update({
+            estado: "emitido",
+            id_persona_completador: userProfile.id_persona,
+            fecha_completado: new Date().toISOString(),
+          })
           .eq("id_vale", vale.id_vale);
 
         if (errorEstado) {
@@ -470,6 +498,11 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             )
           ),
           persona:id_persona_creador (
+            nombre,
+            primer_apellido,
+            segundo_apellido
+          ),
+          persona_completador:id_persona_completador (
             nombre,
             primer_apellido,
             segundo_apellido
@@ -613,6 +646,37 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             label="Sindicato"
             value={vale.vehiculos?.sindicatos?.sindicato || "N/A"}
           />
+
+          {/* ✅ NUEVO: Mostrar quien creó el vale */}
+          <InfoRow
+            icon="account-plus"
+            label="Creado por"
+            value={
+              vale.persona
+                ? `${vale.persona.nombre} ${vale.persona.primer_apellido || ""} ${vale.persona.segundo_apellido || ""}`.trim()
+                : "N/A"
+            }
+          />
+
+          {/* ✅ NUEVO: Mostrar quien completó el vale (solo si está completado) */}
+          {vale.estado !== "en_proceso" &&
+            vale.estado !== "borrador" &&
+            vale.persona_completador && (
+              <InfoRow
+                icon="account-check"
+                label="Completado por"
+                value={`${vale.persona_completador.nombre} ${vale.persona_completador.primer_apellido || ""} ${vale.persona_completador.segundo_apellido || ""}`.trim()}
+              />
+            )}
+
+          {/* ✅ NUEVO: Mostrar fecha de completado (solo si existe) */}
+          {vale.fecha_completado && (
+            <InfoRow
+              icon="calendar-check"
+              label="Fecha completado"
+              value={formatDate(vale.fecha_completado)}
+            />
+          )}
         </View>
 
         {/* Detalles del Material */}

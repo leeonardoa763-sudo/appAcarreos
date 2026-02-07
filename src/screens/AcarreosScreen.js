@@ -120,6 +120,11 @@ const AcarreosScreen = () => {
             primer_apellido,
             segundo_apellido
           ),
+          persona_completador:id_persona_completador (
+            nombre,
+            primer_apellido,
+            segundo_apellido
+          ),
           operadores:id_operador (
             nombre_completo
           ),

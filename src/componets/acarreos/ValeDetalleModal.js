@@ -22,11 +22,13 @@ import React, { useEffect, useMemo } from "react";
 import { View, Text, Modal, StyleSheet, TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
+import { useAuth } from "../../hooks/useAuth";
 
 import ValeDetalleMaterial from "./ValeDetalleMaterial";
 import ValeDetalleRenta from "./ValeDetalleRenta";
 
 const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
+  const { userProfile } = useAuth();
   // Determinar tipo de vale
   const tipoVale = useMemo(() => {
     if (!vale) return null;
@@ -89,6 +91,7 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
               vale={vale}
               onClose={onClose}
               onRefresh={onRefresh}
+              userProfile={userProfile}
             />
           )}
 
@@ -97,6 +100,7 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
               vale={vale}
               onClose={onClose}
               onRefresh={onRefresh}
+              userProfile={userProfile}
             />
           )}
         </View>

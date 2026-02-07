@@ -84,10 +84,12 @@ export const fetchValesMaterial = async (weekNumber, year, obrasIds) => {
       id_vale,
       folio,
       fecha_creacion,
+      fecha_completado,
       tipo_vale,
       estado,
       obras!vales_id_obra_fkey(obra),
       persona!vales_id_persona_creador_fkey(nombre, primer_apellido, segundo_apellido),
+      persona_completador:id_persona_completador(nombre, primer_apellido, segundo_apellido),
       operadores!vales_id_operador_fkey(nombre, primer_apellido, segundo_apellido),
       vehiculos!vales_id_vehiculo_fkey(placas),
       vale_material_detalles(
@@ -135,6 +137,7 @@ export const fetchValesRenta = async (weekNumber, year, obrasIds) => {
       estado,
       obras!vales_id_obra_fkey(obra),
       persona!vales_id_persona_creador_fkey(nombre, primer_apellido, segundo_apellido),
+      persona_completador:id_persona_completador(nombre, primer_apellido, segundo_apellido),
       operadores!vales_id_operador_fkey(nombre, primer_apellido, segundo_apellido),
       vehiculos!vales_id_vehiculo_fkey(placas),
       vale_renta_detalle(
