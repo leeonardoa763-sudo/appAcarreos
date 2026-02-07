@@ -102,6 +102,7 @@ export const fetchValesMaterial = async (weekNumber, year, obrasIds) => {
         peso_ton,
         precio_m3,
         costo_total,
+        notas_adicionales,
         tarifa_primer_km,
         tarifa_subsecuente,
         requisicion
@@ -148,6 +149,7 @@ export const fetchValesRenta = async (weekNumber, year, obrasIds) => {
         total_dias,
         es_renta_por_dia,
         costo_total,
+        notas_adicionales,
         precios_renta!vale_renta_detalle_id_precios_renta_fkey(costo_hr, costo_dia)
       )
     `,

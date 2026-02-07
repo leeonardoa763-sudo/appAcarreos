@@ -33,6 +33,7 @@ import PrimaryButton from "../common/PrimaryButton";
 import GenerarPDFButton from "../vale/GenerarPDFButton";
 
 const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
+  const { userProfile } = useAuth();
   // Estados para OTROS TIPOS
 
   const [pesoToneladas, setPesoToneladas] = useState(null);
@@ -268,6 +269,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     cantidadConfirmada,
     detalleMaterial,
     vale?.id_vale,
+    userProfile,
   ]);
 
   // Completar vale OTROS TIPOS (peso + folio) - CÓDIGO EXISTENTE
@@ -574,6 +576,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     folioBanco,
     detalleMaterial,
     vale?.id_vale,
+    userProfile,
   ]);
 
   const handleCloseSuccess = useCallback(() => {
@@ -688,6 +691,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             label="Material"
             value={detalleMaterial.material?.material || "N/A"}
           />
+
           {detalleMaterial.requisicion && (
             <InfoRow
               icon="file-document-outline"
@@ -695,21 +699,25 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               value={detalleMaterial.requisicion}
             />
           )}
+
           <InfoRow
             icon="bank"
             label="Banco"
             value={detalleMaterial.bancos?.banco || "N/A"}
           />
+
           <InfoRow
             icon="cube-send"
             label="Capacidad"
             value={`${detalleMaterial.capacidad_m3} m³`}
           />
+
           <InfoRow
             icon="map-marker-distance"
             label="Distancia"
             value={`${detalleMaterial.distancia_km} km`}
           />
+
           <InfoRow
             icon="package-variant"
             label="Cantidad Pedida"
@@ -759,6 +767,22 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
                 value={formatDate(vale.fecha_creacion)}
               />
             </>
+          )}
+
+          {detalleMaterial.notas_adicionales && (
+            <View style={styles.notasContainer}>
+              <View style={styles.notasHeader}>
+                <MaterialCommunityIcons
+                  name="note-text"
+                  size={18}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.notasLabel}>Notas Adicionales</Text>
+              </View>
+              <Text style={styles.notasText}>
+                {detalleMaterial.notas_adicionales}
+              </Text>
+            </View>
           )}
         </View>
 
@@ -976,6 +1000,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+  },
+  notasContainer: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.info,
+  },
+  notasHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  notasLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    marginLeft: 8,
+  },
+  notasText: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    lineHeight: 20,
   },
   labelText: {
     fontSize: 14,

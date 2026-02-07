@@ -58,6 +58,28 @@ const getNombreCompleto = (persona) => {
 };
 
 /**
+ * Formatea fecha y hora completa para CSV
+ */
+const formatFechaHoraCompleta = (fechaISO) => {
+  if (!fechaISO) return "-";
+  const fecha = new Date(fechaISO);
+  const dia = String(fecha.getDate()).padStart(2, "0");
+  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+  const año = fecha.getFullYear();
+  const horas = String(fecha.getHours()).padStart(2, "0");
+  const minutos = String(fecha.getMinutes()).padStart(2, "0");
+  return `${dia}/${mes}/${año} ${horas}:${minutos}`;
+};
+
+/**
+ * Genera URL del QR para verificación
+ */
+const generarUrlQR = (folio) => {
+  if (!folio) return "-";
+  return `https://web-acarreos.vercel.app/vale/${folio}`;
+};
+
+/**
  * Transforma datos de vales de material a formato CSV
  */
 export const transformMaterialData = (vales) => {
@@ -84,6 +106,12 @@ export const transformMaterialData = (vales) => {
       peso: detalle.peso_ton || "0",
       precio_m3: detalle.precio_m3 || "0",
       costo_total: detalle.costo_total || "0",
+      creado_por: getNombreCompleto(vale.persona),
+      fecha_creacion: formatFechaHoraCompleta(vale.fecha_creacion),
+      completado_por: getNombreCompleto(vale.persona_completador),
+      fecha_completado: formatFechaHoraCompleta(vale.fecha_completado),
+      notas: detalle.notas_adicionales || "-",
+      link_qr: generarUrlQR(vale.folio),
     };
   });
 };
@@ -116,6 +144,12 @@ export const transformRentaData = (vales) => {
       tarifa_hora: detalle.precios_renta?.costo_hr || "0",
       tarifa_dia: detalle.precios_renta?.costo_dia || "0",
       costo_total: detalle.costo_total || "0",
+      creado_por: getNombreCompleto(vale.persona),
+      fecha_creacion: formatFechaHoraCompleta(vale.fecha_creacion),
+      completado_por: getNombreCompleto(vale.persona_completador),
+      fecha_completado: formatFechaHoraCompleta(vale.fecha_completado),
+      notas: detalle.notas_adicionales || "-",
+      link_qr: generarUrlQR(vale.folio),
     };
   });
 };
@@ -142,6 +176,12 @@ export const MATERIAL_HEADERS = [
   { key: "peso", label: "Peso (ton)" },
   { key: "precio_m3", label: "Precio por m3" },
   { key: "costo_total", label: "Costo Total" },
+  { key: "creado_por", label: "Creado Por" },
+  { key: "fecha_creacion", label: "Fecha Creación" },
+  { key: "completado_por", label: "Completado Por" },
+  { key: "fecha_completado", label: "Fecha Completado" },
+  { key: "notas", label: "Notas" },
+  { key: "link_qr", label: "Link QR" },
 ];
 
 /**
@@ -165,4 +205,10 @@ export const RENTA_HEADERS = [
   { key: "tarifa_hora", label: "Tarifa por Hora" },
   { key: "tarifa_dia", label: "Tarifa por Dia" },
   { key: "costo_total", label: "Costo Total" },
+  { key: "creado_por", label: "Creado Por" },
+  { key: "fecha_creacion", label: "Fecha Creación" },
+  { key: "completado_por", label: "Completado Por" },
+  { key: "fecha_completado", label: "Fecha Completado" },
+  { key: "notas", label: "Notas" },
+  { key: "link_qr", label: "Link QR" },
 ];

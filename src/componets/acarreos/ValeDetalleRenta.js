@@ -34,6 +34,7 @@ import CustomTimePicker from "../forms/CustomTimePicker";
 import { useAuth } from "../../hooks/useAuth";
 
 const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
+  const { userProfile } = useAuth();
   const [horaFin, setHoraFin] = useState(null);
   const [numeroViajes, setNumeroViajes] = useState(1);
   const [esRentaPorDia, setEsRentaPorDia] = useState(false);
@@ -74,7 +75,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       setNumeroViajes(1);
       setEsRentaPorDia(false);
       setEsRentaPorMedioDia(false);
-      console.log("[ValeDetalleRenta] ✅ Estados reseteados");
     } else {
       console.log("[ValeDetalleRenta] ⚠️ No hay detalleRenta para inicializar");
     }
@@ -235,6 +235,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     detalleRenta,
     vale?.id_vale,
     preciosRenta,
+    userProfile,
   ]);
 
   const handleCloseSuccess = useCallback(() => {
@@ -262,8 +263,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     });
     return null;
   }
-
-  console.log("[ValeDetalleRenta] ✅ RENDER OK - Mostrando componente");
 
   const InfoRow = ({ icon, label, value }) => (
     <View style={styles.infoRow}>
