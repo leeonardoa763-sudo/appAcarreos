@@ -431,38 +431,40 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           )}
         </View>
 
-        {/* Tarifas y Costo */}
-        {vale.estado !== "en_proceso" && preciosRenta && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tarifas y Costo</Text>
+        {/* Tarifas y Costo (solo si está completado Y el usuario NO es checador) */}
+        {vale.estado !== "en_proceso" &&
+          preciosRenta &&
+          userProfile?.roles?.role !== "CHECADOR" && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Tarifas y Costo</Text>
 
-            {preciosRenta.costo_hr && (
-              <InfoRow
-                icon="cash"
-                label="Tarifa por Hora"
-                value={formatCurrency(preciosRenta.costo_hr)}
-              />
-            )}
-
-            {preciosRenta.costo_dia && (
-              <InfoRow
-                icon="cash-multiple"
-                label="Tarifa por Día"
-                value={formatCurrency(preciosRenta.costo_dia)}
-              />
-            )}
-
-            {detalleRenta.costo_total && (
-              <View style={styles.totalContainer}>
+              {preciosRenta.costo_hr && (
                 <InfoRow
-                  icon="currency-usd"
-                  label="Costo Total"
-                  value={formatCurrency(detalleRenta.costo_total)}
+                  icon="cash"
+                  label="Tarifa por Hora"
+                  value={formatCurrency(preciosRenta.costo_hr)}
                 />
-              </View>
-            )}
-          </View>
-        )}
+              )}
+
+              {preciosRenta.costo_dia && (
+                <InfoRow
+                  icon="cash-multiple"
+                  label="Tarifa por Día"
+                  value={formatCurrency(preciosRenta.costo_dia)}
+                />
+              )}
+
+              {detalleRenta.costo_total && (
+                <View style={styles.totalContainer}>
+                  <InfoRow
+                    icon="currency-usd"
+                    label="Costo Total"
+                    value={formatCurrency(detalleRenta.costo_total)}
+                  />
+                </View>
+              )}
+            </View>
+          )}
 
         {/* Formulario para Completar */}
         {canComplete && (
