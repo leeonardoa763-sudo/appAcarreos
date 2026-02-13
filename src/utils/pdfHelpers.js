@@ -6,7 +6,7 @@
 
 export const COLORES_COPIA = {
   blanco: "#FFFFFF",
-  roja: "#FFEBEE",
+  roja: "#de4040ff",
   verde: "#E8F5E8",
   azul: "#E3F2FD",
   amarilla: "#FFFDE7",

@@ -153,49 +153,44 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         costoTotal = parseFloat(preciosRenta.costo_hr) * totalHoras;
       }
 
-      const { data, error } = await supabase.rpc("completar_vale_renta", {
-        p_id_vale: vale.id_vale,
-        p_id_detalle: detalleRenta.id_vale_renta_detalle,
-        p_hora_fin: horaFinFinal,
-        p_total_horas: totalHoras,
-        p_total_dias: totalDias,
-        p_numero_viajes: numeroViajes,
-        p_es_renta_por_dia: esRentaPorDia,
-        p_costo_total: costoTotal,
-      });
+      // Actualizar detalle de renta
+      const { error: errorDetalle } = await supabase
+        .from("vale_renta_detalle")
+        .update({
+          es_renta_por_dia: esRentaPorDia,
+          hora_fin: horaFinFinal,
+          total_horas: totalHoras,
+          total_dias: totalDias,
+          numero_viajes: numeroViajes,
+          costo_total: costoTotal,
+        })
+        .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle);
 
-      if (error) {
-        console.log("[ValeDetalleRenta] RPC falló, usando fallback");
+      if (errorDetalle) throw errorDetalle;
 
-        const { error: errorDetalle } = await supabase
-          .from("vale_renta_detalle")
-          .update({
-            es_renta_por_dia: esRentaPorDia,
-            hora_fin: horaFinFinal,
-            total_horas: totalHoras,
-            total_dias: totalDias,
-            numero_viajes: numeroViajes,
-            costo_total: costoTotal,
-          })
-          .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle);
+      // Actualizar estado del vale
+      const { error: valeError } = await supabase
+        .from("vales")
+        .update({
+          estado: "emitido",
+          id_persona_completador: userProfile.id_persona,
+          fecha_completado: new Date().toISOString(),
+        })
+        .eq("id_vale", vale.id_vale);
 
-        if (errorDetalle) throw errorDetalle;
-
-        const { error: valeError } = await supabase
-          .from("vales")
-          .update({
-            estado: "emitido",
-            id_persona_completador: userProfile.id_persona,
-            fecha_completado: new Date().toISOString(),
-          })
-          .eq("id_vale", vale.id_vale);
-
-        if (valeError) throw valeError;
-      }
+      if (valeError) throw valeError;
 
       const valeActualizado = {
         ...vale,
         estado: "emitido",
+        id_persona_completador: userProfile.id_persona, // ← AGREGAR ESTO
+        fecha_completado: new Date().toISOString(), // ← AGREGAR ESTO
+        persona_completador: {
+          // ← AGREGAR ESTO
+          nombre: userProfile.nombre,
+          primer_apellido: userProfile.primer_apellido,
+          segundo_apellido: userProfile.segundo_apellido,
+        },
         vale_renta_detalle: [
           {
             ...detalleRenta,

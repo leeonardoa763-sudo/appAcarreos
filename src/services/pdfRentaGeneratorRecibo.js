@@ -108,14 +108,15 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const placas = valeData.vehiculos?.placas || "N/A";
   const sindicato = valeData.vehiculos?.sindicatos?.sindicato || "N/A";
 
-  // Residente emisor
-  const residente = valeData.persona
-    ? `${valeData.persona.nombre} ${valeData.persona.primer_apellido}${
-        valeData.persona.segundo_apellido
-          ? " " + valeData.persona.segundo_apellido
-          : ""
-      }`
+  // Persona que creó el vale
+  const creador = valeData.persona
+    ? `${valeData.persona.nombre} ${valeData.persona.primer_apellido} ${valeData.persona.segundo_apellido || ""}`.trim()
     : "N/A";
+
+  // Persona que computó (completó) el vale
+  const computador = valeData.persona_completador
+    ? `${valeData.persona_completador.nombre} ${valeData.persona_completador.primer_apellido} ${valeData.persona_completador.segundo_apellido || ""}`.trim()
+    : null; // null si aún no se ha completado
 
   const notas = detalle.notas_adicionales?.trim() || null;
 
@@ -194,7 +195,8 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
           </div>
         </div>
 
-        <!-- TARIFAS Y COSTO -->
+        <!-- TARIFAS Y COSTO - COMENTADO PARA PRIVACIDAD -->
+        <!--
         <div class="receipt-section">
           <div class="section-title">TARIFAS</div>
           <div class="receipt-row">
@@ -210,6 +212,7 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
             <span>${costoTotal} MXN</span>
           </div>
         </div>
+        -->
 
         <!-- OPERADOR -->
         <div class="receipt-section">
@@ -223,12 +226,22 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
           </div>
         </div>
 
-        <!-- RESIDENTE -->
+        <!-- CREÓ Y COMPUTÓ -->
         <div class="receipt-section">
           <div class="receipt-row">
-            <span class="receipt-row-label">Residente:</span>
-            <span class="receipt-row-value" style="font-size: 5px;">${residente}</span>
+            <span class="receipt-row-label">Creado por:</span>
+            <span class="receipt-row-value" style="font-size: 5px;">${creador}</span>
           </div>
+          ${
+            computador
+              ? `
+          <div class="receipt-row">
+            <span class="receipt-row-label">Completo por:</span>
+            <span class="receipt-row-value" style="font-size: 5px;">${computador}</span>
+          </div>
+          `
+              : ""
+          }
         </div>
 
         ${
@@ -285,11 +298,25 @@ export const generateAndShareRentaRecibo = async (
 
     const html = generateValeRentaReciboHTML(valeData, colorCopia, qrDataUrl);
 
+    // Calcular altura dinámica basada en contenido
+    const detalle = valeData.vale_renta_detalle?.[0] || {};
+    const tieneNotas = detalle.notas_adicionales?.trim();
+    const esRentaPorDia = detalle.es_renta_por_dia === true;
+
+    // Altura base reducida: ~260px (69mm)
+    let alturaCalculada = 340;
+
+    // + 20px si tiene notas
+    if (tieneNotas) alturaCalculada += 30;
+
+    // + 15px si es renta por día (tiene más info)
+    if (esRentaPorDia) alturaCalculada += 5;
+
     const { uri } = await Print.printToFileAsync({
       html,
       base64: false,
       width: 189, // 50mm @ 96dpi
-      height: 500, // ~90mm mínimo @ 96dpi (ajustable)
+      height: alturaCalculada, // Altura calculada dinámicamente
     });
 
     const renamedUri = await renamePDFWithAutoName(

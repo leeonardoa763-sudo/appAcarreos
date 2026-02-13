@@ -122,6 +122,19 @@ const ValeCard = ({ vale, onPress }) => {
         />
         <Text>{vale.vehiculos?.placas || "N/A"}</Text>
       </View>
+      {/* Mostrar persona que completó (solo si NO está en proceso) */}
+      {vale.estado !== "en_proceso" && vale.persona_completador && (
+        <View style={styles.row}>
+          <MaterialCommunityIcons
+            name="account-check"
+            size={16}
+            color={colors.accent}
+          />
+          <Text style={styles.completadorText}>
+            {`${vale.persona_completador.nombre} ${vale.persona_completador.primer_apellido || ""} ${vale.persona_completador.segundo_apellido || ""}`.trim()}
+          </Text>
+        </View>
+      )}
 
       {/* Información específica según tipo */}
       {isMaterial && materialInfo && (
@@ -275,5 +288,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginRight: 4,
+  },
+  completadorText: {
+    fontSize: 12,
+    color: colors.accent,
+    fontWeight: "500",
   },
 });

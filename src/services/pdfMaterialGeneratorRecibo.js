@@ -75,14 +75,15 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const placas = valeData.vehiculos?.placas || "N/A";
   const sindicato = valeData.vehiculos?.sindicatos?.sindicato || "N/A";
 
-  // Residente emisor
-  const residente = valeData.persona
-    ? `${valeData.persona.nombre} ${valeData.persona.primer_apellido}${
-        valeData.persona.segundo_apellido
-          ? " " + valeData.persona.segundo_apellido
-          : ""
-      }`
+  // Persona que creó el vale
+  const creador = valeData.persona
+    ? `${valeData.persona.nombre} ${valeData.persona.primer_apellido} ${valeData.persona.segundo_apellido || ""}`.trim()
     : "N/A";
+
+  // Persona que computó (completó) el vale
+  const computador = valeData.persona_completador
+    ? `${valeData.persona_completador.nombre} ${valeData.persona_completador.primer_apellido} ${valeData.persona_completador.segundo_apellido || ""}`.trim()
+    : null; // null si aún no se ha completado
 
   const notas = detalle.notas_adicionales?.trim() || null;
 
@@ -204,7 +205,8 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
         ${
           tienePrecio
             ? `
-        <!-- TARIFAS Y COSTO -->
+        <!-- TARIFAS Y COSTO - COMENTADO PARA PRIVACIDAD -->
+        <!--
         <div class="receipt-section">
           <div class="section-title">TARIFAS</div>
           <div class="receipt-row">
@@ -224,6 +226,7 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
             <span>${costoTotal} MXN</span>
           </div>
         </div>
+        -->
         `
             : ""
         }
@@ -244,12 +247,22 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
           </div>
         </div>
 
-        <!-- RESIDENTE -->
+        <!-- CREÓ Y COMPUTÓ -->
         <div class="receipt-section">
           <div class="receipt-row">
-            <span class="receipt-row-label">Residente:</span>
-            <span class="receipt-row-value" style="font-size: 5px;">${residente}</span>
+            <span class="receipt-row-label">Creado por:</span>
+            <span class="receipt-row-value" style="font-size: 5px;">${creador}</span>
           </div>
+          ${
+            computador
+              ? `
+          <div class="receipt-row">
+            <span class="receipt-row-label">Completado por:</span>
+            <span class="receipt-row-value" style="font-size: 5px;">${computador}</span>
+          </div>
+          `
+              : ""
+          }
         </div>
 
         ${
@@ -296,7 +309,7 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
 export const generateAndShareMaterialRecibo = async (
   valeData,
   colorCopia,
-  qrDataUrl
+  qrDataUrl,
 ) => {
   try {
     console.log("[pdfMaterialGeneratorRecibo] Generando PDF recibo:", {
@@ -307,25 +320,44 @@ export const generateAndShareMaterialRecibo = async (
     const html = generateValeMaterialReciboHTML(
       valeData,
       colorCopia,
-      qrDataUrl
+      qrDataUrl,
     );
+
+    // Calcular altura dinámica basada en contenido
+    const detalle = valeData.vale_material_detalles?.[0] || {};
+    const tieneNotas = detalle.notas_adicionales?.trim();
+    const tienePrecio = detalle.precio_m3 && detalle.costo_total;
+    const esCopiaBlanca = colorCopia.toLowerCase() === "blanca";
+    const esTipo3 = detalle.material?.id_tipo_de_material === 3;
+
+    // Altura base reducida: ~240px (64mm)
+    let alturaCalculada = 325;
+
+    // + 20px si tiene notas
+    if (tieneNotas) alturaCalculada += 30;
+
+    // + 40px si tiene precios y tarifas
+    if (tienePrecio) alturaCalculada += 5;
+
+    // + 20px si es copia blanca con datos adicionales
+    if (esCopiaBlanca && !esTipo3) alturaCalculada += 28;
 
     const { uri } = await Print.printToFileAsync({
       html,
       base64: false,
       width: 189, // 50mm @ 96dpi
-      height: 500, // ~90mm mínimo @ 96dpi (ajustable)
+      height: alturaCalculada, // Altura calculada dinámicamente
     });
 
     const renamedUri = await renamePDFWithAutoName(
       uri,
       valeData.folio,
-      colorCopia
+      colorCopia,
     );
 
     console.log(
       "[pdfMaterialGeneratorRecibo] PDF generado exitosamente:",
-      renamedUri
+      renamedUri,
     );
 
     if (await Sharing.isAvailableAsync()) {
@@ -342,7 +374,7 @@ export const generateAndShareMaterialRecibo = async (
   } catch (error) {
     console.error(
       "[pdfMaterialGeneratorRecibo] Error generando PDF recibo:",
-      error
+      error,
     );
     throw error;
   }

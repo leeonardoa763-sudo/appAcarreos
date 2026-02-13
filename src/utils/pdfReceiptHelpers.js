@@ -8,7 +8,7 @@
 
 export const COLORES_COPIA_RECIBO = {
   blanco: "#FFFFFF",
-  roja: "#FFFFFF",
+  roja: "#f58697ff",
   verde: "#E8F5E8",
   azul: "#E3F2FD",
   amarilla: "#FFFDE7",
@@ -42,39 +42,49 @@ export const getReceiptBaseCSS = (bgColor) => {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      background-color: ${bgColor} !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     
     @page {
       size: 50mm auto;
       margin: 0;
+      background-color: ${bgColor} !important;
+    }
+    
+    html {
+      background-color: ${bgColor} !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     
     body {
-    font-family: 'Courier New', 'Courier', monospace;
-    background-color: ${bgColor};
-    background-color: ${bgColor} !important;
-    width: 50mm;
-    min-height: 90mm;
-    padding: 0;
-    margin: 0 auto;
-    color: #000;
-    font-size: 7px;
-    line-height: 1.2;
-    display: flex;
-    justify-content: center;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+      font-family: 'Courier New', 'Courier', monospace;
+      background-color: ${bgColor} !important;
+      width: 50mm;
+      padding: 0;
+      margin: 0 auto;
+      color: #000;
+      font-size: 7px;
+      line-height: 1.2;
+      display: flex;
+      justify-content: center;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      overflow: hidden;
     }
 
     .receipt-container {
-    width: 100%;
-    max-width: 50mm;
-    background: ${bgColor};
-    background-color: ${bgColor} !important;
-    padding: 2mm;
-    margin: 0 auto;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+      width: 100%;
+      max-width: 50mm;
+      background-color: ${bgColor} !important;
+      padding: 2mm;
+      margin: 0 auto;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     
     .receipt-header {
@@ -82,6 +92,8 @@ export const getReceiptBaseCSS = (bgColor) => {
       border-bottom: 1px dashed #000;
       padding-bottom: 1.5mm;
       margin-bottom: 1.5mm;
+      background-color: ${bgColor} !important;
+      page-break-inside: avoid;
     }
     
     .receipt-header h1 {
@@ -89,24 +101,29 @@ export const getReceiptBaseCSS = (bgColor) => {
       font-weight: bold;
       margin-bottom: 1mm;
       text-transform: uppercase;
+      background-color: transparent !important;
     }
     
     .receipt-header h2 {
       font-size: 7px;
       font-weight: bold;
       margin-bottom: 1mm;
+      background-color: transparent !important;
     }
     
     .receipt-header .folio {
       font-size: 8px;
       font-weight: bold;
       margin-top: 1mm;
+      background-color: transparent !important;
     }
     
     .receipt-section {
       margin-bottom: 1.5mm;
       border-bottom: 1px dashed #000;
       padding-bottom: 1.5mm;
+      background-color: ${bgColor} !important;
+      page-break-inside: avoid;
     }
     
     .receipt-section:last-of-type {
@@ -119,6 +136,7 @@ export const getReceiptBaseCSS = (bgColor) => {
       text-align: center;
       margin-bottom: 1mm;
       text-transform: uppercase;
+      background-color: transparent !important;
     }
     
     .receipt-row {
@@ -126,33 +144,39 @@ export const getReceiptBaseCSS = (bgColor) => {
       justify-content: space-between;
       padding: 0.3mm 0;
       font-size: 6px;
+      background-color: transparent !important;
     }
     
     .receipt-row-label {
       font-weight: normal;
       color: #333;
+      background-color: transparent !important;
     }
     
     .receipt-row-value {
       font-weight: bold;
       text-align: right;
+      background-color: transparent !important;
     }
     
     .receipt-full {
       font-size: 6px;
       padding: 0.5mm 0;
       word-wrap: break-word;
+      background-color: transparent !important;
     }
     
     .receipt-full-label {
       font-weight: normal;
       color: #333;
+      background-color: transparent !important;
     }
     
     .receipt-full-value {
       font-weight: bold;
       display: block;
       margin-top: 0.5mm;
+      background-color: transparent !important;
     }
     
     .total-row {
@@ -163,6 +187,7 @@ export const getReceiptBaseCSS = (bgColor) => {
       font-weight: bold;
       margin-top: 1mm;
       border-top: 1px solid #000;
+      background-color: transparent !important;
     }
     
     .qr-section {
@@ -170,6 +195,8 @@ export const getReceiptBaseCSS = (bgColor) => {
       margin-top: 1.5mm;
       padding-top: 1.5mm;
       border-top: 1px dashed #000;
+      background-color: ${bgColor} !important;
+      page-break-inside: avoid;
     }
     
     .qr-section img {
@@ -177,12 +204,19 @@ export const getReceiptBaseCSS = (bgColor) => {
       height: 12mm;
       margin: 0.5mm auto;
       display: block;
+      background-color: #FFFFFF !important;
     }
     
     .qr-text {
       font-size: 5px;
       margin-top: 0.5mm;
       text-align: center;
+      background-color: transparent !important;
+    }
+    
+    .qr-url {
+      font-size: 5px;
+      background-color: transparent !important;
     }
     
     .receipt-footer {
@@ -191,13 +225,15 @@ export const getReceiptBaseCSS = (bgColor) => {
       padding-top: 1.5mm;
       border-top: 1px dashed #000;
       font-size: 6px;
+      background-color: ${bgColor} !important;
+      page-break-inside: avoid;
     }
     
     .copia-badge {
       font-size: 7px;
       font-weight: bold;
       padding: 0.5mm;
-      background: #000;
+      background-color: #000 !important;
       color: #FFF;
       display: inline-block;
       margin-bottom: 0.5mm;
@@ -207,33 +243,42 @@ export const getReceiptBaseCSS = (bgColor) => {
       font-size: 6px;
       font-weight: bold;
       margin-bottom: 0.5mm;
+      background-color: transparent !important;
     }
     
     .fecha-emision {
       font-size: 5px;
       color: #666;
+      background-color: transparent !important;
     }
     
     .divider {
       border-top: 1px dashed #000;
       margin: 1mm 0;
+      background-color: transparent !important;
     }
     
     .text-center {
       text-align: center;
+      background-color: transparent !important;
     }
     
     .text-bold {
       font-weight: bold;
+      background-color: transparent !important;
     }
     
     .notas-section {
-      font-size: 5px;
-      padding: 0.5mm;
-      background: #F5F5F5;
-      border-radius: 1mm;
+      font-size: 6px;
+      padding: 1mm;
+      background-color: transparent !important;
+      border: none;
       margin-top: 0.5mm;
       word-wrap: break-word;
+      line-height: 1.3;
+      color: #000;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
   `;
 };
