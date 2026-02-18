@@ -66,6 +66,8 @@ const ValesScreen = () => {
     );
   }
 
+  const esChecador = userRole === "CHECADOR";
+
   const buttonConfigs = [
     {
       onPress: handleCrearVale,
@@ -81,13 +83,17 @@ const ValesScreen = () => {
       subtitle: "Ver histórico",
       backgroundColor: colors.secondary,
     },
-    {
-      onPress: handleVerTarifas,
-      iconName: "currency-usd",
-      buttonText: "Tarifas",
-      subtitle: "Consultar precios",
-      backgroundColor: colors.accent,
-    },
+    ...(!esChecador
+      ? [
+          {
+            onPress: handleVerTarifas,
+            iconName: "currency-usd",
+            buttonText: "Tarifas",
+            subtitle: "Consultar precios",
+            backgroundColor: colors.accent,
+          },
+        ]
+      : []),
   ];
 
   return (

@@ -26,6 +26,10 @@ import { useObras } from "../hooks/useObras";
 // Estilos
 import { commonStyles, listScreenStyles } from "../styles";
 
+import { useAcarreosFilters } from "../hooks/useAcarreosFilters";
+import FilterBar from "../componets/acarreos/FilterBar";
+import { useCatalogos } from "../hooks/useCatalogos";
+
 import ValeCard from "../componets/acarreos/ValeCard";
 import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
 import SearchBar from "../componets/common/SearchBar";
@@ -44,6 +48,16 @@ const AcarreosScreen = () => {
   const [selectedVale, setSelectedVale] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const { materiales, sindicatos, operadores, vehiculos } = useCatalogos([
+    "materiales",
+    "sindicatos",
+    "operadores",
+    "vehiculos",
+  ]);
+
+  const { filters, setFilter, clearFilters, applyFilters, activeCount } =
+    useAcarreosFilters();
 
   const isMounted = useRef(true);
   const isFetching = useRef(false);
@@ -210,25 +224,27 @@ const AcarreosScreen = () => {
   };
 
   const filterVales = (vales) => {
-    if (!vales || !Array.isArray(vales)) {
-      return [];
+    if (!vales || !Array.isArray(vales)) return [];
+
+    let resultado = vales;
+
+    // Filtro de búsqueda por texto
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      resultado = resultado.filter((vale) => {
+        const folio = vale.folio?.toLowerCase() || "";
+        const operador = vale.operadores?.nombre_completo?.toLowerCase() || "";
+        const placas = vale.vehiculos?.placas?.toLowerCase() || "";
+        return (
+          folio.includes(query) ||
+          operador.includes(query) ||
+          placas.includes(query)
+        );
+      });
     }
 
-    if (!searchQuery.trim()) return vales;
-
-    const query = searchQuery.toLowerCase().trim();
-
-    return vales.filter((vale) => {
-      const folio = vale.folio?.toLowerCase() || "";
-      const operador = vale.operador_nombre?.toLowerCase() || "";
-      const placas = vale.placas_vehiculo?.toLowerCase() || "";
-
-      return (
-        folio.includes(query) ||
-        operador.includes(query) ||
-        placas.includes(query)
-      );
-    });
+    // Filtros avanzados del hook
+    return applyFilters(resultado, operadores);
   };
 
   const filteredValesMaterial = filterVales(valesMaterial);
@@ -320,27 +336,19 @@ const AcarreosScreen = () => {
           />
         }
       >
-        {/* Barra de Búsqueda Global */}
-        <View style={styles.searchContainer}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Buscar por folio, operador o placas"
-          />
-          {searchQuery.length > 0 && (
-            <Text style={styles.searchResults}>
-              {materialSeparado.enProceso.length +
-                materialSeparado.emitidos.length +
-                materialSeparado.verificados.length +
-                materialSeparado.conciliados.length +
-                rentaSeparado.enProceso.length +
-                rentaSeparado.emitidos.length +
-                rentaSeparado.verificados.length +
-                rentaSeparado.conciliados.length}{" "}
-              resultado(s)
-            </Text>
-          )}
-        </View>
+        <FilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          filters={filters}
+          setFilter={setFilter}
+          clearFilters={clearFilters}
+          activeCount={activeCount}
+          obras={obras}
+          materiales={materiales}
+          sindicatos={sindicatos}
+          operadores={operadores}
+          vehiculos={vehiculos}
+        />
 
         {/* ========== SECCIÓN MATERIAL ========== */}
         <View style={styles.section}>

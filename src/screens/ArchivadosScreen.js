@@ -15,12 +15,27 @@ import { supabase } from "../config/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { formatearFecha } from "../utils/formatters";
 
-import SearchBar from "../componets/common/SearchBar";
+import { useAcarreosFilters } from "../hooks/useAcarreosFilters";
+import { useCatalogos } from "../hooks/useCatalogos";
+import { useObras } from "../hooks/useObras";
+import FilterBar from "../componets/acarreos/FilterBar";
 import CollapsibleSection from "../componets/common/CollapsibleSection";
 import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
 
 const ArchivadosScreen = () => {
   const { userProfile } = useAuth();
+
+  const { obras } = useObras(userProfile?.id_persona);
+
+  const { materiales, sindicatos, operadores, vehiculos } = useCatalogos([
+    "materiales",
+    "sindicatos",
+    "operadores",
+    "vehiculos",
+  ]);
+
+  const { filters, setFilter, clearFilters, applyFilters, activeCount } =
+    useAcarreosFilters();
 
   const [valesMaterial, setValesMaterial] = useState([]);
   const [valesRenta, setValesRenta] = useState([]);
@@ -61,9 +76,17 @@ const ArchivadosScreen = () => {
           fecha_creacion,
           tipo_vale,
           estado,
+          id_obra,
+          id_operador,
           obras (obra),
           operadores:id_operador (nombre_completo),
-          vehiculos:id_vehiculo (placas)
+          vehiculos:id_vehiculo (
+            placas,
+            id_sindicato
+          ),
+          vale_material_detalles (
+            material:id_material (id_material, material)
+          )
         `,
         )
         .eq("id_persona_creador", userProfile.id_persona)
@@ -133,10 +156,24 @@ const ArchivadosScreen = () => {
 
   const filterVales = (vales) => {
     if (!vales || !Array.isArray(vales)) return [];
-    if (!searchQuery.trim()) return vales;
 
-    const query = searchQuery.toLowerCase().trim();
-    return vales.filter((vale) => vale.folio?.toLowerCase().includes(query));
+    let resultado = vales;
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      resultado = resultado.filter((vale) => {
+        const folio = vale.folio?.toLowerCase() || "";
+        const operador = vale.operadores?.nombre_completo?.toLowerCase() || "";
+        const placas = vale.vehiculos?.placas?.toLowerCase() || "";
+        return (
+          folio.includes(query) ||
+          operador.includes(query) ||
+          placas.includes(query)
+        );
+      });
+    }
+
+    return applyFilters(resultado, operadores);
   };
 
   const renderValeItem = ({ item }) => (
@@ -185,13 +222,19 @@ const ArchivadosScreen = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={styles.searchContainer}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Buscar por folio"
-          />
-        </View>
+        <FilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          filters={filters}
+          setFilter={setFilter}
+          clearFilters={clearFilters}
+          activeCount={activeCount}
+          obras={obras}
+          materiales={materiales}
+          sindicatos={sindicatos}
+          operadores={operadores}
+          vehiculos={vehiculos}
+        />
 
         <View style={styles.section}>
           <Text style={styles.categoryTitle}>Material</Text>
