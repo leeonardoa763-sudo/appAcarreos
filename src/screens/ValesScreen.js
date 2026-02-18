@@ -70,22 +70,22 @@ const ValesScreen = () => {
     {
       onPress: handleCrearVale,
       iconName: "file-document-plus",
-      iconSize: 60,
-      buttonText: "Crear Vale",
+      buttonText: "Crear Nuevo Vale",
+      subtitle: "Material o Renta",
       backgroundColor: colors.primary,
     },
     {
       onPress: handleVerArchivados,
       iconName: "archive",
-      iconSize: 60,
       buttonText: "Archivados",
+      subtitle: "Ver histórico",
       backgroundColor: colors.secondary,
     },
     {
       onPress: handleVerTarifas,
-      iconName: "file-document-outline",
-      iconSize: 60,
+      iconName: "currency-usd",
       buttonText: "Tarifas",
+      subtitle: "Consultar precios",
       backgroundColor: colors.accent,
     },
   ];
