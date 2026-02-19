@@ -41,6 +41,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
   // Estados para TIPO 3
   const [cantidadConfirmada, setCantidadConfirmada] = useState(null);
+  const esChecador = userProfile?.roles?.role === "CHECADOR";
+  const [notasAdicionales, setNotasAdicionales] = useState("");
 
   // Estados comunes
   const [savingToneladas, setSavingToneladas] = useState(false);
@@ -72,6 +74,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
     if (detalleMaterial) {
       // Estados para otros tipos
+      setNotasAdicionales(detalleMaterial.notas_adicionales || "");
       setPesoToneladas(detalleMaterial.peso_ton || null);
       setFolioBanco(
         detalleMaterial.folio_banco ? String(detalleMaterial.folio_banco) : "",
@@ -81,6 +84,12 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
       setCantidadConfirmada(detalleMaterial.cantidad_pedida_m3 || null);
     }
   }, [vale?.id_vale, detalleMaterial]);
+  useEffect(() => {
+    return () => {
+      isInitialized.current = false;
+      lastValeId.current = null;
+    };
+  }, []);
 
   // Formateo de fechas
   const formatDate = useCallback((dateString) => {
@@ -93,7 +102,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     });
   }, []);
 
-  //  NUEVO: Completar vale TIPO 3 (solo cantidad)
+  //  Completar vale TIPO 3 (solo cantidad)
   const handleCompletarValeTipo3 = useCallback(async () => {
     console.log("[DEBUG] userProfile:", userProfile);
     console.log("[DEBUG] userProfile.id_persona:", userProfile?.id_persona);
@@ -175,6 +184,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           id_precios_material: costos.idPreciosMaterial,
           tarifa_primer_km: costos.tarifaPrimerKm,
           tarifa_subsecuente: costos.tarifaSubsecuente,
+          notas_adicionales: notasAdicionales.trim() || null,
         })
         .eq("id_detalle_material", detalleId);
 
@@ -270,6 +280,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     detalleMaterial,
     vale?.id_vale,
     userProfile,
+    notasAdicionales,
   ]);
 
   // Completar vale OTROS TIPOS (peso + folio) - CÓDIGO EXISTENTE
@@ -453,6 +464,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             id_precios_material: costos.idPreciosMaterial,
             tarifa_primer_km: costos.tarifaPrimerKm,
             tarifa_subsecuente: costos.tarifaSubsecuente,
+            notas_adicionales: notasAdicionales.trim() || null,
           })
           .eq("id_detalle_material", detalleId);
 
@@ -577,6 +589,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     detalleMaterial,
     vale?.id_vale,
     userProfile,
+    notasAdicionales,
   ]);
 
   const handleCloseSuccess = useCallback(() => {
@@ -847,8 +860,22 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               decimalPlaces={2}
               placeholder="0.00"
               suffix="m³"
-              disabled={false}
+              disabled={esChecador}
             />
+            <FormInput
+              label="Notas Adicionales"
+              value={notasAdicionales}
+              onChangeText={setNotasAdicionales}
+              placeholder="Observaciones del viaje (opcional)"
+              multiline
+              maxLength={200}
+            />
+
+            {esChecador && (
+              <Text style={styles.helperText}>
+                Solo el residente puede modificar la cantidad final
+              </Text>
+            )}
 
             <PrimaryButton
               title="Completar Vale"
@@ -889,6 +916,14 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               keyboardType="default"
               editable={true}
               maxLength={20}
+            />
+            <FormInput
+              label="Notas Adicionales"
+              value={notasAdicionales}
+              onChangeText={setNotasAdicionales}
+              placeholder="Observaciones del viaje (opcional)"
+              multiline
+              maxLength={200}
             />
 
             <PrimaryButton

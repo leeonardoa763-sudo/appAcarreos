@@ -1,4 +1,7 @@
-import React, { useState } from "react";
+// 1. React y hooks
+import React, { useState, useCallback } from "react";
+
+// 2. React Native
 import {
   View,
   StyleSheet,
@@ -7,13 +10,24 @@ import {
   RefreshControl,
   ScrollView,
 } from "react-native";
+
+// 3. Third party
 import { useNavigation } from "@react-navigation/native";
+
+// 4. Local - Config
+import { colors } from "../config/colors";
+
+// 5. Local - Hooks
 import { useAuth } from "../hooks/useAuth";
 import { useObras } from "../hooks/useObras";
-import { colors } from "../config/colors";
+import useQRScanner from "../hooks/useQRScanner";
+import useValeByFolio from "../hooks/useValeByFolio";
+
+// 6. Local - Componentes
 import UserProfile from "../componets/ButtonsGrid/UserProfile";
 import ButtonsGrid from "../componets/ButtonsGrid/ButtonsGrid";
 import TarifasModal from "../componets/TarifasModal";
+import QRScannerModal from "../componets/common/QRScannerModal";
 
 const ValesScreen = () => {
   const navigation = useNavigation();
@@ -33,6 +47,31 @@ const ValesScreen = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [tarifasModalVisible, setTarifasModalVisible] = useState(false);
+
+  const { buscarValePorFolio, loading: loadingVale } = useValeByFolio();
+
+  // Callback al detectar folio desde QR
+  const handleFolioDetectado = useCallback(
+    async (folio) => {
+      const vale = await buscarValePorFolio(folio);
+      if (!vale) return;
+
+      // Navegar a Acarreos pasando el vale encontrado como param
+      const tabNavigator = navigation.getParent();
+      if (tabNavigator) {
+        tabNavigator.navigate("Acarreos", { valeEscaneado: vale });
+      }
+    },
+    [buscarValePorFolio, navigation],
+  );
+
+  const {
+    scannerVisible,
+    scanning,
+    requestPermissionAndOpen,
+    handleBarCodeScanned,
+    closeScanner,
+  } = useQRScanner({ onFolioDetected: handleFolioDetectado });
 
   const handleCrearVale = () => {
     navigation.navigate("SeleccionarTipoVale");
@@ -74,14 +113,24 @@ const ValesScreen = () => {
       iconName: "file-document-plus",
       buttonText: "Crear Nuevo Vale",
       subtitle: "Material o Renta",
-      backgroundColor: colors.primary,
+      backgroundColor: "#E8501A",
+      isMain: true,
+    },
+    {
+      onPress: requestPermissionAndOpen,
+      iconName: loadingVale ? "loading" : "qrcode-scan",
+      buttonText: "Escanear Vale",
+      subtitle: "Buscar por código QR",
+      backgroundColor: "#1B4F72",
+      isMain: true,
+      loading: loadingVale,
     },
     {
       onPress: handleVerArchivados,
       iconName: "archive",
       buttonText: "Archivados",
       subtitle: "Ver histórico",
-      backgroundColor: colors.secondary,
+      backgroundColor: "#2E4057",
     },
     ...(!esChecador
       ? [
@@ -90,7 +139,7 @@ const ValesScreen = () => {
             iconName: "currency-usd",
             buttonText: "Tarifas",
             subtitle: "Consultar precios",
-            backgroundColor: colors.accent,
+            backgroundColor: "#145A32",
           },
         ]
       : []),
@@ -122,7 +171,7 @@ const ValesScreen = () => {
 
       {obrasError && (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>⚠️ {obrasError}</Text>
+          <Text style={styles.errorText}>{obrasError}</Text>
         </View>
       )}
 
@@ -132,6 +181,14 @@ const ValesScreen = () => {
         visible={tarifasModalVisible}
         onClose={() => setTarifasModalVisible(false)}
         userObras={obras || []}
+      />
+
+      {/* Modal del escáner QR */}
+      <QRScannerModal
+        visible={scannerVisible}
+        scanning={scanning}
+        onBarCodeScanned={handleBarCodeScanned}
+        onClose={closeScanner}
       />
     </ScrollView>
   );

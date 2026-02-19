@@ -21,7 +21,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
 import { useAuth } from "../hooks/useAuth";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { useObras } from "../hooks/useObras";
 // Estilos
 import { commonStyles, listScreenStyles } from "../styles";
@@ -32,12 +32,13 @@ import { useCatalogos } from "../hooks/useCatalogos";
 
 import ValeCard from "../componets/acarreos/ValeCard";
 import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
-import SearchBar from "../componets/common/SearchBar";
+
 import CollapsibleSection from "../componets/common/CollapsibleSection";
 
 const AcarreosScreen = () => {
   const { userProfile } = useAuth();
-  // 🆕 Obtener obras asignadas (incluir loading)
+  const route = useRoute();
+  //  Obtener obras asignadas (incluir loading)
   const { obras, loading: obrasLoading } = useObras(userProfile?.id_persona);
 
   const [valesMaterial, setValesMaterial] = useState([]);
@@ -82,6 +83,22 @@ const AcarreosScreen = () => {
       }
     }, [userProfile?.id_persona, obras, obrasLoading]), // ✅ Agregar dependencias
   );
+
+  // Abrir modal automáticamente si viene un vale escaneado desde ValesScreen
+  useEffect(() => {
+    const valeEscaneado = route.params?.valeEscaneado;
+    if (!valeEscaneado) return;
+
+    // Esperar a que la pantalla cargue los vales antes de abrir el modal
+    const timer = setTimeout(() => {
+      if (isMounted.current) {
+        setSelectedVale(valeEscaneado);
+        setModalVisible(true);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [route.params?.valeEscaneado]);
 
   const fetchVales = async () => {
     if (!userProfile?.id_persona) {

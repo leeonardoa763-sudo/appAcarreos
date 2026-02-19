@@ -8,7 +8,7 @@
 
 export const COLORES_COPIA_RECIBO = {
   blanco: "#FFFFFF",
-  roja: "#f58697ff",
+  roja: "#f7a5b2ff",
   verde: "#E8F5E8",
   azul: "#E3F2FD",
   amarilla: "#FFFDE7",
