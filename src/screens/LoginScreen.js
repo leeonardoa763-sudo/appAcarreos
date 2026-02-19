@@ -79,22 +79,19 @@ const LoginScreen = ({ navigation }) => {
   }, []);
 
   const attemptAutoLogin = async () => {
+    let handled = false;
     try {
       const hasCredentials = await hasRememberedCredentials();
 
       if (!hasCredentials) {
-        if (isMounted.current) {
-          setIsAutoLoggingIn(false);
-        }
+        if (isMounted.current) setIsAutoLoggingIn(false);
         return;
       }
 
       const credentials = await getCredentials();
 
       if (!credentials.email || !credentials.password) {
-        if (isMounted.current) {
-          setIsAutoLoggingIn(false);
-        }
+        if (isMounted.current) setIsAutoLoggingIn(false);
         return;
       }
 
@@ -113,7 +110,6 @@ const LoginScreen = ({ navigation }) => {
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
           await clearCredentials();
-
           if (isMounted.current) {
             Alert.alert(
               "Sesión Expirada",
@@ -122,13 +118,38 @@ const LoginScreen = ({ navigation }) => {
             );
           }
         }
+        return;
+      }
+
+      if (data?.user?.id) {
+        const { data: perfil, error: perfilError } = await supabase
+          .from("persona")
+          .select("usuario_activo")
+          .eq("auth_user_id", data.user.id)
+          .single();
+
+        if (!perfilError && perfil?.usuario_activo === false) {
+          handled = true;
+          await clearCredentials();
+          await supabase.auth.signOut();
+
+          if (isMounted.current) {
+            setIsAutoLoggingIn(false);
+            setTimeout(() => {
+              Alert.alert(
+                "Usuario Discontinuado",
+                "Tu acceso a la aplicación ha sido desactivado. Comunícate con el administrador para más información.",
+                [{ text: "Entendido" }],
+              );
+            }, 300);
+          }
+          return;
+        }
       }
     } catch (error) {
       console.error("[LoginScreen] Error en auto-login:", error);
     } finally {
-      if (isMounted.current) {
-        setIsAutoLoggingIn(false);
-      }
+      if (!handled && isMounted.current) setIsAutoLoggingIn(false);
     }
   };
 

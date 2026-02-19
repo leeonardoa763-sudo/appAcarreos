@@ -64,7 +64,7 @@ export const useUserProfile = () => {
             obra,
             cc
           )
-        `
+        `,
         )
         .eq("auth_user_id", authUserId)
         .single();
@@ -75,7 +75,7 @@ export const useUserProfile = () => {
         console.error("[useUserProfile] Error cargando perfil:", error);
         if (error.code === "PGRST116") {
           const errorMsg = new Error(
-            "Tu usuario no está registrado en el sistema. Contacta al administrador."
+            "Tu usuario no está registrado en el sistema. Contacta al administrador.",
           );
           errorMsg.code = "NO_PROFILE";
           if (isMounted.current) {
@@ -89,6 +89,16 @@ export const useUserProfile = () => {
         return null;
       }
 
+      // 🆕 Verificar si el usuario está activo
+      if (data && data.usuario_activo === false) {
+        const errorInactivo = new Error("USUARIO_INACTIVO");
+        errorInactivo.code = "USUARIO_INACTIVO";
+        if (isMounted.current) {
+          setProfileError(errorInactivo);
+        }
+        return null;
+      }
+
       if (data && isMounted.current) {
         setUserProfile(data);
         setProfileError(null);
@@ -98,7 +108,6 @@ export const useUserProfile = () => {
       return null;
     } catch (error) {
       if (!isMounted.current) return null;
-
       console.error("[useUserProfile] Error inesperado:", error);
       if (isMounted.current) {
         setProfileError(error);

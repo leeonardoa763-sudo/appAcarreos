@@ -257,6 +257,45 @@ const AuthGuard = ({ children }) => {
     );
   }
 
+  // Usuario discontinuado por administrador
+  if (profileError?.code === "USUARIO_INACTIVO") {
+    return (
+      <View style={styles.errorContainer}>
+        <MaterialCommunityIcons
+          name="account-cancel"
+          size={80}
+          color={colors.danger}
+        />
+        <Text style={styles.errorTitle}>Usuario Discontinuado</Text>
+        <Text style={styles.errorMessage}>
+          Tu acceso a la aplicación ha sido desactivado por un administrador.
+        </Text>
+        <View style={styles.timeoutInfoBox}>
+          <MaterialCommunityIcons
+            name="information-outline"
+            size={20}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.timeoutInfoText}>
+            Si crees que esto es un error, comunícate con el administrador del
+            sistema para reactivar tu cuenta.
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.signOutButton}
+          onPress={() => signOut()}
+        >
+          <MaterialCommunityIcons
+            name="logout"
+            size={20}
+            color={colors.danger}
+          />
+          <Text style={styles.signOutButtonText}>Entendido, salir</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   // Usuario autenticado pero sin perfil en la base de datos
   if (profileError) {
     return (
