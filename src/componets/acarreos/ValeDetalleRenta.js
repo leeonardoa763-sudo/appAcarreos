@@ -32,6 +32,7 @@ import PrimaryButton from "../common/PrimaryButton";
 import GenerarPDFButton from "../vale/GenerarPDFButton";
 import CustomTimePicker from "../forms/CustomTimePicker";
 import { useAuth } from "../../hooks/useAuth";
+import FormInput from "../forms/FormInput";
 
 const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const { userProfile } = useAuth();
@@ -44,6 +45,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const [successData, setSuccessData] = useState(null);
   const [updatedVale, setUpdatedVale] = useState(null);
   const [triggerPDF, setTriggerPDF] = useState(false);
+
+  const [notasAdicionales, setNotasAdicionales] = useState("");
 
   const isInitialized = useRef(false);
   const lastValeId = useRef(null);
@@ -75,10 +78,20 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       setNumeroViajes(1);
       setEsRentaPorDia(false);
       setEsRentaPorMedioDia(false);
+      setNotasAdicionales(detalleRenta.notas_adicionales || "");
     } else {
       console.log("[ValeDetalleRenta] ⚠️ No hay detalleRenta para inicializar");
     }
   }, [vale?.id_vale, detalleRenta]);
+
+  useEffect(() => {
+    return () => {
+      isInitialized.current = false;
+      lastValeId.current = null;
+      setTriggerPDF(false);
+      setUpdatedVale(null);
+    };
+  }, []);
 
   const formatDate = useCallback((dateString) => {
     if (!dateString) return "N/A";
@@ -163,6 +176,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           total_dias: totalDias,
           numero_viajes: numeroViajes,
           costo_total: costoTotal,
+          notas_adicionales: notasAdicionales.trim() || null,
         })
         .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle);
 
@@ -200,6 +214,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             total_dias: totalDias,
             numero_viajes: numeroViajes,
             costo_total: costoTotal,
+            notas_adicionales: notasAdicionales.trim() || null,
           },
         ],
       };
@@ -231,6 +246,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     vale?.id_vale,
     preciosRenta,
     userProfile,
+    notasAdicionales,
   ]);
 
   const handleCloseSuccess = useCallback(() => {
@@ -318,7 +334,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             }
           />
 
-          {/* ✅ NUEVO: Mostrar quien completó el vale (solo si está completado) */}
+          {/* ✅ NUEVO: Mostrar quien completó el. vale (solo si está completado) */}
           {vale.estado !== "en_proceso" &&
             vale.estado !== "borrador" &&
             vale.persona_completador && (
@@ -506,6 +522,15 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
               min={1}
               max={99}
               step={1}
+            />
+
+            <FormInput
+              label="Notas (opcional)"
+              value={notasAdicionales}
+              onChangeText={setNotasAdicionales}
+              placeholder=""
+              multiline
+              maxLength={200}
             />
 
             <PrimaryButton

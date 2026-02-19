@@ -10,11 +10,14 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  Platform,
+  StatusBar,
 } from "react-native";
 
 // 3. Third party
 import { CameraView } from "expo-camera";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // 4. Local - Config
 import { colors } from "../../config/colors";
@@ -31,43 +34,58 @@ const SCANNER_SIZE = SCREEN_WIDTH * 0.7;
  * - Mostrar vista de cámara en modal fullscreen
  * - Área de enfoque visual para el QR
  * - Animación de línea de escaneo
- * - Botón de cerrar
+ * - Compatible con Samsung Galaxy (punch-hole, barra navegación)
+ * - Compatible con iPhone notch e isla dinámica
  *
  * USADO EN:
  * - ValesScreen
  *
  * PROPS:
  * - visible: boolean
- * - scanning: boolean - Si ya procesó un QR (para bloquear doble scan)
- * - onBarCodeScanned: function - Callback con { data }
+ * - scanning: boolean
+ * - onBarCodeScanned: function
  * - onClose: function
  */
 const QRScannerModal = ({ visible, scanning, onBarCodeScanned, onClose }) => {
   const [lineAnim] = useState(new Animated.Value(0));
+  const insets = useSafeAreaInsets();
+
+  // Altura dinámica del header según plataforma y safe area
+  const headerPaddingTop = Platform.select({
+    ios: insets.top + 12,
+    android: (StatusBar.currentHeight || 24) + 12,
+  });
+
+  // Padding inferior dinámico para barra de navegación Samsung
+  const footerPaddingBottom = Platform.select({
+    ios: 30,
+    android: 16 + insets.bottom,
+  });
 
   // Animación de línea de escaneo
   useEffect(() => {
     if (!visible) return;
 
-    const animate = () => {
-      lineAnim.setValue(0);
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(lineAnim, {
-            toValue: 1,
-            duration: 2000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(lineAnim, {
-            toValue: 0,
-            duration: 2000,
-            useNativeDriver: true,
-          }),
-        ]),
-      ).start();
-    };
+    lineAnim.setValue(0);
 
-    animate();
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(lineAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(lineAnim, {
+          toValue: 0,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    animation.start();
+
+    return () => animation.stop();
   }, [visible]);
 
   const lineTranslateY = lineAnim.interpolate({
@@ -80,6 +98,7 @@ const QRScannerModal = ({ visible, scanning, onBarCodeScanned, onClose }) => {
       visible={visible}
       animationType="slide"
       transparent={false}
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
       <View style={styles.container}>
@@ -95,8 +114,8 @@ const QRScannerModal = ({ visible, scanning, onBarCodeScanned, onClose }) => {
 
         {/* Overlay oscuro */}
         <View style={styles.overlay}>
-          {/* Header */}
-          <View style={styles.header}>
+          {/* Header con padding dinámico */}
+          <View style={[styles.header, { paddingTop: headerPaddingTop }]}>
             <TouchableOpacity
               style={styles.closeButton}
               onPress={onClose}
@@ -115,7 +134,6 @@ const QRScannerModal = ({ visible, scanning, onBarCodeScanned, onClose }) => {
 
           {/* Área de escaneo */}
           <View style={styles.scannerWrapper}>
-            {/* Marco del escáner */}
             <View style={styles.scannerFrame}>
               {/* Esquinas decorativas */}
               <View style={[styles.corner, styles.cornerTopLeft]} />
@@ -147,8 +165,8 @@ const QRScannerModal = ({ visible, scanning, onBarCodeScanned, onClose }) => {
             </View>
           </View>
 
-          {/* Instruccion inferior */}
-          <View style={styles.footer}>
+          {/* Footer con padding dinámico */}
+          <View style={[styles.footer, { paddingBottom: footerPaddingBottom }]}>
             <MaterialCommunityIcons
               name="qrcode"
               size={20}
@@ -182,7 +200,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     width: "100%",
     paddingHorizontal: 20,
-    paddingTop: 60,
     paddingBottom: 20,
     backgroundColor: "rgba(0,0,0,0.5)",
   },
@@ -293,7 +310,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 30,
-    paddingVertical: 30,
+    paddingTop: 20,
     backgroundColor: "rgba(0,0,0,0.5)",
     width: "100%",
   },
