@@ -9,13 +9,15 @@ import { Alert } from "react-native";
 import { supabase } from "../config/supabase";
 import { generateVerificationUrl } from "../utils/qrGenerator";
 import { calcularCostoValeMaterial } from "../utils/preciosMaterial";
+import { useFeatureFlags } from "./useFeatureFlags";
 
 export const useValeMaterialLogic = (materiales) => {
   const [materialSeleccionado, setMaterialSeleccionado] = useState(null);
   const [generarCopiaRoja, setGenerarCopiaRoja] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const { flags } = useFeatureFlags();
 
-  // Efecto: Determinar tipo de copia según material
+  // Efecto: Determinar tipo de copia según material y feature flags
   useEffect(() => {
     if (!materiales || materiales.length === 0) return;
 
@@ -28,7 +30,25 @@ export const useValeMaterialLogic = (materiales) => {
     const material = materiales.find((m) => m.id_material === materialId);
     if (!material) return;
 
-    const nuevaCopiaRoja = true; // todas seran rojas
+    const tipoDeMaterial = material.id_tipo_de_material;
+
+    /*
+     * LÓGICA ORIGINAL (flujo dos pasos para todos):
+     * const nuevaCopiaRoja = true;
+     *
+     * Reemplazada por lógica condicional via FEATURE_FLAGS
+     */
+    let nuevaCopiaRoja = true;
+
+    if (tipoDeMaterial === 3 && !flags.TIPO3_FLUJO_DOS_PASOS) {
+      // Tepetate en flujo directo: no genera copia roja
+      nuevaCopiaRoja = false;
+    }
+
+    if (tipoDeMaterial === 2 && !flags.TIPO2_GENERAR_PDF_ROJO) {
+      // Carpeta asfáltica: tampoco genera copia roja
+      nuevaCopiaRoja = false;
+    }
 
     if (generarCopiaRoja !== nuevaCopiaRoja) {
       setGenerarCopiaRoja(nuevaCopiaRoja);
@@ -65,7 +85,23 @@ export const useValeMaterialLogic = (materiales) => {
       // PASO 3: URL de verificación
       const verificationUrl = generateVerificationUrl(folio);
 
-      // PASO 4: Insertar vale
+      // PASO 4: Determinar estado inicial según tipo de material y feature flags
+      const tipoDeMaterial = materiales.find(
+        (m) => m.id_material === formData.materialId,
+      )?.id_tipo_de_material;
+
+      const esTipo3DirectFlow =
+        tipoDeMaterial === 3 && !flags.TIPO3_FLUJO_DOS_PASOS;
+
+      /*
+       * LÓGICA ORIGINAL:
+       * estado: generarCopiaRoja ? "en_proceso" : "emitido"
+       *
+       * Nueva lógica: Tipo 3 en flujo directo va a "emitido" inmediatamente.
+       * Tipo 2 y el resto van a "en_proceso".
+       */
+      const estadoInicial = esTipo3DirectFlow ? "emitido" : "en_proceso";
+
       const { data: valeNuevo, error: errorVale } = await supabase
         .from("vales")
         .insert([
@@ -77,8 +113,13 @@ export const useValeMaterialLogic = (materiales) => {
             id_persona_creador: userProfile.id_persona,
             id_operador: formData.selectedOperador?.id_operador,
             id_vehiculo: formData.selectedVehiculo?.id_vehiculo,
-            estado: generarCopiaRoja ? "en_proceso" : "emitido",
+            estado: estadoInicial,
             qr_verification_url: verificationUrl,
+            // Tepetate flujo directo: la misma persona es computadora y emisora
+            ...(esTipo3DirectFlow && {
+              id_persona_completador: userProfile.id_persona,
+              fecha_completado: new Date().toISOString(),
+            }),
           },
         ])
         .select()
@@ -128,6 +169,44 @@ export const useValeMaterialLogic = (materiales) => {
       }
 
       console.log("[useValeMaterialLogic] Detalles insertados correctamente");
+
+      // PASO 6.5: Si es Tepetate flujo directo, calcular y guardar precio inmediatamente
+      if (esTipo3DirectFlow) {
+        try {
+          const { data: vehiculoData } = await supabase
+            .from("vehiculos")
+            .select("id_sindicato")
+            .eq("id_vehiculo", formData.selectedVehiculo?.id_vehiculo)
+            .single();
+
+          if (vehiculoData) {
+            const costos = await calcularCostoValeMaterial(
+              tipoDeMaterial,
+              vehiculoData.id_sindicato,
+              parseFloat(formData.distancia),
+              parseFloat(formData.cantidadSolicitada),
+            );
+
+            await supabase
+              .from("vale_material_detalles")
+              .update({
+                volumen_real_m3: parseFloat(formData.cantidadSolicitada),
+                precio_m3: costos.precioM3,
+                costo_total: costos.costoTotal,
+                id_precios_material: costos.idPreciosMaterial,
+                tarifa_primer_km: costos.tarifaPrimerKm,
+                tarifa_subsecuente: costos.tarifaSubsecuente,
+              })
+              .eq("id_vale", valeNuevo.id_vale);
+          }
+        } catch (errorPrecio) {
+          // No bloqueamos el flujo si falla el precio, el vale ya quedó emitido
+          console.error(
+            "[useValeMaterialLogic] Error calculando precio tipo3:",
+            errorPrecio,
+          );
+        }
+      }
 
       // PASO 7: Consultar vale completo
       const { data: valeCompleto, error: errorConsulta } = await supabase
@@ -207,5 +286,6 @@ export const useValeMaterialLogic = (materiales) => {
     generarCopiaRoja,
     submitting,
     crearVale,
+    tipoMaterialSeleccionado: materialSeleccionado?.id_tipo_de_material ?? null,
   };
 };

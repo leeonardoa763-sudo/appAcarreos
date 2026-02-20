@@ -19,6 +19,7 @@ import { useValeMaterialForm } from "../hooks/useValeMaterialForm";
 import { useValeMaterialLogic } from "../hooks/useValeMaterialLogic";
 import { useValeMaterialPDF } from "../hooks/useValeMaterialPDF";
 import { useObras } from "../hooks/useObras";
+import { useFeatureFlags } from "../hooks/useFeatureFlags";
 
 // Componentes
 import SectionHeader from "../componets/common/SectionHeader";
@@ -33,7 +34,7 @@ import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScro
 const ValeMaterialScreen = () => {
   const navigation = useNavigation();
   const { userProfile } = useAuth();
-
+  const { flags } = useFeatureFlags();
   // Ref para prevenir setState después de unmount
   const isMounted = useRef(true);
 
@@ -78,6 +79,7 @@ const ValeMaterialScreen = () => {
     generarCopiaRoja,
     submitting,
     crearVale,
+    tipoMaterialSeleccionado,
   } = useValeMaterialLogic(materiales);
 
   const {
@@ -480,12 +482,38 @@ const ValeMaterialScreen = () => {
         {materialSeleccionado && (
           <View style={styles.infoCopiasContainer}>
             <Text style={styles.infoCopiasText}>
-              Se generará copia{" "}
-              <Text style={styles.infoCopiasDestacado}>
-                {generarCopiaRoja ? "ROJA" : "BLANCA"}
-              </Text>
-              {" para "}
-              {generarCopiaRoja ? "el banco de material" : "el operador"}
+              {/*
+               * LÓGICA ORIGINAL:
+               * Se generará copia {generarCopiaRoja ? "ROJA" : "BLANCA"}
+               * para {generarCopiaRoja ? "el banco de material" : "el operador"}
+               *
+               * Nueva lógica por tipo de material:
+               */}
+              {tipoMaterialSeleccionado === 3 &&
+              !flags.TIPO3_FLUJO_DOS_PASOS ? (
+                <>
+                  Se generará{" "}
+                  <Text style={styles.infoCopiasDestacado}>copia BLANCA</Text>
+                  {" directamente"}
+                </>
+              ) : tipoMaterialSeleccionado === 2 &&
+                !flags.TIPO2_GENERAR_PDF_ROJO ? (
+                <>
+                  <Text style={styles.infoCopiasDestacado}>
+                    Sin PDF al crear
+                  </Text>
+                  {" — se completará en Acarreos"}
+                </>
+              ) : (
+                <>
+                  Se generará copia{" "}
+                  <Text style={styles.infoCopiasDestacado}>
+                    {generarCopiaRoja ? "ROJA" : "BLANCA"}
+                  </Text>
+                  {" para "}
+                  {generarCopiaRoja ? "el banco de material" : "el operador"}
+                </>
+              )}
             </Text>
           </View>
         )}
@@ -506,15 +534,24 @@ const ValeMaterialScreen = () => {
         visible={showSuccessModal}
         title="Vale Creado"
         message={`Vale ${folioCreado} creado exitosamente${
-          generarCopiaRoja
-            ? "\n\nSe generó la copia ROJA preliminar"
-            : "\n\nSe generó la copia BLANCA definitiva"
+          tipoMaterialSeleccionado === 3 && !flags.TIPO3_FLUJO_DOS_PASOS
+            ? "\n\nSe generó la copia BLANCA definitiva"
+            : tipoMaterialSeleccionado === 2 && !flags.TIPO2_GENERAR_PDF_ROJO
+              ? "\n\nEl vale quedó en proceso para completarse en Acarreos"
+              : generarCopiaRoja
+                ? "\n\nSe generó la copia ROJA preliminar"
+                : "\n\nSe generó la copia BLANCA definitiva"
         }`}
-        primaryAction={{
-          text: "Compartir PDF",
-          icon: "file-pdf-box",
-          onPress: handleCompartirDesdeModal,
-        }}
+        primaryAction={
+          tipoMaterialSeleccionado === 2 &&
+          !FEATURE_FLAGS.TIPO2_GENERAR_PDF_ROJO
+            ? null
+            : {
+                text: "Compartir PDF",
+                icon: "file-pdf-box",
+                onPress: handleCompartirDesdeModal,
+              }
+        }
         onClose={() => {
           setShowSuccessModal(false);
           navegarAcarreos();

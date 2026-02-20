@@ -109,6 +109,18 @@ export const validateCantidadSolicitada = (cantidad) => {
   return null;
 };
 
+export const validateCapacidadVsCantidad = (capacidad, cantidadSolicitada) => {
+  const cap = parseFloat(capacidad);
+  const cantidad = parseFloat(cantidadSolicitada);
+
+  if (isNaN(cap) || isNaN(cantidad)) return null;
+
+  if (cap < cantidad) {
+    return `La capacidad del camión (${cap} m³) no puede ser menor a la cantidad solicitada (${cantidad} m³)`;
+  }
+  return null;
+};
+
 /**
  * Valida que la distancia esté presente (en Km)
  */

@@ -25,7 +25,7 @@ import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
 const ArchivadosScreen = () => {
   const { userProfile } = useAuth();
 
-  const { obras } = useObras(userProfile?.id_persona);
+  const { obras, loading: obrasLoading } = useObras(userProfile?.id_persona);
 
   const { materiales, sindicatos, operadores, vehiculos } = useCatalogos([
     "materiales",
@@ -54,17 +54,26 @@ const ArchivadosScreen = () => {
   }, []);
 
   useEffect(() => {
-    if (userProfile?.id_persona) {
+    if (userProfile?.id_persona && !obrasLoading && obras.length > 0) {
       fetchValesArchivados();
     }
-  }, [userProfile?.id_persona]);
+  }, [userProfile?.id_persona, obras, obrasLoading]);
 
   const fetchValesArchivados = async () => {
     if (!userProfile?.id_persona) return;
 
     try {
-      if (isMounted.current) {
-        setLoading(true);
+      if (isMounted.current) setLoading(true);
+
+      // Obtener IDs de todas las obras asignadas
+      const obrasIds = obras.map((obra) => obra.id).filter(Boolean);
+
+      if (obrasIds.length === 0) {
+        if (isMounted.current) {
+          setValesMaterial([]);
+          setValesRenta([]);
+        }
+        return;
       }
 
       const { data, error } = await supabase
@@ -89,7 +98,7 @@ const ArchivadosScreen = () => {
           )
         `,
         )
-        .eq("id_persona_creador", userProfile.id_persona)
+        .in("id_obra", obrasIds)
         .eq("archivado", true)
         .order("fecha_creacion", { ascending: false });
 
@@ -105,9 +114,7 @@ const ArchivadosScreen = () => {
     } catch (error) {
       console.error("[ArchivadosScreen] Error:", error);
     } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
+      if (isMounted.current) setLoading(false);
     }
   };
 

@@ -51,20 +51,37 @@ const SuccessModal = ({
           <Text style={styles.message}>{message}</Text>
 
           <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={primaryAction.onPress}
-            >
-              {primaryAction.icon && (
+            {primaryAction && (
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={primaryAction.onPress}
+              >
+                {primaryAction.icon && (
+                  <MaterialCommunityIcons
+                    name={primaryAction.icon}
+                    size={20}
+                    color={colors.surface}
+                    style={styles.buttonIcon}
+                  />
+                )}
+                <Text style={styles.primaryButtonText}>
+                  {primaryAction.text}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Botón de continuar cuando no hay primaryAction */}
+            {!primaryAction && (
+              <TouchableOpacity style={styles.primaryButton} onPress={onClose}>
                 <MaterialCommunityIcons
-                  name={primaryAction.icon}
+                  name="arrow-right-circle"
                   size={20}
                   color={colors.surface}
                   style={styles.buttonIcon}
                 />
-              )}
-              <Text style={styles.primaryButtonText}>{primaryAction.text}</Text>
-            </TouchableOpacity>
+                <Text style={styles.primaryButtonText}>Continuar</Text>
+              </TouchableOpacity>
+            )}
 
             {secondaryAction && (
               <TouchableOpacity

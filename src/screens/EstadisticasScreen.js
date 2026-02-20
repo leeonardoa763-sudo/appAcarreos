@@ -84,12 +84,6 @@ const EstadisticasScreen = () => {
   ];
 
   // ========== EFFECTS ==========
-  // Establecer obra actual como seleccionada por defecto
-  useEffect(() => {
-    if (userProfile?.id_current_obra && obraSeleccionada === null) {
-      setObraSeleccionada(userProfile.id_current_obra);
-    }
-  }, [userProfile, obraSeleccionada]);
 
   // ========== FUNCIONES ==========
   const handlePeriodoChange = (periodo) => {

@@ -46,12 +46,22 @@ export const useEstadisticas = (
     let fechaInicio, fechaFin;
 
     switch (periodo) {
-      case "semana":
-        // Últimos 7 días
+      case "semana": {
+        const diaSemana = (hoy.getDay() + 6) % 7;
         fechaInicio = new Date(hoy);
-        fechaInicio.setDate(hoy.getDate() - 7);
-        fechaFin = new Date(hoy);
+        fechaInicio.setDate(hoy.getDate() - diaSemana);
+        fechaInicio.setHours(0, 0, 0, 0);
+        fechaFin = new Date(fechaInicio);
+        fechaFin.setDate(fechaInicio.getDate() + 6);
+        fechaFin.setHours(23, 59, 59, 999);
+
+        console.log(
+          "[useEstadisticas] Semana inicio:",
+          fechaInicio.toISOString(),
+        );
+        console.log("[useEstadisticas] Semana fin:", fechaFin.toISOString());
         break;
+      }
 
       case "mes":
         // Mes actual completo (del 1 al último día del mes)
@@ -130,13 +140,19 @@ export const useEstadisticas = (
     let fechaInicio, fechaFin;
 
     switch (periodo) {
-      case "semana":
-        // Semana anterior (7 días antes)
-        fechaInicio = new Date(hoy);
-        fechaInicio.setDate(hoy.getDate() - 14);
-        fechaFin = new Date(hoy);
-        fechaFin.setDate(hoy.getDate() - 7);
+      case "semana": {
+        const diaSemana = (hoy.getDay() + 6) % 7;
+        const lunesEstaSeamana = new Date(hoy);
+        lunesEstaSeamana.setDate(hoy.getDate() - diaSemana);
+        lunesEstaSeamana.setHours(0, 0, 0, 0);
+        fechaFin = new Date(lunesEstaSeamana);
+        fechaFin.setDate(lunesEstaSeamana.getDate() - 1);
+        fechaFin.setHours(23, 59, 59, 999);
+        fechaInicio = new Date(fechaFin);
+        fechaInicio.setDate(fechaFin.getDate() - 6);
+        fechaInicio.setHours(0, 0, 0, 0);
         break;
+      }
 
       case "mes":
         // Mes anterior completo
@@ -232,11 +248,6 @@ export const useEstadisticas = (
         .gte("fecha_creacion", fechaInicio)
         .lte("fecha_creacion", fechaFin);
 
-      // Filtrar por residente
-      if (residenteId) {
-        query = query.eq("id_persona_creador", residenteId);
-      }
-
       // Filtrar por obra (null = todas las obras del residente)
       if (obraId) {
         query = query.eq("id_obra", obraId);
@@ -250,6 +261,11 @@ export const useEstadisticas = (
         console.error("[useEstadisticas] Error fetching material:", error);
         throw error;
       }
+
+      console.log("[Material] fechaInicio:", fechaInicio);
+      console.log("[Material] fechaFin:", fechaFin);
+      console.log("[Material] obraId:", obraId);
+      console.log("[Material] resultados:", data?.length);
 
       return data || [];
     },

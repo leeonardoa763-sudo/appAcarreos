@@ -14,6 +14,7 @@ import {
   validateBancoId,
   validateSindicatoId,
   validateCantidadSolicitada,
+  validateCapacidadVsCantidad,
   validateDistancia,
 } from "../utils/validations";
 
@@ -51,7 +52,12 @@ export const useValeMaterialForm = (materiales = []) => {
       formData.cantidadSolicitada,
     );
     if (errorCantidad) newErrors.cantidadSolicitada = errorCantidad;
-
+    const errorCapacidadVsCantidad = validateCapacidadVsCantidad(
+      formData.capacidad,
+      formData.cantidadSolicitada,
+    );
+    if (errorCapacidadVsCantidad)
+      newErrors.cantidadSolicitada = errorCapacidadVsCantidad;
     const errorDistancia = validateDistancia(formData.distancia);
     if (errorDistancia) newErrors.distancia = errorDistancia;
 

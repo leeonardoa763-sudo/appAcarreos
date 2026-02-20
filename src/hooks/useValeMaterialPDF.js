@@ -13,6 +13,7 @@
 import { useState, useCallback, useRef } from "react";
 import { Alert, InteractionManager } from "react-native";
 import { generateAndShareMaterialRecibo as generateAndSharePDF } from "../services/pdfMaterialGeneratorRecibo";
+import { useFeatureFlags } from "./useFeatureFlags";
 
 export const useValeMaterialPDF = (navigation) => {
   const [qrDataUrl, setQrDataUrl] = useState(null);
@@ -22,6 +23,8 @@ export const useValeMaterialPDF = (navigation) => {
 
   const isSharing = useRef(false);
   const isMounted = useRef(true);
+
+  const { flags } = useFeatureFlags();
 
   // Función: Navegar a Acarreos (MEJORADA)
   const navegarAcarreos = useCallback(() => {
@@ -46,45 +49,49 @@ export const useValeMaterialPDF = (navigation) => {
   // Función: Compartir PDF
   const compartirPDF = useCallback(
     async (valeData, generarCopiaRoja) => {
-      if (isSharing.current) {
-        console.log("[useValeMaterialPDF] Ya está compartiendo - abortando");
-        return;
-      }
-
-      if (!valeData || !qrDataUrl) {
-        console.log("[useValeMaterialPDF] Faltan datos para compartir PDF");
-        return;
-      }
-
+      if (isSharing.current) return;
+      if (!valeData || !qrDataUrl) return;
       if (!isMounted.current) return;
+
+      const tipoDeMaterial =
+        valeData.vale_material_detalles?.[0]?.material?.id_tipo_de_material;
+
+      const esTipo2 = tipoDeMaterial === 2;
+      const esTipo3DirectFlow =
+        tipoDeMaterial === 3 && !flags.TIPO3_FLUJO_DOS_PASOS;
+
+      /*
+       * LÓGICA ORIGINAL (PDF rojo para todos al crear):
+       *   const colorCopia = generarCopiaRoja ? "roja" : "blanca";
+       *   await generateAndSharePDF(valeData, colorCopia, qrDataUrl);
+       */
+
+      if (esTipo2 && !flags.TIPO2_GENERAR_PDF_ROJO) {
+        if (isMounted.current) navegarAcarreos();
+        return;
+      }
 
       try {
         isSharing.current = true;
+        if (isMounted.current) setGeneratingPDF(true);
 
-        if (isMounted.current) {
-          setGeneratingPDF(true);
-        }
+        const colorCopia = esTipo3DirectFlow
+          ? "blanca"
+          : generarCopiaRoja
+            ? "roja"
+            : "blanca";
 
-        const colorCopia = generarCopiaRoja ? "roja" : "blanca";
-
-        console.log("[useValeMaterialPDF] Generando PDF color:", colorCopia);
         await generateAndSharePDF(valeData, colorCopia, qrDataUrl);
-        console.log("[useValeMaterialPDF] PDF compartido exitosamente");
 
-        // Esperar que termine la interacción de compartir
         await new Promise((resolve) => setTimeout(resolve, 500));
-
-        if (isMounted.current) {
-          navegarAcarreos();
-        }
+        if (isMounted.current) navegarAcarreos();
       } catch (error) {
         console.error("[useValeMaterialPDF] Error compartiendo PDF:", error);
-
         if (isMounted.current) {
           Alert.alert(
             "Error al compartir",
             "No se pudo compartir el PDF. Puedes encontrar el vale en la sección Acarreos.",
-            [{ text: "OK", onPress: () => navegarAcarreos() }]
+            [{ text: "OK", onPress: () => navegarAcarreos() }],
           );
         }
       } finally {
@@ -96,7 +103,7 @@ export const useValeMaterialPDF = (navigation) => {
         isSharing.current = false;
       }
     },
-    [qrDataUrl, navegarAcarreos]
+    [qrDataUrl, navegarAcarreos, flags], // <-- agregar flags aquí
   );
 
   // Callback: Cuando se genera el QR
@@ -108,14 +115,14 @@ export const useValeMaterialPDF = (navigation) => {
 
       if (qrGenerated) {
         console.log(
-          "[useValeMaterialPDF] ⚠️ QR ya fue procesado, ignorando..."
+          "[useValeMaterialPDF] ⚠️ QR ya fue procesado, ignorando...",
         );
         return;
       }
 
       if (!isMounted.current) {
         console.log(
-          "[useValeMaterialPDF] ⚠️ Componente desmontado, ignorando..."
+          "[useValeMaterialPDF] ⚠️ Componente desmontado, ignorando...",
         );
         return;
       }
@@ -129,7 +136,7 @@ export const useValeMaterialPDF = (navigation) => {
       setQrDataUrl(dataUrl);
       setQrGenerated(true);
     },
-    [qrGenerated]
+    [qrGenerated],
   );
 
   // Función: Reset del estado PDF
