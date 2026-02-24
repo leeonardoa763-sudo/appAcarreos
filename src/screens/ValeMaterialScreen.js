@@ -30,6 +30,8 @@ import FormInput from "../componets/forms/FormInput";
 import CustomModalPicker from "../componets/forms/CustomModalPicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
+import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
+import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
 
 const ValeMaterialScreen = () => {
   const navigation = useNavigation();
@@ -98,6 +100,16 @@ const ValeMaterialScreen = () => {
   // Computed: tipo 3 en flujo directo
   const esTipo3DirectFlow =
     tipoMaterialSeleccionado === 3 && !flags.TIPO3_FLUJO_DOS_PASOS;
+  // Presupuesto disponible para obra + material seleccionado
+  const { presupuestoMaterial, materialConsultado } = usePresupuestoObra({
+    id_obra: obraSeleccionada,
+    id_material: formData.materialId,
+  });
+
+  // Bloquear creación si presupuesto agotado
+  const presupuestoAgotado =
+    presupuestoMaterial?.nivel === "blocked" ||
+    presupuestoMaterial?.sinConfigurar === true;
 
   // Efecto: Cleanup al desmontar
   useEffect(() => {
@@ -306,6 +318,21 @@ const ValeMaterialScreen = () => {
           size={200}
         />
       )}
+      {/* Indicador de presupuesto fijo arriba */}
+      {materialConsultado && formData.materialId && (
+        <View style={styles.presupuestoFijo}>
+          <PresupuestoIndicator
+            sinConfigurar={presupuestoMaterial?.sinConfigurar}
+            label={materialSeleccionado?.material || "Material"}
+            disponible={presupuestoMaterial?.disponible}
+            presupuesto={presupuestoMaterial?.presupuestados}
+            consumidos={presupuestoMaterial?.consumidos}
+            porcentaje={presupuestoMaterial?.porcentaje}
+            nivel={presupuestoMaterial?.nivel}
+            tipo="material"
+          />
+        </View>
+      )}
 
       <KeyboardAvoidingScrollView
         style={styles.scrollView}
@@ -512,11 +539,14 @@ const ValeMaterialScreen = () => {
         {/* Botón crear vale */}
         <View style={styles.buttonContainer}>
           <PrimaryButton
-            title="Crear Vale"
+            title={presupuestoAgotado ? "Presupuesto Agotado" : "Crear Vale"}
             onPress={handleCrearVale}
             loading={submitting || generatingPDF}
-            icon="check-circle"
-            backgroundColor={colors.accent}
+            icon={presupuestoAgotado ? "cancel" : "check-circle"}
+            backgroundColor={
+              presupuestoAgotado ? colors.disabled : colors.accent
+            }
+            disabled={presupuestoAgotado}
           />
         </View>
       </KeyboardAvoidingScrollView>
@@ -553,4 +583,11 @@ const ValeMaterialScreen = () => {
 
 export default ValeMaterialScreen;
 
-const styles = commonStyles;
+const styles = {
+  ...commonStyles,
+  presupuestoFijo: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    backgroundColor: colors.background,
+  },
+};

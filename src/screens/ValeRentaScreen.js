@@ -45,6 +45,8 @@ import CustomTimePicker from "../componets/forms/CustomTimePicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 import SuccessModal from "../componets/common/SuccessModal";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
+import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
+import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
 
 // Utils
 import { generateVerificationUrl } from "../utils/qrGenerator";
@@ -76,9 +78,7 @@ const ValeRentaScreen = () => {
   ]);
 
   // Hook para generar folio CON obraDataParaFolio
-
   const { generateFolio } = useFolioGenerator();
-
   // Estados del formulario
   const [formData, setFormData] = useState({
     materialId: null,
@@ -96,6 +96,16 @@ const ValeRentaScreen = () => {
   const [valeCreado, setValeCreado] = useState(null);
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
+
+  // Presupuesto de renta disponible para la obra seleccionada
+  const { presupuestoRenta, rentaConsultada } = usePresupuestoObra({
+    id_obra: obraSeleccionada,
+  });
+
+  // Bloquear creación si presupuesto agotado
+  const presupuestoAgotado =
+    presupuestoRenta?.nivel === "blocked" ||
+    presupuestoRenta?.sinConfigurar === true;
 
   // Cleanup al desmontar
   useEffect(() => {
@@ -329,6 +339,21 @@ const ValeRentaScreen = () => {
 
   return (
     <View style={styles.container}>
+      {/* Indicador de presupuesto fijo arriba */}
+      {rentaConsultada && (
+        <View style={styles.presupuestoFijo}>
+          <PresupuestoIndicator
+            sinConfigurar={presupuestoRenta?.sinConfigurar}
+            label="Renta de equipo"
+            disponible={presupuestoRenta?.disponible}
+            presupuesto={presupuestoRenta?.presupuestado}
+            consumidos={presupuestoRenta?.consumido}
+            porcentaje={presupuestoRenta?.porcentaje}
+            nivel={presupuestoRenta?.nivel}
+            tipo="renta"
+          />
+        </View>
+      )}
       <KeyboardAvoidingScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -441,11 +466,14 @@ const ValeRentaScreen = () => {
 
         <View style={styles.buttonContainer}>
           <PrimaryButton
-            title="Crear Vale"
+            title={presupuestoAgotado ? "Presupuesto Agotado" : "Crear Vale"}
             onPress={handleCrearVale}
             loading={submitting}
-            icon="check-circle"
-            backgroundColor={colors.accent}
+            icon={presupuestoAgotado ? "cancel" : "check-circle"}
+            backgroundColor={
+              presupuestoAgotado ? colors.disabled : colors.accent
+            }
+            disabled={presupuestoAgotado}
           />
         </View>
       </KeyboardAvoidingScrollView>
