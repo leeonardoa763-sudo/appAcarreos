@@ -54,10 +54,12 @@ export const useFolioGenerator = () => {
       console.log("[useFolioGenerator] Consultando último folio...");
 
       const { data, error } = await supabase
+
         .from("vales")
         .select("folio")
         .eq("id_obra", idObra)
-        .order("created_at", { ascending: false })
+        .ilike("folio", `${prefijoFolio}%`)
+        .order("folio", { ascending: false })
         .limit(1);
 
       if (error) {

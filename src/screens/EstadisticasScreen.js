@@ -84,6 +84,11 @@ const EstadisticasScreen = () => {
   ];
 
   // ========== EFFECTS ==========
+  useEffect(() => {
+    if (obras.length > 0 && obraSeleccionada === null) {
+      setObraSeleccionada(obras[0].id);
+    }
+  }, [obras, obraSeleccionada]);
 
   // ========== FUNCIONES ==========
   const handlePeriodoChange = (periodo) => {

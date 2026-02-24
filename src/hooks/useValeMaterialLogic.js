@@ -154,6 +154,10 @@ export const useValeMaterialLogic = (materiales) => {
         peso_ton: null,
         notas_adicionales: formData.notasAdicionales || null,
         requisicion: formData.requisicion || null,
+        // NUEVO: Folio vale físico, solo para tipo 3 en flujo directo
+        folio_vale_fisico: esTipo3DirectFlow
+          ? parseInt(formData.folioValeFisico, 10)
+          : null,
       };
 
       const { error: errorDetalle } = await supabase
@@ -243,7 +247,8 @@ export const useValeMaterialLogic = (materiales) => {
           *,
           material:id_material (
             id_material,
-            material
+            material,
+            id_tipo_de_material
           ),
           bancos:id_banco (
             id_banco,

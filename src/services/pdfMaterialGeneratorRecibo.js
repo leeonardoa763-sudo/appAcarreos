@@ -37,10 +37,17 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const distancia = detalle.distancia_km || "N/A";
   const cantidadPedida = detalle.cantidad_pedida_m3 || "N/A";
   const requisicion = detalle.requisicion || null;
+  const folioValeFisico = detalle.folio_vale_fisico
+    ? String(detalle.folio_vale_fisico)
+    : null;
 
   // Detectar si es tipo 3 (Tepetate)
   const esTipo3 = detalle.material?.id_tipo_de_material === 3;
 
+  // En generateValeMaterialReciboHTML, justo después de extraer folioValeFisico
+  console.log("[PDF] folioValeFisico:", folioValeFisico);
+  console.log("[PDF] esTipo3:", esTipo3);
+  console.log("[PDF] detalle completo:", JSON.stringify(detalle));
   // Datos después de completar el vale
   const folioBanco = detalle.folio_banco || null;
   const peso = detalle.peso_ton
@@ -153,6 +160,17 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
             `
               : ""
           }
+          ${
+            folioValeFisico && esTipo3
+              ? `
+            <div class="receipt-row">
+              <span class="receipt-row-label">Vale Físico:</span>
+              <span class="receipt-row-value">${folioValeFisico}</span>
+            </div>
+            `
+              : ""
+          }
+
           
           ${
             !(esCopiaBlanca && esTipo3)

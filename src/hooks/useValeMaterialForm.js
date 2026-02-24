@@ -30,13 +30,13 @@ export const useValeMaterialForm = (materiales = []) => {
     selectedVehiculo: null,
     notasAdicionales: "",
     requisicion: "",
+    folioValeFisico: "",
   });
 
   const [errors, setErrors] = useState({});
 
   // Función: Validar formulario
-  const validateForm = () => {
-    console.log("[useValeMaterialForm] ✔️ Validando formulario...");
+  const validateForm = (esTipo3DirectFlow = false) => {
     const newErrors = {};
 
     const errorMaterial = validateMaterialId(formData.materialId);
@@ -52,12 +52,14 @@ export const useValeMaterialForm = (materiales = []) => {
       formData.cantidadSolicitada,
     );
     if (errorCantidad) newErrors.cantidadSolicitada = errorCantidad;
+
     const errorCapacidadVsCantidad = validateCapacidadVsCantidad(
       formData.capacidad,
       formData.cantidadSolicitada,
     );
     if (errorCapacidadVsCantidad)
       newErrors.cantidadSolicitada = errorCapacidadVsCantidad;
+
     const errorDistancia = validateDistancia(formData.distancia);
     if (errorDistancia) newErrors.distancia = errorDistancia;
 
@@ -85,22 +87,24 @@ export const useValeMaterialForm = (materiales = []) => {
         "La requisición es obligatoria para este material";
     }
 
+    // Validación folio vale físico: Obligatorio solo para tipo 3 en flujo directo
+    if (esTipo3DirectFlow && !formData.folioValeFisico?.trim()) {
+      newErrors.folioValeFisico = "El folio del vale físico es obligatorio";
+    } else if (
+      formData.folioValeFisico?.trim() &&
+      !/^\d+$/.test(formData.folioValeFisico.trim())
+    ) {
+      newErrors.folioValeFisico = "El folio debe contener solo números";
+    }
+
     setErrors(newErrors);
 
     const isValid = Object.keys(newErrors).length === 0;
-    console.log(
-      "[useValeMaterialForm]",
-      isValid ? "✅" : "❌",
-      "Validación:",
-      isValid,
-    );
-
     return isValid;
   };
 
   // Función: Resetear formulario
   const resetForm = () => {
-    console.log("[useValeMaterialForm] 🔄 Reseteando formulario");
     setFormData({
       materialId: null,
       bancoId: null,
@@ -112,6 +116,7 @@ export const useValeMaterialForm = (materiales = []) => {
       selectedVehiculo: null,
       notasAdicionales: "",
       requisicion: "",
+      folioValeFisico: "",
     });
     setErrors({});
   };

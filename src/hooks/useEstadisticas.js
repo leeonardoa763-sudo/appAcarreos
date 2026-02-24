@@ -306,14 +306,12 @@ export const useEstadisticas = (
         .gte("fecha_creacion", fechaInicio)
         .lte("fecha_creacion", fechaFin);
 
-      // Filtrar por residente
-      if (residenteId) {
-        query = query.eq("id_persona_creador", residenteId);
-      }
-
-      // Filtrar por obra (null = todas las obras del residente)
+      // Si hay obra específica, filtrar por obra (ve TODO lo de la obra)
+      // Si no hay obra, filtrar por residente (sus obras asignadas)
       if (obraId) {
         query = query.eq("id_obra", obraId);
+      } else if (residenteId) {
+        query = query.eq("id_persona_creador", residenteId);
       }
 
       query = query.order("fecha_creacion", { ascending: false });

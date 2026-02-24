@@ -61,6 +61,7 @@ const ValeCard = ({ vale, onPress }) => {
           : "Sin cantidad",
         requisicion: detalle.requisicion || null,
         material: detalle.material?.material || "N/A",
+        folioValeFisico: detalle.folio_vale_fisico || null,
       };
     }
     return null;
@@ -136,7 +137,6 @@ const ValeCard = ({ vale, onPress }) => {
         </View>
       )}
 
-      {/* Información específica según tipo */}
       {isMaterial && materialInfo && (
         <>
           <View style={styles.row}>
@@ -157,6 +157,20 @@ const ValeCard = ({ vale, onPress }) => {
               Cantidad: {materialInfo.cantidad}
             </Text>
           </View>
+
+          {/* Folio Vale Físico (solo si existe) */}
+          {materialInfo.folioValeFisico && (
+            <View style={styles.row}>
+              <MaterialCommunityIcons
+                name="file-document-outline"
+                size={16}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.infoText}>
+                Vale físico: {materialInfo.folioValeFisico}
+              </Text>
+            </View>
+          )}
         </>
       )}
 

@@ -712,6 +712,14 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               value={detalleMaterial.requisicion}
             />
           )}
+          {/* NUEVO: Folio vale físico */}
+          {detalleMaterial.folio_vale_fisico && (
+            <InfoRow
+              icon="file-document-outline"
+              label="Vale Físico"
+              value={String(detalleMaterial.folio_vale_fisico)}
+            />
+          )}
 
           <InfoRow
             icon="bank"

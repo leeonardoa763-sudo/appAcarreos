@@ -105,7 +105,8 @@ export const fetchValesMaterial = async (weekNumber, year, obrasIds) => {
         notas_adicionales,
         tarifa_primer_km,
         tarifa_subsecuente,
-        requisicion
+        requisicion,
+        folio_vale_fisico
       )
     `,
     )

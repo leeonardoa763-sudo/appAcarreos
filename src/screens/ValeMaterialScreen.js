@@ -35,7 +35,6 @@ const ValeMaterialScreen = () => {
   const navigation = useNavigation();
   const { userProfile } = useAuth();
   const { flags } = useFeatureFlags();
-  // Ref para prevenir setState después de unmount
   const isMounted = useRef(true);
 
   // Datos de obra
@@ -94,8 +93,11 @@ const ValeMaterialScreen = () => {
     setMounted,
   } = useValeMaterialPDF(navigation);
 
-  // Generador de folios CON obraData
   const { generateFolio } = useFolioGenerator();
+
+  // Computed: tipo 3 en flujo directo
+  const esTipo3DirectFlow =
+    tipoMaterialSeleccionado === 3 && !flags.TIPO3_FLUJO_DOS_PASOS;
 
   // Efecto: Cleanup al desmontar
   useEffect(() => {
@@ -127,24 +129,23 @@ const ValeMaterialScreen = () => {
     }
   }, [obras, obraSeleccionada]);
 
+  // Efecto: Construir obraData para folio
   useEffect(() => {
     if (obraSeleccionada && obras.length > 0) {
       const obraActual = obras.find((o) => o.id === obraSeleccionada);
 
       if (obraActual) {
-        const obraData = {
+        setObraDataParaFolio({
           id_obra: obraActual.id,
           obra: obraActual.nombre,
           cc: obraActual.cc,
           empresas: {
-            id_empresa: obraActual.id_empresa, // ✅ Ahora usa el valor real
+            id_empresa: obraActual.id_empresa,
             empresa: obraActual.empresa,
             sufijo: obraActual.sufijo,
             logo: obraActual.logo,
           },
-        };
-
-        setObraDataParaFolio(obraData);
+        });
       } else {
         setObraDataParaFolio(null);
       }
@@ -157,9 +158,6 @@ const ValeMaterialScreen = () => {
   useEffect(() => {
     const calcularDistancia = async () => {
       if (!formData.bancoId || !obraSeleccionada) {
-        console.log(
-          "[ValeMaterialScreen] ⚠️ Falta banco u obra, limpiando distancia",
-        );
         setFormData((prev) => ({ ...prev, distancia: "" }));
         return;
       }
@@ -172,21 +170,14 @@ const ValeMaterialScreen = () => {
           .eq("id_obra", obraSeleccionada)
           .maybeSingle();
 
-        if (error) {
-          console.error("[ValeMaterialScreen] ❌ Error query:", error);
-          throw error;
-        }
+        if (error) throw error;
 
-        if (data && data.distancia_km) {
-          const distanciaStr = data.distancia_km.toString();
-          console.log(
-            "[ValeMaterialScreen] ✅ Distancia encontrada:",
-            distanciaStr,
-            "km",
-          );
-          setFormData((prev) => ({ ...prev, distancia: distanciaStr }));
+        if (data?.distancia_km) {
+          setFormData((prev) => ({
+            ...prev,
+            distancia: data.distancia_km.toString(),
+          }));
         } else {
-          console.log("[ValeMaterialScreen] ⚠️ No se encontró distancia");
           setFormData((prev) => ({ ...prev, distancia: "" }));
 
           const obraActual = obras.find((o) => o.id === obraSeleccionada);
@@ -198,7 +189,6 @@ const ValeMaterialScreen = () => {
           );
         }
       } catch (error) {
-        console.error("[ValeMaterialScreen] 💥 Error:", error);
         Alert.alert("Error", "No se pudo obtener la distancia");
       }
     };
@@ -234,7 +224,7 @@ const ValeMaterialScreen = () => {
 
   // Función: Crear vale
   const handleCrearVale = async () => {
-    if (!validateForm()) {
+    if (!validateForm(esTipo3DirectFlow)) {
       Alert.alert(
         "Campos incompletos",
         "Por favor completa todos los campos requeridos",
@@ -252,11 +242,6 @@ const ValeMaterialScreen = () => {
       return;
     }
 
-    console.log(
-      "[ValeMaterialScreen] 🏗️ Creando vale con obraData:",
-      obraDataParaFolio,
-    );
-
     try {
       const { valeCompleto, folio } = await crearVale(
         formData,
@@ -266,15 +251,12 @@ const ValeMaterialScreen = () => {
         materiales,
       );
 
-      // Proteger setState
       if (isMounted.current) {
         setValeCreado(valeCompleto);
         setFolioCreado(folio);
         setShowSuccessModal(true);
       }
     } catch (error) {
-      console.error("[ValeMaterialScreen] Error:", error);
-
       if (isMounted.current) {
         Alert.alert("Error", `No se pudo crear el vale: ${error.message}`);
       }
@@ -454,6 +436,23 @@ const ValeMaterialScreen = () => {
               autoCapitalize="characters"
             />
           )}
+
+          {/* Campo Folio Vale Físico (solo tipo 3 en flujo directo) */}
+          {esTipo3DirectFlow && (
+            <FormInput
+              label="Folio de Vale Físico"
+              value={formData.folioValeFisico}
+              onChangeText={(value) =>
+                setFormData({
+                  ...formData,
+                  folioValeFisico: value.replace(/[^0-9]/g, ""),
+                })
+              }
+              placeholder="Ej: 12345"
+              keyboardType="number-pad"
+              error={errors.folioValeFisico}
+            />
+          )}
         </View>
 
         {/* SECCIÓN: DATOS DE OPERADOR */}
@@ -482,15 +481,7 @@ const ValeMaterialScreen = () => {
         {materialSeleccionado && (
           <View style={styles.infoCopiasContainer}>
             <Text style={styles.infoCopiasText}>
-              {/*
-               * LÓGICA ORIGINAL:
-               * Se generará copia {generarCopiaRoja ? "ROJA" : "BLANCA"}
-               * para {generarCopiaRoja ? "el banco de material" : "el operador"}
-               *
-               * Nueva lógica por tipo de material:
-               */}
-              {tipoMaterialSeleccionado === 3 &&
-              !flags.TIPO3_FLUJO_DOS_PASOS ? (
+              {esTipo3DirectFlow ? (
                 <>
                   Se generará{" "}
                   <Text style={styles.infoCopiasDestacado}>copia BLANCA</Text>
@@ -534,7 +525,7 @@ const ValeMaterialScreen = () => {
         visible={showSuccessModal}
         title="Vale Creado"
         message={`Vale ${folioCreado} creado exitosamente${
-          tipoMaterialSeleccionado === 3 && !flags.TIPO3_FLUJO_DOS_PASOS
+          esTipo3DirectFlow
             ? "\n\nSe generó la copia BLANCA definitiva"
             : tipoMaterialSeleccionado === 2 && !flags.TIPO2_GENERAR_PDF_ROJO
               ? "\n\nEl vale quedó en proceso para completarse en Acarreos"
@@ -543,8 +534,7 @@ const ValeMaterialScreen = () => {
                 : "\n\nSe generó la copia BLANCA definitiva"
         }`}
         primaryAction={
-          tipoMaterialSeleccionado === 2 &&
-          !FEATURE_FLAGS.TIPO2_GENERAR_PDF_ROJO
+          tipoMaterialSeleccionado === 2 && !flags.TIPO2_GENERAR_PDF_ROJO
             ? null
             : {
                 text: "Compartir PDF",
