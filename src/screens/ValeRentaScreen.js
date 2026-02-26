@@ -29,7 +29,7 @@ import {
   validateOperadorId,
   validateVehiculoId,
   validateCapacidad,
-  validateHoraInicio,
+  validateHoraInicioNoFutura,
   validateMaterialId,
   validateSindicatoId,
 } from "../utils/validations";
@@ -84,7 +84,7 @@ const ValeRentaScreen = () => {
     materialId: null,
     capacidad: "",
     sindicatoId: null,
-    horaInicio: null,
+    horaInicio: new Date(),
     selectedOperador: null,
     selectedVehiculo: null,
     notasAdicionales: "",
@@ -162,7 +162,7 @@ const ValeRentaScreen = () => {
     const errorSindicato = validateSindicatoId(formData.sindicatoId);
     if (errorSindicato) newErrors.sindicatoId = errorSindicato;
 
-    const errorHora = validateHoraInicio(formData.horaInicio);
+    const errorHora = validateHoraInicioNoFutura(formData.horaInicio);
     if (errorHora) newErrors.horaInicio = errorHora;
 
     const errorOperador = validateOperadorId(

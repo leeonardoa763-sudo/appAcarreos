@@ -122,12 +122,18 @@ const CustomTimePicker = ({
       hour24 = 0;
     }
 
-    // Crear nuevo objeto Date
-    const newDate = value ? new Date(value) : new Date();
-    newDate.setHours(hour24);
-    newDate.setMinutes(selectedMinute);
-    newDate.setSeconds(0);
-    newDate.setMilliseconds(0);
+    // Crear Date usando fecha de HOY con la hora local explícita
+    // NO usar new Date(value) para evitar problemas de zona horaria
+    const hoy = new Date();
+    const newDate = new Date(
+      hoy.getFullYear(),
+      hoy.getMonth(),
+      hoy.getDate(),
+      hour24,
+      selectedMinute,
+      0,
+      0,
+    );
 
     onChange(newDate);
     setShowModal(false);

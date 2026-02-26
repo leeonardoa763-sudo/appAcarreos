@@ -33,6 +33,15 @@ import GenerarPDFButton from "../vale/GenerarPDFButton";
 import CustomTimePicker from "../forms/CustomTimePicker";
 import { useAuth } from "../../hooks/useAuth";
 import FormInput from "../forms/FormInput";
+import EvidenciaCaptura from "../vale/EvidenciaCaptura";
+import useEvidenciaVale from "../../hooks/useEvidenciaVale";
+
+// Agregar junto a los otros imports de utils/validations (si no hay uno, agregar el bloque):
+import {
+  validateHoraFinNoPosterior,
+  validateTiempoMinimoRenta,
+  validateMismoDiaCreacion,
+} from "../../utils/validations";
 
 const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const { userProfile } = useAuth();
@@ -45,6 +54,27 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const [successData, setSuccessData] = useState(null);
   const [updatedVale, setUpdatedVale] = useState(null);
   const [triggerPDF, setTriggerPDF] = useState(false);
+  const [mensajeBloqueo, setMensajeBloqueo] = useState(null);
+  // Obtener datos de la obra para validación de proximidad
+  const obraData = vale?.obras || null;
+
+  const {
+    foto,
+    fotoUrl,
+    ubicacion,
+    distanciaObra,
+    evidenciaLista,
+    dentroDelRadio,
+    obraTieneCoordenadas,
+    radioConfigurado,
+    loadingFoto,
+    loadingUbicacion,
+    errorFoto,
+    errorUbicacion,
+    tomarFoto,
+    capturarUbicacion,
+    resetEvidencia,
+  } = useEvidenciaVale(obraData);
 
   const [notasAdicionales, setNotasAdicionales] = useState("");
 
@@ -93,6 +123,37 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!canComplete || !detalleRenta) return;
+
+    // Verificar si el vale es del mismo día
+    const errorDia = validateMismoDiaCreacion(vale?.fecha_creacion);
+    if (errorDia) {
+      setMensajeBloqueo(errorDia);
+      return;
+    }
+
+    // Verificar tiempo mínimo según tipo seleccionado
+    if (esRentaPorDia) {
+      const error = validateTiempoMinimoRenta(detalleRenta.hora_inicio, "dia");
+      setMensajeBloqueo(error);
+    } else if (esRentaPorMedioDia) {
+      const error = validateTiempoMinimoRenta(
+        detalleRenta.hora_inicio,
+        "medio_dia",
+      );
+      setMensajeBloqueo(error);
+    } else {
+      setMensajeBloqueo(null);
+    }
+  }, [
+    canComplete,
+    detalleRenta,
+    esRentaPorDia,
+    esRentaPorMedioDia,
+    vale?.fecha_creacion,
+  ]);
+
   const formatDate = useCallback((dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -121,9 +182,48 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const handleGuardarHoraFin = useCallback(async () => {
     if (!canComplete) return;
 
-    if (!esRentaPorDia && !esRentaPorMedioDia && !horaFin) {
-      Alert.alert("Error", "Por favor selecciona la hora de fin");
+    // Validar mismo día de creación
+    const errorDia = validateMismoDiaCreacion(vale?.fecha_creacion);
+    if (errorDia) {
+      Alert.alert("Vale vencido", errorDia);
       return;
+    }
+
+    // Validar hora de fin para renta por horas
+    if (!esRentaPorDia && !esRentaPorMedioDia) {
+      if (!horaFin) {
+        Alert.alert("Error", "Por favor selecciona la hora de fin");
+        return;
+      }
+
+      const errorHoraFin = validateHoraFinNoPosterior(horaFin);
+      if (errorHoraFin) {
+        Alert.alert("Hora inválida", errorHoraFin);
+        return;
+      }
+    }
+
+    // Validar tiempo mínimo para día completo o medio día
+    if (esRentaPorDia) {
+      const errorTiempo = validateTiempoMinimoRenta(
+        detalleRenta.hora_inicio,
+        "dia",
+      );
+      if (errorTiempo) {
+        Alert.alert("Tiempo insuficiente", errorTiempo);
+        return;
+      }
+    }
+
+    if (esRentaPorMedioDia) {
+      const errorTiempo = validateTiempoMinimoRenta(
+        detalleRenta.hora_inicio,
+        "medio_dia",
+      );
+      if (errorTiempo) {
+        Alert.alert("Tiempo insuficiente", errorTiempo);
+        return;
+      }
     }
 
     try {
@@ -136,19 +236,16 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       let costoTotal = 0;
 
       if (esRentaPorDia) {
-        // Día completo
         totalDias = 1;
         totalHoras = 0;
         horaFinFinal = null;
         costoTotal = parseFloat(preciosRenta.costo_dia);
       } else if (esRentaPorMedioDia) {
-        // Medio día
         totalDias = 0.5;
         totalHoras = 0;
         horaFinFinal = null;
         costoTotal = parseFloat(preciosRenta.costo_dia) / 2;
       } else {
-        // Por horas
         horaFinFinal = horaFin.toISOString();
         const diffMs = horaFin - horaInicio;
         totalHoras = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
@@ -197,10 +294,9 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       const valeActualizado = {
         ...vale,
         estado: "emitido",
-        id_persona_completador: userProfile.id_persona, // ← AGREGAR ESTO
-        fecha_completado: new Date().toISOString(), // ← AGREGAR ESTO
+        id_persona_completador: userProfile.id_persona,
+        fecha_completado: new Date().toISOString(),
         persona_completador: {
-          // ← AGREGAR ESTO
           nombre: userProfile.nombre,
           primer_apellido: userProfile.primer_apellido,
           segundo_apellido: userProfile.segundo_apellido,
@@ -244,6 +340,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     numeroViajes,
     detalleRenta,
     vale?.id_vale,
+    vale?.fecha_creacion,
     preciosRenta,
     userProfile,
     notasAdicionales,
@@ -251,9 +348,10 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
 
   const handleCloseSuccess = useCallback(() => {
     setShowSuccessModal(false);
+    resetEvidencia();
     onRefresh();
     onClose();
-  }, [onRefresh, onClose]);
+  }, [onRefresh, onClose, resetEvidencia]);
 
   const handleGenerarPDFAhora = useCallback(() => {
     if (!updatedVale) {
@@ -482,7 +580,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             </View>
           )}
 
-        {/* Formulario para Completar */}
         {canComplete && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Completar Vale</Text>
@@ -533,20 +630,54 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
               maxLength={200}
             />
 
+            <EvidenciaCaptura
+              folioVale={vale?.folio}
+              foto={foto}
+              fotoUrl={fotoUrl}
+              ubicacion={ubicacion}
+              distanciaObra={distanciaObra}
+              dentroDelRadio={dentroDelRadio}
+              obraTieneCoordenadas={obraTieneCoordenadas}
+              radioConfigurado={radioConfigurado}
+              loadingFoto={loadingFoto}
+              loadingUbicacion={loadingUbicacion}
+              errorFoto={errorFoto}
+              errorUbicacion={errorUbicacion}
+              onTomarFoto={tomarFoto}
+              onCapturarUbicacion={capturarUbicacion}
+            />
+
+            {mensajeBloqueo && (
+              <View style={styles.bloqueoContainer}>
+                <MaterialCommunityIcons
+                  name="alert-circle"
+                  size={18}
+                  color={colors.primary}
+                />
+                <Text style={styles.bloqueoText}>{mensajeBloqueo}</Text>
+              </View>
+            )}
+
             <PrimaryButton
               title="Completar Vale"
               onPress={handleGuardarHoraFin}
               loading={saving}
-              disabled={!esRentaPorDia && !esRentaPorMedioDia && !horaFin}
+              disabled={
+                saving ||
+                !!mensajeBloqueo ||
+                (!esRentaPorDia && !esRentaPorMedioDia && !horaFin) ||
+                !evidenciaLista ||
+                (obraTieneCoordenadas && dentroDelRadio === false)
+              }
               icon="check-circle"
               backgroundColor={colors.accent}
             />
 
             <Text style={styles.helperText}>
               {esRentaPorDia
-                ? "Renta por día completo seleccionada"
+                ? "Renta por día completo — mínimo 8 hrs desde inicio"
                 : esRentaPorMedioDia
-                  ? "Renta por medio día seleccionada"
+                  ? "Renta por medio día — mínimo 4 hrs desde inicio"
                   : "Hora de fin requerida para renta por hora"}
             </Text>
           </View>
@@ -687,5 +818,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textPrimary,
     lineHeight: 20,
+  },
+  bloqueoContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#FFF3EE",
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  bloqueoText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.primary,
+    lineHeight: 18,
   },
 });

@@ -140,6 +140,9 @@ const AcarreosScreen = () => {
           obras (
             obra,
             cc,
+            latitud,
+            longitud,
+            radio_validacion_metros,
             empresas (
               empresa,
               sufijo,
