@@ -79,13 +79,15 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                   Vale de {isMaterial ? "Material" : "Renta"}
                 </Text>
                 <Text style={styles.modalFolio}>{vale.folio}</Text>
-                <ImprimirTicketButton
-                  valeId={vale.id_vale}
-                  valeData={vale}
-                  impresiones={vale.impresiones_ticket}
-                  estado={vale.estado}
-                  onImpreso={onRefresh}
-                />
+                {isMaterial && (
+                  <ImprimirTicketButton
+                    valeId={vale.id_vale}
+                    valeData={vale}
+                    impresiones={vale.impresiones_ticket}
+                    estado={vale.estado}
+                    onImpreso={onRefresh}
+                  />
+                )}
               </View>
             </View>
 

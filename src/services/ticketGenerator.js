@@ -3,26 +3,16 @@
  *
  * Genera el contenido del ticket en formato ESC/POS
  * para impresoras térmicas de 48mm
- *
- * PROPÓSITO:
- * - Formatear datos del vale para impresión física
- * - Generar líneas de texto con formato ESC/POS
- * - Compatible con impresoras de 48mm (384 dots)
  */
 
-import { BluetoothEscposPrinter } from "@vardrz/react-native-bluetooth-escpos-printer";
-
 const ALINEACION = {
-  IZQUIERDA: BluetoothEscposPrinter.PRINTER_ALIGN.LEFT,
-  CENTRO: BluetoothEscposPrinter.PRINTER_ALIGN.CENTER,
-  DERECHA: BluetoothEscposPrinter.PRINTER_ALIGN.RIGHT,
+  IZQUIERDA: "left",
+  CENTRO: "center",
+  DERECHA: "right",
 };
 
 const SEPARADOR = "--------------------------------";
 
-/**
- * Formatea fecha legible
- */
 const formatearFecha = (fecha) => {
   if (!fecha) return "N/A";
   const date = new Date(fecha);
@@ -33,9 +23,6 @@ const formatearFecha = (fecha) => {
   });
 };
 
-/**
- * Formatea hora legible
- */
 const formatearHora = (fecha) => {
   if (!fecha) return "";
   const date = new Date(fecha);
@@ -46,9 +33,6 @@ const formatearHora = (fecha) => {
   });
 };
 
-/**
- * Traduce estado del vale a texto legible
- */
 const traducirEstado = (estado) => {
   const estados = {
     en_proceso: "EN PROCESO",
@@ -62,8 +46,6 @@ const traducirEstado = (estado) => {
 
 /**
  * Genera líneas del ticket de vale de MATERIAL
- * @param {object} vale - Datos completos del vale
- * @returns {Array} - Array de líneas para imprimirTicket()
  */
 export const generarTicketMaterial = (vale) => {
   const detalle = vale?.vale_material_detalles?.[0] || {};
@@ -88,121 +70,84 @@ export const generarTicketMaterial = (vale) => {
     vale.qr_verification_url || `https://web-acarreos.vercel.app/vale/${folio}`;
 
   return [
-    // Encabezado empresa
     {
       tipo: "texto",
       contenido: `${empresa}\n`,
-      opciones: {
-        align: ALINEACION.CENTRO,
-        widthtimes: 1,
-        heigthtimes: 1,
-        fonttype: 1,
-      },
+      opciones: { align: ALINEACION.CENTRO, bold: true },
     },
     {
       tipo: "texto",
       contenido: "VALE DE MATERIAL\n",
-      opciones: {
-        align: ALINEACION.CENTRO,
-        widthtimes: 1,
-        heigthtimes: 1,
-        fonttype: 1,
-      },
+      opciones: { align: ALINEACION.CENTRO, bold: true },
     },
     {
       tipo: "texto",
       contenido: `${folio}\n`,
-      opciones: {
-        align: ALINEACION.CENTRO,
-        widthtimes: 1,
-        heigthtimes: 1,
-        fonttype: 1,
-      },
+      opciones: { align: ALINEACION.CENTRO, bold: true },
     },
     {
       tipo: "texto",
       contenido: `${fecha} ${hora}\n`,
-      opciones: { align: ALINEACION.CENTRO, fonttype: 0 },
+      opciones: { align: ALINEACION.CENTRO },
     },
-    // Estado
     {
       tipo: "texto",
       contenido: `ESTADO: ${estado}\n`,
-      opciones: { align: ALINEACION.CENTRO, fonttype: 1 },
+      opciones: { align: ALINEACION.CENTRO, bold: true },
     },
+    { tipo: "separador" },
     {
       tipo: "texto",
-      contenido: `${SEPARADOR}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
-    },
-    // Obra y banco
-    {
-      tipo: "texto",
-      contenido: `OBRA:\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      contenido: "OBRA:\n",
+      opciones: { align: ALINEACION.IZQUIERDA },
     },
     {
       tipo: "texto",
       contenido: `${obra}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 1 },
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
     {
       tipo: "texto",
       contenido: `BANCO: ${banco}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 1 },
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
-    {
-      tipo: "texto",
-      contenido: `${SEPARADOR}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
-    },
-    // Material
+    { tipo: "separador" },
     {
       tipo: "texto",
       contenido: `MATERIAL: ${material}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 1 },
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
     {
       tipo: "texto",
       contenido: `CAPACIDAD: ${capacidad}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      opciones: { align: ALINEACION.IZQUIERDA },
     },
     {
       tipo: "texto",
       contenido: `DISTANCIA: ${distancia}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      opciones: { align: ALINEACION.IZQUIERDA },
     },
     {
       tipo: "texto",
       contenido: `CANTIDAD: ${cantidad}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      opciones: { align: ALINEACION.IZQUIERDA },
     },
-    {
-      tipo: "texto",
-      contenido: `${SEPARADOR}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
-    },
-    // Operador
+    { tipo: "separador" },
     {
       tipo: "texto",
       contenido: `OPERADOR:\n${operador}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 1 },
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
     {
       tipo: "texto",
       contenido: `PLACAS: ${placas}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      opciones: { align: ALINEACION.IZQUIERDA },
     },
-    {
-      tipo: "texto",
-      contenido: `${SEPARADOR}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
-    },
-    // QR
+    { tipo: "separador" },
     {
       tipo: "texto",
       contenido: "Escanear para verificar\n",
-      opciones: { align: ALINEACION.CENTRO, fonttype: 0 },
+      opciones: { align: ALINEACION.CENTRO },
     },
     {
       tipo: "qr",
@@ -212,15 +157,13 @@ export const generarTicketMaterial = (vale) => {
     {
       tipo: "texto",
       contenido: `${folio}\n`,
-      opciones: { align: ALINEACION.CENTRO, fonttype: 0 },
+      opciones: { align: ALINEACION.CENTRO },
     },
   ];
 };
 
 /**
  * Genera líneas del ticket de vale de RENTA
- * @param {object} vale - Datos completos del vale
- * @returns {Array} - Array de líneas para imprimirTicket()
  */
 export const generarTicketRenta = (vale) => {
   const detalle = vale?.vale_renta_detalle?.[0] || {};
@@ -270,108 +213,76 @@ export const generarTicketRenta = (vale) => {
     vale.qr_verification_url || `https://web-acarreos.vercel.app/vale/${folio}`;
 
   const lineas = [
-    // Encabezado
     {
       tipo: "texto",
       contenido: `${empresa}\n`,
-      opciones: {
-        align: ALINEACION.CENTRO,
-        widthtimes: 1,
-        heigthtimes: 1,
-        fonttype: 1,
-      },
+      opciones: { align: ALINEACION.CENTRO, bold: true },
     },
     {
       tipo: "texto",
       contenido: "VALE DE RENTA\n",
-      opciones: {
-        align: ALINEACION.CENTRO,
-        widthtimes: 1,
-        heigthtimes: 1,
-        fonttype: 1,
-      },
+      opciones: { align: ALINEACION.CENTRO, bold: true },
     },
     {
       tipo: "texto",
       contenido: `${folio}\n`,
-      opciones: {
-        align: ALINEACION.CENTRO,
-        widthtimes: 1,
-        heigthtimes: 1,
-        fonttype: 1,
-      },
+      opciones: { align: ALINEACION.CENTRO, bold: true },
     },
     {
       tipo: "texto",
       contenido: `${fecha} ${hora}\n`,
-      opciones: { align: ALINEACION.CENTRO, fonttype: 0 },
+      opciones: { align: ALINEACION.CENTRO },
     },
     {
       tipo: "texto",
       contenido: `ESTADO: ${estado}\n`,
-      opciones: { align: ALINEACION.CENTRO, fonttype: 1 },
+      opciones: { align: ALINEACION.CENTRO, bold: true },
     },
+    { tipo: "separador" },
     {
       tipo: "texto",
-      contenido: `${SEPARADOR}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
-    },
-    // Obra
-    {
-      tipo: "texto",
-      contenido: `OBRA:\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      contenido: "OBRA:\n",
+      opciones: { align: ALINEACION.IZQUIERDA },
     },
     {
       tipo: "texto",
       contenido: `${obra}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 1 },
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
-    {
-      tipo: "texto",
-      contenido: `${SEPARADOR}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
-    },
-    // Material
+    { tipo: "separador" },
     {
       tipo: "texto",
       contenido: `MATERIAL: ${material}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 1 },
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
     {
       tipo: "texto",
       contenido: `CAPACIDAD: ${capacidad}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      opciones: { align: ALINEACION.IZQUIERDA },
     },
     {
       tipo: "texto",
       contenido: `SINDICATO: ${sindicato}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      opciones: { align: ALINEACION.IZQUIERDA },
     },
-    {
-      tipo: "texto",
-      contenido: `${SEPARADOR}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
-    },
-    // Horas
+    { tipo: "separador" },
     {
       tipo: "texto",
       contenido: `HORA INICIO: ${horaInicio}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      opciones: { align: ALINEACION.IZQUIERDA },
     },
     {
       tipo: "texto",
       contenido: `HORA FIN: ${horaFin}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      opciones: { align: ALINEACION.IZQUIERDA },
     },
   ];
 
-  // Total horas o días según tipo
   if (totalHoras) {
     lineas.push({
       tipo: "texto",
       contenido: `TOTAL HORAS: ${totalHoras}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      opciones: { align: ALINEACION.IZQUIERDA },
     });
   }
 
@@ -379,56 +290,41 @@ export const generarTicketRenta = (vale) => {
     lineas.push({
       tipo: "texto",
       contenido: `TOTAL DIAS: ${totalDias}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      opciones: { align: ALINEACION.IZQUIERDA },
     });
   }
 
   lineas.push(
-    {
-      tipo: "texto",
-      contenido: `${SEPARADOR}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
-    },
-    // Operador
+    { tipo: "separador" },
     {
       tipo: "texto",
       contenido: `OPERADOR:\n${operador}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 1 },
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
     {
       tipo: "texto",
       contenido: `PLACAS: ${placas}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+      opciones: { align: ALINEACION.IZQUIERDA },
     },
   );
 
-  // Notas solo si existen
   if (notas) {
     lineas.push(
-      {
-        tipo: "texto",
-        contenido: `${SEPARADOR}\n`,
-        opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
-      },
+      { tipo: "separador" },
       {
         tipo: "texto",
         contenido: `NOTAS:\n${notas}\n`,
-        opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
+        opciones: { align: ALINEACION.IZQUIERDA },
       },
     );
   }
 
-  // QR
   lineas.push(
-    {
-      tipo: "texto",
-      contenido: `${SEPARADOR}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, fonttype: 0 },
-    },
+    { tipo: "separador" },
     {
       tipo: "texto",
       contenido: "Escanear para verificar\n",
-      opciones: { align: ALINEACION.CENTRO, fonttype: 0 },
+      opciones: { align: ALINEACION.CENTRO },
     },
     {
       tipo: "qr",
@@ -438,7 +334,7 @@ export const generarTicketRenta = (vale) => {
     {
       tipo: "texto",
       contenido: `${folio}\n`,
-      opciones: { align: ALINEACION.CENTRO, fonttype: 0 },
+      opciones: { align: ALINEACION.CENTRO },
     },
   );
 

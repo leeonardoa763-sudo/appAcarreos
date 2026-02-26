@@ -35,9 +35,10 @@ import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
 
 const ValeMaterialScreen = () => {
   const navigation = useNavigation();
-  const { userProfile } = useAuth();
+  const { userProfile, userRole } = useAuth();
   const { flags } = useFeatureFlags();
   const isMounted = useRef(true);
+  const esChecador = userRole === "CHECADOR";
 
   // Datos de obra
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
@@ -330,6 +331,7 @@ const ValeMaterialScreen = () => {
             porcentaje={presupuestoMaterial?.porcentaje}
             nivel={presupuestoMaterial?.nivel}
             tipo="material"
+            ocultarCantidades={esChecador}
           />
         </View>
       )}

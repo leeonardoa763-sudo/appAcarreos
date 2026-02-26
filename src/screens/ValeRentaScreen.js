@@ -53,8 +53,8 @@ import { generateVerificationUrl } from "../utils/qrGenerator";
 
 const ValeRentaScreen = () => {
   const navigation = useNavigation();
-  const { userProfile } = useAuth();
-
+  const { userProfile, userRole } = useAuth();
+  const esChecador = userRole === "CHECADOR";
   // Refs para control
   const isMounted = useRef(true);
 
@@ -351,6 +351,7 @@ const ValeRentaScreen = () => {
             porcentaje={presupuestoRenta?.porcentaje}
             nivel={presupuestoRenta?.nivel}
             tipo="renta"
+            ocultarCantidades={esChecador}
           />
         </View>
       )}

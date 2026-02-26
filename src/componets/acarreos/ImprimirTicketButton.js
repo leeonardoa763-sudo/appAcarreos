@@ -127,7 +127,7 @@ const ImprimirTicketButton = ({
           valeData.tipo_vale === "renta"
             ? generarTicketRenta(valeData)
             : generarTicketMaterial(valeData);
-        await imprimirTicket(lineas);
+        await imprimirTicket(dispositivo.address, lineas);
         await descontarImpresion();
         onImpreso();
       } catch (error) {

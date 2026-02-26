@@ -57,6 +57,7 @@ const PresupuestoIndicator = ({
   nivel = "ok",
   tipo = "material",
   sinConfigurar = false,
+  ocultarCantidades = false, // nuevo prop
 }) => {
   const config = NIVEL_CONFIG[nivel] || NIVEL_CONFIG.ok;
   const barWidth = `${Math.min(100, porcentaje)}%`;
@@ -116,38 +117,43 @@ const PresupuestoIndicator = ({
 
       {/* Datos numéricos */}
       <View style={styles.datosRow}>
-        <Text style={styles.disponibleText}>
-          Disponible:{" "}
-          <Text style={[styles.disponibleValor, { color: config.color }]}>
-            {formatearValor(disponible, tipo)}
+        {ocultarCantidades ? (
+          <Text style={styles.disponibleText}>Presupuesto disponible</Text>
+        ) : (
+          <Text style={styles.disponibleText}>
+            Disponible:{" "}
+            <Text style={[styles.disponibleValor, { color: config.color }]}>
+              {formatearValor(disponible, tipo)}
+            </Text>
           </Text>
-        </Text>
+        )}
         <Text style={styles.porcentajeText}>
-          {Math.round(porcentaje)}% usado
+          {Math.round(100 - porcentaje)}% restante
         </Text>
       </View>
 
-      {/* Mensaje de bloqueo */}
       {nivel === "blocked" && (
         <View style={styles.bloqueadoContainer}>
           <Text style={styles.mensajeBloqueo}>
             Presupuesto agotado. Contacta al administrador para ampliarlo.
           </Text>
-          <View style={styles.bloqueadoDetalle}>
-            <Text style={styles.bloqueadoItem}>
-              Usado:{" "}
-              <Text style={styles.bloqueadoValor}>
-                {formatearValor(consumidos ?? presupuesto, tipo)}
+          {!ocultarCantidades && (
+            <View style={styles.bloqueadoDetalle}>
+              <Text style={styles.bloqueadoItem}>
+                Usado:{" "}
+                <Text style={styles.bloqueadoValor}>
+                  {formatearValor(consumidos ?? presupuesto, tipo)}
+                </Text>
               </Text>
-            </Text>
-            <Text style={styles.bloqueadoSeparador}>|</Text>
-            <Text style={styles.bloqueadoItem}>
-              Presupuesto:{" "}
-              <Text style={styles.bloqueadoValor}>
-                {formatearValor(presupuesto, tipo)}
+              <Text style={styles.bloqueadoSeparador}>|</Text>
+              <Text style={styles.bloqueadoItem}>
+                Presupuesto:{" "}
+                <Text style={styles.bloqueadoValor}>
+                  {formatearValor(presupuesto, tipo)}
+                </Text>
               </Text>
-            </Text>
-          </View>
+            </View>
+          )}
         </View>
       )}
     </View>
