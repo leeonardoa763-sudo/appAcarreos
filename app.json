@@ -56,7 +56,8 @@
           "enableVideoRecordings": false
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "react-native-ble-manager"
     ],
     "extra": {
       "eas": {

@@ -22,22 +22,27 @@ import { supabase } from "../../config/supabase";
 import { BLUETOOTH_ENABLED } from "../../config/features";
 
 // 5. Local - Servicios
-import { generarYCompartirPDFTicket } from "../../services/pdfTicketGenerator";
+import {
+  generarYCompartirPDFTicket,
+  generarYCompartirPDFTicketRenta,
+} from "../../services/pdfTicketGenerator";
 
 // Solo se importa si Bluetooth está activo
 let verificarBluetooth,
   escanearImpresoras,
   conectarImpresora,
   imprimirTicket,
-  generarTicketMaterial;
+  generarTicketMaterial,
+  generarTicketRenta;
 if (BLUETOOTH_ENABLED) {
   const bt = require("../../services/bluetoothPrinter");
   const tg = require("../../services/ticketGenerator");
+  generarTicketMaterial = tg.generarTicketMaterial;
+  generarTicketRenta = tg.generarTicketRenta;
   verificarBluetooth = bt.verificarBluetooth;
   escanearImpresoras = bt.escanearImpresoras;
   conectarImpresora = bt.conectarImpresora;
   imprimirTicket = bt.imprimirTicket;
-  generarTicketMaterial = tg.generarTicketMaterial;
 }
 
 /**
@@ -79,7 +84,11 @@ const ImprimirTicketButton = ({
   const handleCompartirPDF = useCallback(async () => {
     try {
       setGenerandoPDF(true);
-      await generarYCompartirPDFTicket(valeData);
+      if (valeData.tipo_vale === "renta") {
+        await generarYCompartirPDFTicketRenta(valeData);
+      } else {
+        await generarYCompartirPDFTicket(valeData);
+      }
     } catch (error) {
       Alert.alert("Error", error.message);
     } finally {
@@ -114,7 +123,10 @@ const ImprimirTicketButton = ({
         setMostrarModal(false);
         setImprimiendo(true);
         await conectarImpresora(dispositivo.address);
-        const lineas = generarTicketMaterial(valeData);
+        const lineas =
+          valeData.tipo_vale === "renta"
+            ? generarTicketRenta(valeData)
+            : generarTicketMaterial(valeData);
         await imprimirTicket(lineas);
         await descontarImpresion();
         onImpreso();
