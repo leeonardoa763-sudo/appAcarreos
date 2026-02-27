@@ -35,8 +35,8 @@ import { useAuth } from "../../hooks/useAuth";
 import FormInput from "../forms/FormInput";
 import EvidenciaCaptura from "../vale/EvidenciaCaptura";
 import useEvidenciaVale from "../../hooks/useEvidenciaVale";
-
-// Agregar junto a los otros imports de utils/validations (si no hay uno, agregar el bloque):
+import { useViajesRenta } from "../../hooks/useViajesRenta";
+import ViajesRentaSection from "./ViajesRentaSection";
 import {
   validateHoraFinNoPosterior,
   validateTiempoMinimoRenta,
@@ -55,7 +55,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const [updatedVale, setUpdatedVale] = useState(null);
   const [triggerPDF, setTriggerPDF] = useState(false);
   const [mensajeBloqueo, setMensajeBloqueo] = useState(null);
-  // Obtener datos de la obra para validación de proximidad
+
   const obraData = vale?.obras || null;
 
   const {
@@ -85,21 +85,27 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const canComplete = vale?.estado === "en_proceso" && detalleRenta;
   const preciosRenta = detalleRenta?.precios_renta;
 
+  // ← PASO 4.2: min_minutos_entre_viajes de la obra con fallback a 20
+  const minMinutos = vale?.obras?.min_minutos_entre_viajes ?? 20;
+
+  // ← PASO 4.3: Hook de viajes
+  const {
+    viajes,
+    loading: loadingViajes,
+    registrando,
+    puedeRegistrar,
+    totalViajes,
+    registrarViaje,
+  } = useViajesRenta(detalleRenta?.id_vale_renta_detalle, minMinutos);
+
   useEffect(() => {
     if (
       !vale ||
       (lastValeId.current === vale.id_vale && isInitialized.current)
     ) {
-      console.log(
-        "[ValeDetalleRenta] ⚠️ useEffect: Vale ya inicializado o no existe",
-      );
       return;
     }
 
-    console.log(
-      "[ValeDetalleRenta] ✅ useEffect: Inicializando vale",
-      vale.id_vale,
-    );
     lastValeId.current = vale.id_vale;
     isInitialized.current = true;
 
@@ -109,8 +115,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       setEsRentaPorDia(false);
       setEsRentaPorMedioDia(false);
       setNotasAdicionales(detalleRenta.notas_adicionales || "");
-    } else {
-      console.log("[ValeDetalleRenta] ⚠️ No hay detalleRenta para inicializar");
     }
   }, [vale?.id_vale, detalleRenta]);
 
@@ -126,14 +130,12 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   useEffect(() => {
     if (!canComplete || !detalleRenta) return;
 
-    // Verificar si el vale es del mismo día
     const errorDia = validateMismoDiaCreacion(vale?.fecha_creacion);
     if (errorDia) {
       setMensajeBloqueo(errorDia);
       return;
     }
 
-    // Verificar tiempo mínimo según tipo seleccionado
     if (esRentaPorDia) {
       const error = validateTiempoMinimoRenta(detalleRenta.hora_inicio, "dia");
       setMensajeBloqueo(error);
@@ -182,14 +184,12 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const handleGuardarHoraFin = useCallback(async () => {
     if (!canComplete) return;
 
-    // Validar mismo día de creación
     const errorDia = validateMismoDiaCreacion(vale?.fecha_creacion);
     if (errorDia) {
       Alert.alert("Vale vencido", errorDia);
       return;
     }
 
-    // Validar hora de fin para renta por horas
     if (!esRentaPorDia && !esRentaPorMedioDia) {
       if (!horaFin) {
         Alert.alert("Error", "Por favor selecciona la hora de fin");
@@ -203,7 +203,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       }
     }
 
-    // Validar tiempo mínimo para día completo o medio día
     if (esRentaPorDia) {
       const errorTiempo = validateTiempoMinimoRenta(
         detalleRenta.hora_inicio,
@@ -263,7 +262,9 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         costoTotal = parseFloat(preciosRenta.costo_hr) * totalHoras;
       }
 
-      // Actualizar detalle de renta
+      // ← PASO 4.5: Usar totalViajes del hook, con fallback al campo manual
+      const viajesFinales = totalViajes > 0 ? totalViajes : numeroViajes;
+
       const { error: errorDetalle } = await supabase
         .from("vale_renta_detalle")
         .update({
@@ -271,7 +272,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           hora_fin: horaFinFinal,
           total_horas: totalHoras,
           total_dias: totalDias,
-          numero_viajes: numeroViajes,
+          numero_viajes: viajesFinales,
           costo_total: costoTotal,
           notas_adicionales: notasAdicionales.trim() || null,
         })
@@ -279,7 +280,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
 
       if (errorDetalle) throw errorDetalle;
 
-      // Actualizar estado del vale
       const { error: valeError } = await supabase
         .from("vales")
         .update({
@@ -308,7 +308,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             hora_fin: horaFinFinal,
             total_horas: totalHoras,
             total_dias: totalDias,
-            numero_viajes: numeroViajes,
+            numero_viajes: viajesFinales,
             costo_total: costoTotal,
             notas_adicionales: notasAdicionales.trim() || null,
           },
@@ -319,7 +319,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       setSuccessData({
         totalHoras,
         totalDias,
-        numeroViajes,
+        numeroViajes: viajesFinales,
         esRentaPorDia,
         esRentaPorMedioDia,
       });
@@ -338,6 +338,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     esRentaPorMedioDia,
     horaFin,
     numeroViajes,
+    totalViajes,
     detalleRenta,
     vale?.id_vale,
     vale?.fecha_creacion,
@@ -358,7 +359,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       Alert.alert("Error", "No hay datos del vale actualizado");
       return;
     }
-    console.log("[ValeDetalleRenta] Trigger PDF activado");
     setShowSuccessModal(false);
     setTimeout(() => {
       setTriggerPDF(true);
@@ -366,10 +366,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   }, [updatedVale]);
 
   if (!vale || !detalleRenta) {
-    console.log("[ValeDetalleRenta] ❌ RENDER ABORTADO:", {
-      valeExiste: !!vale,
-      detalleRentaExiste: !!detalleRenta,
-    });
     return null;
   }
 
@@ -421,7 +417,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             value={vale.vehiculos?.sindicatos?.sindicato || "N/A"}
           />
 
-          {/* ✅ NUEVO: Mostrar quien creó el vale */}
           <InfoRow
             icon="account-plus"
             label="Creado por"
@@ -432,7 +427,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             }
           />
 
-          {/* ✅ NUEVO: Mostrar quien completó el. vale (solo si está completado) */}
           {vale.estado !== "en_proceso" &&
             vale.estado !== "borrador" &&
             vale.persona_completador && (
@@ -443,7 +437,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
               />
             )}
 
-          {/* ✅ NUEVO: Mostrar fecha de completado (solo si existe) */}
           {vale.fecha_completado && (
             <InfoRow
               icon="calendar-check"
@@ -545,7 +538,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           )}
         </View>
 
-        {/* Tarifas y Costo (solo si está completado Y el usuario NO es checador) */}
+        {/* Tarifas y Costo */}
         {vale.estado !== "en_proceso" &&
           preciosRenta &&
           userProfile?.roles?.role !== "CHECADOR" && (
@@ -580,12 +573,23 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             </View>
           )}
 
+        {/* Sección Completar Vale */}
         {canComplete && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Completar Vale</Text>
             <Text style={styles.sectionSubtitle}>
               Captura la hora de fin y el número de viajes realizados
             </Text>
+
+            {/* ← PASO 4.4: Sección de viajes justo arriba de los checkboxes */}
+            <ViajesRentaSection
+              viajes={viajes}
+              loading={loadingViajes}
+              registrando={registrando}
+              puedeRegistrar={puedeRegistrar}
+              totalViajes={totalViajes}
+              onRegistrarViaje={registrarViaje}
+            />
 
             <FormCheckbox
               label="Renta por día completo"
@@ -610,15 +614,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
               value={horaFin}
               onChange={setHoraFin}
               disabled={esRentaPorDia || esRentaPorMedioDia}
-            />
-
-            <FormNumberInput
-              label="Número de Viajes"
-              value={numeroViajes}
-              onChange={setNumeroViajes}
-              min={1}
-              max={99}
-              step={1}
             />
 
             <FormInput

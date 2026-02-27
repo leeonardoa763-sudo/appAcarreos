@@ -1,549 +1,552 @@
 // src/screens/EstadisticasScreen.js
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
   TouchableOpacity,
+  Modal,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { statsColors } from "../config/statsColors";
-import { useEstadisticas } from "../hooks/useEstadisticas";
-import StatCard from "../componets/stats/StatCard";
-import TrendIndicator from "../componets/stats/TrendIndicator";
-import ComparisonCard from "../componets/stats/ComparisonCard";
-import { useChartData } from "../hooks/useChartData";
-import PieChartCard from "../componets/stats/PieChartCard";
-import BarChartCard from "../componets/stats/BarChartCard";
-import TopOperadoresList from "../componets/stats/TopOperadoresList";
-import SavingsCard from "../componets/stats/SavingsCard";
-import QuickStatsRow from "../componets/stats/QuickStatsRow";
-import FilterModal from "../componets/stats/FilterModal";
-import { useStatsFilters } from "../hooks/useStatsFilters";
-import { useFilterCatalogos } from "../hooks/useFilterCatalogos";
 import { useAuth } from "../hooks/useAuth";
 import { useObras } from "../hooks/useObras";
-import { useObraData } from "../hooks/useObraData";
-import MaterialesPorRequisicionModal from "../componets/stats/MaterialesPorRequisicionModal";
-// Importar componentes modulares
-import StatsHeader from "../componets/stats/StatsHeader";
-import ActiveFiltersIndicator from "../componets/stats/ActiveFiltersIndicator";
+import EstadisticasMaterialTab from "../componets/stats/EstadisticasMaterialTab";
+import EstadisticasRentaTab from "../componets/stats/EstadisticasRentaTab";
+
+// import EstadisticasRentaTab from "../componets/stats/EstadisticasRentaTab";
+
+// ─── Constantes ───────────────────────────────────────────────────────────────
+
+const PERIODOS = [
+  { id: "semana", label: "Semana", icono: "calendar-week" },
+  { id: "mes", label: "Mes", icono: "calendar-month" },
+  { id: "trimestre", label: "Trimestre", icono: "calendar-range" },
+  { id: "semestre", label: "Semestre", icono: "calendar-multiple" },
+  { id: "año", label: "Año", icono: "calendar" },
+];
+
+const TABS = [
+  { id: "material", label: "Material", icono: "package-variant" },
+  { id: "renta", label: "Renta", icono: "truck-cargo-container" },
+];
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 const EstadisticasScreen = () => {
-  // ========== ESTADOS ==========
-  const [periodoSeleccionado, setPeriodoSeleccionado] = useState("mes");
-  const [obraSeleccionada, setObraSeleccionada] = useState(null);
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [materialesModalVisible, setMaterialesModalVisible] = useState(false);
+  // ── Estados centrales ──────────────────────────────────────────────────────
+  const [periodo, setPeriodo] = useState("mes");
+  const [tabActiva, setTabActiva] = useState("material");
+  const [obraId, setObraId] = useState(null); // null = todas las obras
+  const [modalObrasVisible, setModalObrasVisible] = useState(false);
 
-  // ========== REFS ==========
-  const scrollViewRef = useRef(null);
-
-  // ========== HOOKS ==========
+  // ── Hooks ──────────────────────────────────────────────────────────────────
   const { userProfile } = useAuth();
-  const { obraData } = useObraData(userProfile);
-
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
-  const { data, loading, error, refetch } = useEstadisticas(
-    periodoSeleccionado,
-    userProfile?.id_persona,
-    obraSeleccionada,
-  );
+  const residenteId = userProfile?.id_persona ?? null;
 
-  const {
-    materiales,
-    sindicatos,
-    loading: catalogosLoading,
-  } = useFilterCatalogos();
+  // Nombre de la obra seleccionada para mostrar en el boton
+  const obraSeleccionadaLabel = obraId
+    ? (obras.find((o) => o.id === obraId)?.nombre ?? "Obra")
+    : "Todas las obras";
 
-  const {
-    filters,
-    filteredData,
-    applyFilters,
-    clearFilters,
-    activeFiltersCount,
-    hasFilters,
-  } = useStatsFilters(data);
+  // Cuenta si hay filtro de obra activo (para badge)
+  const hayFiltroObra = obraId !== null;
 
-  // ========== DATOS DERIVADOS ==========
-  const displayData = hasFilters ? filteredData : data;
-  const chartData = useChartData(displayData);
+  // ── Handlers ───────────────────────────────────────────────────────────────
 
-  const periodos = [
-    { id: "semana", label: "Semana", icon: "calendar-week" },
-    { id: "mes", label: "Mes", icon: "calendar-month" },
-    { id: "trimestre", label: "Trimestre", icon: "calendar-range" },
-    { id: "semestre", label: "Semestre", icon: "calendar-multiple" },
-    { id: "año", label: "Año", icon: "calendar" },
-  ];
-
-  // ========== EFFECTS ==========
-  useEffect(() => {
-    if (obras.length > 0 && obraSeleccionada === null) {
-      setObraSeleccionada(obras[0].id);
-    }
-  }, [obras, obraSeleccionada]);
-
-  // ========== FUNCIONES ==========
-  const handlePeriodoChange = (periodo) => {
-    console.log(`[EstadisticasScreen] Cambiando periodo a: ${periodo}`);
-    setPeriodoSeleccionado(periodo);
+  const handleSeleccionarObra = (id) => {
+    console.log("[EstadisticasScreen] Obra seleccionada:", id ?? "TODAS");
+    setObraId(id);
+    setModalObrasVisible(false);
   };
 
-  const handleApplyFilters = (newFilters) => {
-    console.log("[EstadisticasScreen] Aplicando filtros:", newFilters);
+  // ─── Render ────────────────────────────────────────────────────────────────
 
-    // Actualizar obra seleccionada
-    setObraSeleccionada(newFilters.obraId);
-
-    // Aplicar otros filtros
-    applyFilters(newFilters);
-  };
-
-  /**
-   * Renderiza el contenido de estadísticas
-   */
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando estadísticas...</Text>
-        </View>
-      );
-    }
-
-    return (
-      <>
-        {/* Header informativo */}
-        <StatsHeader
-          periodoSeleccionado={periodoSeleccionado}
-          onPeriodoChange={handlePeriodoChange}
-          onFilterPress={() => setFilterModalVisible(true)}
-          hasFilters={hasFilters}
-          activeFiltersCount={activeFiltersCount}
-          periodoLabel={
-            periodos.find((p) => p.id === periodoSeleccionado)?.label
-          }
-        />
-
-        {/* Indicador de filtros activos */}
-        {hasFilters && (
-          <ActiveFiltersIndicator
-            filters={filters}
-            activeFiltersCount={activeFiltersCount}
-            onClearFilters={clearFilters}
-          />
-        )}
-
-        {/* KPIs principales */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Resumen General</Text>
-          </View>
-
-          {/* Grid vertical - un card por fila CON GRADIENTES */}
-          <View style={styles.kpiColumn}>
-            <ComparisonCard
-              title="Material Movido"
-              icon="cube-outline"
-              currentValue={displayData.totales.totalM3}
-              previousValue={displayData.periodoAnterior?.totalM3}
-              gradient={statsColors.gradients.material} // ← AGREGAR ESTA LÍNEA
-              suffix=" m³"
-              decimals={1}
-            />
-
-            <ComparisonCard
-              title="Horas de Renta"
-              icon="clock-outline"
-              currentValue={displayData.totales.totalHoras}
-              previousValue={displayData.periodoAnterior?.totalHoras}
-              gradient={statsColors.gradients.rental} // ← AGREGAR ESTA LÍNEA
-              suffix=" hrs"
-              decimals={1}
-            />
-
-            <ComparisonCard
-              title="Viajes Total"
-              icon="truck-outline"
-              currentValue={displayData.totales.totalViajes}
-              previousValue={displayData.periodoAnterior?.totalViajes}
-              gradient={statsColors.gradients.trips} // ← AGREGAR ESTA LÍNEA
-              suffix=""
-              decimals={0}
-            />
-
-            <ComparisonCard
-              title="Costo Total"
-              icon="cash"
-              currentValue={displayData.totales.costoTotal / 1000}
-              previousValue={displayData.periodoAnterior?.costoTotal / 1000}
-              gradient={statsColors.gradients.financial} // ← AGREGAR ESTA LÍNEA
-              prefix="$"
-              suffix="K"
-              decimals={1}
-            />
-          </View>
-        </View>
-
-        {/* Comparativas de costos */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Comparativa de Costos</Text>
-
-          <View style={styles.comparisonGrid}>
-            <ComparisonCard
-              title="Material"
-              icon="package-variant"
-              currentValue={(displayData.totales.costoMaterial || 0) / 1000}
-              previousValue={
-                (displayData.periodoAnterior?.costoMaterial || 0) / 1000
-              }
-              gradient={statsColors.gradients.material}
-              prefix="$"
-              suffix="K"
-              decimals={1}
-            />
-
-            <ComparisonCard
-              title="Renta"
-              icon="truck-cargo-container"
-              currentValue={(displayData.totales.costoRenta || 0) / 1000}
-              previousValue={
-                (displayData.periodoAnterior?.costoRenta || 0) / 1000
-              }
-              gradient={statsColors.gradients.rental}
-              prefix="$"
-              suffix="K"
-              decimals={1}
-            />
-          </View>
-        </View>
-
-        {/* Botón para ver materiales por requisición */}
-        <TouchableOpacity
-          style={styles.viewDetailsButton}
-          onPress={() => setMaterialesModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.buttonContent}>
-            <MaterialCommunityIcons
-              name="clipboard-text-multiple"
-              size={20}
-              color={colors.primary}
-            />
-            <Text style={styles.buttonText}>
-              Ver Materiales por Requisición
-            </Text>
-          </View>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={24}
-            color={colors.primary}
-          />
-        </TouchableOpacity>
-
-        {/* Gráfico: Distribución de Material */}
-        <PieChartCard
-          title="Distribución por Material"
-          subtitle={
-            hasFilters ? "Datos filtrados" : "Top 5 materiales más solicitados"
-          }
-          icon="package-variant"
-          iconColor={colors.primary}
-          data={chartData.materialPieData}
-          showPercentage={true}
-          showValues={true}
-        />
-
-        {/* Gráfico: Distribución de Costos */}
-        <PieChartCard
-          title="Distribución de Costos"
-          subtitle="Material vs Renta"
-          icon="chart-pie"
-          iconColor={colors.secondary}
-          data={chartData.costoPieData}
-          showPercentage={true}
-          showValues={true}
-          valueFormatter={(value, name) => {
-            // Formatear como moneda con símbolo de pesos
-            return `$${(value / 1000).toFixed(1)}K`;
-          }}
-        />
-
-        {/* Gráfico: Tendencia de m³ */}
-        <BarChartCard
-          title="Tendencia de Material"
-          subtitle="Metros cúbicos por semana"
-          icon="chart-bar"
-          iconColor={colors.accent}
-          data={chartData.tendenciaM3Data}
-          yAxisSuffix=" m³"
-          showValuesOnTopOfBars={true}
-        />
-
-        {/* Gráfico: Tendencia de Horas */}
-        <BarChartCard
-          title="Tendencia de Renta"
-          subtitle="Horas acumuladas por semana"
-          icon="clock-outline"
-          iconColor={colors.secondary}
-          data={chartData.tendenciaHorasData}
-          yAxisSuffix=" h"
-          showValuesOnTopOfBars={true}
-        />
-
-        {/* Card de Ahorros - Impacto */}
-        <SavingsCard
-          totalVales={
-            displayData.valesMaterial.length + displayData.valesRenta.length
-          }
-          periodoLabel={periodos
-            .find((p) => p.id === periodoSeleccionado)
-            ?.label.toLowerCase()}
-        />
-
-        {/* Top Operadores */}
-        <TopOperadoresList
-          data={chartData.topOperadoresData}
-          title="Top 5 Operadores"
-          subtitle={
-            hasFilters
-              ? "Basado en filtros activos"
-              : "Operadores más activos del periodo"
-          }
-        />
-
-        {/* Info de datos */}
-        <View style={styles.infoBox}>
-          <MaterialCommunityIcons
-            name="information"
-            size={20}
-            color={colors.textSecondary}
-          />
-          <Text style={styles.infoText}>
-            Mostrando {displayData.valesMaterial.length} vales de material y{" "}
-            {displayData.valesRenta.length} vales de renta
-            {hasFilters && " (filtrados)"}
-          </Text>
-        </View>
-      </>
-    );
-  };
-
-  // ========== MANEJO DE ERRORES ==========
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <MaterialCommunityIcons
-          name="alert-circle"
-          size={64}
-          color={colors.error}
-        />
-        <Text style={styles.errorTitle}>Error al cargar estadísticas</Text>
-        <Text style={styles.errorMessage}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={refetch}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // ========== RENDER PRINCIPAL ==========
   return (
     <View style={styles.container}>
-      {/* ScrollView con pull-to-refresh */}
+      {/* ── Header fijo ──────────────────────────────────────────────────── */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <MaterialCommunityIcons
+            name="chart-line"
+            size={26}
+            color={colors.primary}
+          />
+          <Text style={styles.headerTitulo}>Estadísticas</Text>
+        </View>
+
+        {/* Selector de periodo */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.periodoScroll}
+        >
+          {PERIODOS.map((p) => (
+            <TouchableOpacity
+              key={p.id}
+              style={[
+                styles.periodoBtn,
+                periodo === p.id && styles.periodoBtnActivo,
+              ]}
+              onPress={() => setPeriodo(p.id)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={p.icono}
+                size={15}
+                color={periodo === p.id ? colors.surface : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.periodoBtnText,
+                  periodo === p.id && styles.periodoBtnTextActivo,
+                ]}
+              >
+                {p.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+
+          {/* Boton de filtro de obra */}
+          <TouchableOpacity
+            style={[styles.obraBtn, hayFiltroObra && styles.obraBtnActivo]}
+            onPress={() => setModalObrasVisible(true)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="office-building-outline"
+              size={15}
+              color={hayFiltroObra ? colors.surface : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.periodoBtnText,
+                hayFiltroObra && styles.periodoBtnTextActivo,
+              ]}
+              numberOfLines={1}
+            >
+              {obraSeleccionadaLabel}
+            </Text>
+            {hayFiltroObra && (
+              <TouchableOpacity
+                onPress={() => handleSeleccionarObra(null)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <MaterialCommunityIcons
+                  name="close-circle"
+                  size={14}
+                  color={colors.surface}
+                />
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* Tab switch Material / Renta */}
+        <View style={styles.tabSwitch}>
+          {TABS.map((tab) => (
+            <TouchableOpacity
+              key={tab.id}
+              style={[
+                styles.tabBtn,
+                tabActiva === tab.id && styles.tabBtnActivo,
+              ]}
+              onPress={() => setTabActiva(tab.id)}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name={tab.icono}
+                size={17}
+                color={
+                  tabActiva === tab.id ? colors.surface : colors.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  tabActiva === tab.id && styles.tabBtnTextActivo,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* ── Contenido del tab ────────────────────────────────────────────── */}
       <ScrollView
-        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={refetch}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
       >
-        {renderContent()}
+        {tabActiva === "material" && (
+          <EstadisticasMaterialTab
+            periodo={periodo}
+            residenteId={residenteId}
+            obraId={obraId}
+          />
+        )}
+
+        {tabActiva === "renta" && (
+          <EstadisticasRentaTab
+            periodo={periodo}
+            residenteId={residenteId}
+            obraId={obraId}
+          />
+        )}
       </ScrollView>
 
-      {/* Modal de filtros avanzados */}
-      <FilterModal
-        visible={filterModalVisible}
-        onClose={() => setFilterModalVisible(false)}
-        onApply={handleApplyFilters}
+      {/* ── Modal de selección de obra ───────────────────────────────────── */}
+      <ModalObras
+        visible={modalObrasVisible}
         obras={obras}
-        materiales={materiales}
-        sindicatos={sindicatos}
-        currentFilters={{ ...filters, obraId: obraSeleccionada }}
-        loadingObras={loadingObras}
-      />
-
-      {/* Modal de materiales por requisición */}
-      <MaterialesPorRequisicionModal
-        visible={materialesModalVisible}
-        onClose={() => setMaterialesModalVisible(false)}
-        valesMaterial={displayData.valesMaterial}
-        obraData={obraData}
+        loading={loadingObras}
+        obraIdActual={obraId}
+        onSeleccionar={handleSeleccionarObra}
+        onClose={() => setModalObrasVisible(false)}
       />
     </View>
   );
 };
 
+// ─── Subcomponente: Modal de obras ────────────────────────────────────────────
+
+const ModalObras = ({
+  visible,
+  obras,
+  loading,
+  obraIdActual,
+  onSeleccionar,
+  onClose,
+}) => (
+  <Modal
+    visible={visible}
+    animationType="slide"
+    transparent
+    onRequestClose={onClose}
+  >
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalContent}>
+        {/* Header modal */}
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitulo}>Seleccionar obra</Text>
+          <TouchableOpacity onPress={onClose}>
+            <MaterialCommunityIcons
+              name="close"
+              size={24}
+              color={colors.textPrimary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {loading ? (
+          <View style={styles.modalLoading}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Opcion: Todas las obras */}
+            <TouchableOpacity
+              style={[
+                styles.obraItem,
+                obraIdActual === null && styles.obraItemActivo,
+              ]}
+              onPress={() => onSeleccionar(null)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={
+                  obraIdActual === null ? "radiobox-marked" : "radiobox-blank"
+                }
+                size={22}
+                color={
+                  obraIdActual === null ? colors.primary : colors.textSecondary
+                }
+              />
+              <View style={styles.obraItemTextos}>
+                <Text
+                  style={[
+                    styles.obraItemNombre,
+                    obraIdActual === null && styles.obraItemNombreActivo,
+                  ]}
+                >
+                  Todas las obras
+                </Text>
+                <Text style={styles.obraItemDetalle}>
+                  Ver consolidado de todas tus obras
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Lista de obras */}
+            {obras.map((obra) => (
+              <TouchableOpacity
+                key={obra.id}
+                style={[
+                  styles.obraItem,
+                  obraIdActual === obra.id && styles.obraItemActivo,
+                ]}
+                onPress={() => onSeleccionar(obra.id)}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={
+                    obraIdActual === obra.id
+                      ? "radiobox-marked"
+                      : "radiobox-blank"
+                  }
+                  size={22}
+                  color={
+                    obraIdActual === obra.id
+                      ? colors.primary
+                      : colors.textSecondary
+                  }
+                />
+                <View style={styles.obraItemTextos}>
+                  <Text
+                    style={[
+                      styles.obraItemNombre,
+                      obraIdActual === obra.id && styles.obraItemNombreActivo,
+                    ]}
+                  >
+                    {obra.nombre}
+                  </Text>
+                  <Text style={styles.obraItemDetalle}>CC: {obra.cc}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            {obras.length === 0 && (
+              <View style={styles.modalVacio}>
+                <Text style={styles.modalVacioText}>
+                  No tienes obras asignadas
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        )}
+      </View>
+    </View>
+  </Modal>
+);
+
 export default EstadisticasScreen;
+
+// ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: statsColors.backgrounds.screen, // Nuevo fondo gris claro
+    backgroundColor: statsColors.backgrounds.screen,
   },
 
-  // ScrollView
+  // Header fijo
+  header: {
+    backgroundColor: colors.surface,
+    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 12,
+    shadowColor: colors.shadow.color,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerTitulo: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+
+  // Barra de periodos
+  periodoScroll: {
+    gap: 8,
+    paddingRight: 4,
+  },
+  periodoBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  periodoBtnActivo: {
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
+  },
+  periodoBtnText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: "500",
+  },
+  periodoBtnTextActivo: {
+    color: colors.surface,
+    fontWeight: "600",
+  },
+
+  // Boton de obra (mismo estilo que periodo pero con X para limpiar)
+  obraBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    maxWidth: 160,
+  },
+  obraBtnActivo: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+
+  // Tab switch
+  tabSwitch: {
+    flexDirection: "row",
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: 3,
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  tabBtnActivo: {
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tabBtnText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.textSecondary,
+  },
+  tabBtnTextActivo: {
+    color: colors.surface,
+    fontWeight: "600",
+  },
+
+  // Scroll
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 100,
   },
 
-  // Loading
-  loadingContainer: {
+  // Proximamente (placeholder renta)
+  proximamente: {
+    paddingVertical: 80,
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
+    gap: 12,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-
-  // Error
-  errorContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-    backgroundColor: colors.background,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-    marginTop: 16,
-  },
-  errorMessage: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: "center",
-    marginTop: 8,
-  },
-  retryButton: {
-    marginTop: 20,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: colors.surface,
+  proximamenteText: {
     fontSize: 16,
     fontWeight: "600",
-  },
-
-  // Secciones
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.textPrimary,
-    marginBottom: 12,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-
-  // Grid de KPIs
-  kpiGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-
-  // Comparativas
-  comparisonGrid: {
-    gap: 12,
-  },
-
-  // Botón para ver detalles
-  viewDetailsButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadow.color,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  buttonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.primary,
-    marginLeft: 10,
-  },
-
-  // Info box
-  infoBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: statsColors.backgrounds.cardLight,
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
-    marginTop: 16,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 18,
   },
-  // Grid de KPIs
-  kpiGrid: {
+  proximamenteSubtitle: {
+    fontSize: 13,
+    color: colors.border,
+  },
+
+  // Modal obras
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: "70%",
+  },
+  modalHeader: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
   },
-  //columna de KPIs (uno debajo del otro)
-  kpiColumn: {
-    flexDirection: "column",
+  modalTitulo: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  modalLoading: {
+    paddingVertical: 32,
+    alignItems: "center",
+  },
+  modalVacio: {
+    paddingVertical: 24,
+    alignItems: "center",
+  },
+  modalVacioText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+
+  // Items de obra en modal
+  obraItem: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+  },
+  obraItemActivo: {
+    backgroundColor: `${colors.primary}08`,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+  },
+  obraItemTextos: {
+    flex: 1,
+    gap: 2,
+  },
+  obraItemNombre: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: colors.textPrimary,
+  },
+  obraItemNombreActivo: {
+    color: colors.primary,
+    fontWeight: "600",
+  },
+  obraItemDetalle: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
 });

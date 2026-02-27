@@ -72,13 +72,14 @@ const PieChartCard = ({
                       {item.name}
                     </Text>
                     <View style={styles.legendValues}>
-                      {showValues && (
+                      {showValues && !showPercentage && (
                         <Text style={styles.legendValue}>
                           {valueFormatter
-                            ? valueFormatter(item.value, item.name)
-                            : item.value.toFixed(1)}
+                            ? valueFormatter(item.value)
+                            : item.value}
                         </Text>
                       )}
+
                       {showPercentage && (
                         <View style={styles.percentageBadge}>
                           <Text style={styles.legendPercentage}>

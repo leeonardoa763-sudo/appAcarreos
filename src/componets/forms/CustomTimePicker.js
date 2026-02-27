@@ -79,17 +79,18 @@ const CustomTimePicker = ({
 
   // Sincronizar estado interno con value externo al abrir modal
   useEffect(() => {
-    if (showModal && value) {
-      const hours = value.getHours();
-      const minutes = value.getMinutes();
-      const period = hours >= 12 ? "PM" : "AM";
-      const hour12 = hours % 12 || 12;
+    if (showModal) {
+      // Si hay value usa ese, si no usa hora actual
+      const base = value ?? new Date();
+      const h = base.getHours();
+      const m = base.getMinutes();
+      const period = h >= 12 ? "PM" : "AM";
+      const hour12 = h % 12 || 12;
 
       setSelectedHour(hour12);
-      setSelectedMinute(minutes);
+      setSelectedMinute(m);
       setSelectedPeriod(period);
 
-      // Scroll automático a los valores actuales
       setTimeout(() => {
         hourListRef.current?.scrollToIndex({
           index: hour12 - 1,
@@ -97,7 +98,7 @@ const CustomTimePicker = ({
           viewPosition: 0.5,
         });
         minuteListRef.current?.scrollToIndex({
-          index: minutes,
+          index: m,
           animated: true,
           viewPosition: 0.5,
         });
