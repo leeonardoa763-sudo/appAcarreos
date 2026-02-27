@@ -85,10 +85,9 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const canComplete = vale?.estado === "en_proceso" && detalleRenta;
   const preciosRenta = detalleRenta?.precios_renta;
 
-  // ← PASO 4.2: min_minutos_entre_viajes de la obra con fallback a 20
-  const minMinutos = vale?.obras?.min_minutos_entre_viajes ?? 20;
+  // Log temporal
+  console.log("[DetalleRenta] id_obra pasado al hook:", vale?.obras?.id_obra);
 
-  // ← PASO 4.3: Hook de viajes
   const {
     viajes,
     loading: loadingViajes,
@@ -96,8 +95,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     puedeRegistrar,
     totalViajes,
     registrarViaje,
-  } = useViajesRenta(detalleRenta?.id_vale_renta_detalle, minMinutos);
-
+  } = useViajesRenta(detalleRenta?.id_vale_renta_detalle, vale?.id_obra);
   useEffect(() => {
     if (
       !vale ||

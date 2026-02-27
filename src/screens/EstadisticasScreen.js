@@ -23,6 +23,7 @@ import EstadisticasRentaTab from "../componets/stats/EstadisticasRentaTab";
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const PERIODOS = [
+  { id: "hoy", label: "Hoy", icono: "calendar-today" },
   { id: "semana", label: "Semana", icono: "calendar-week" },
   { id: "mes", label: "Mes", icono: "calendar-month" },
   { id: "trimestre", label: "Trimestre", icono: "calendar-range" },

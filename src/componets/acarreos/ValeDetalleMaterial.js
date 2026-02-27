@@ -32,6 +32,9 @@ import SuccessModal from "../common/SuccessModal";
 import PrimaryButton from "../common/PrimaryButton";
 import GenerarPDFButton from "../vale/GenerarPDFButton";
 
+import useEvidenciaVale from "../../hooks/useEvidenciaVale";
+import EvidenciaCaptura from "../vale/EvidenciaCaptura";
+
 const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const { userProfile } = useAuth();
   // Estados para OTROS TIPOS
@@ -42,6 +45,25 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   // Estados para TIPO 3
   const [cantidadConfirmada, setCantidadConfirmada] = useState(null);
   const esChecador = userProfile?.roles?.role === "CHECADOR";
+  const obraData = vale?.obras || null;
+
+  const {
+    foto,
+    fotoUrl,
+    ubicacion,
+    distanciaObra,
+    evidenciaLista,
+    dentroDelRadio,
+    obraTieneCoordenadas,
+    radioConfigurado,
+    loadingFoto,
+    loadingUbicacion,
+    errorFoto,
+    errorUbicacion,
+    tomarFoto,
+    capturarUbicacion,
+    resetEvidencia,
+  } = useEvidenciaVale(obraData);
   const [notasAdicionales, setNotasAdicionales] = useState("");
 
   // Estados comunes
@@ -55,7 +77,18 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const lastValeId = useRef(null);
 
   const detalleMaterial = vale?.vale_material_detalles?.[0];
-  const canComplete = vale?.estado === "en_proceso" && detalleMaterial;
+  const hoy = new Date();
+  const fechaCreacion = vale?.fecha_creacion
+    ? new Date(vale.fecha_creacion)
+    : null;
+  const esMismoDia = fechaCreacion
+    ? fechaCreacion.getFullYear() === hoy.getFullYear() &&
+      fechaCreacion.getMonth() === hoy.getMonth() &&
+      fechaCreacion.getDate() === hoy.getDate()
+    : false;
+
+  const canComplete =
+    vale?.estado === "en_proceso" && detalleMaterial && esMismoDia;
 
   // NUEVO: Detectar si es tipo 3
   const esTipo3 = detalleMaterial?.material?.id_tipo_de_material === 3;
@@ -185,6 +218,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           tarifa_primer_km: costos.tarifaPrimerKm,
           tarifa_subsecuente: costos.tarifaSubsecuente,
           notas_adicionales: notasAdicionales.trim() || null,
+          foto_evidencia_url: fotoUrl,
+          latitud_completado: ubicacion?.latitud ?? null,
+          longitud_completado: ubicacion?.longitud ?? null,
+          distancia_obra_metros: distanciaObra ?? null,
         })
         .eq("id_detalle_material", detalleId);
 
@@ -281,6 +318,9 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     vale?.id_vale,
     userProfile,
     notasAdicionales,
+    fotoUrl,
+    ubicacion,
+    distanciaObra,
   ]);
 
   // Completar vale OTROS TIPOS (peso + folio) - CÓDIGO EXISTENTE
@@ -465,6 +505,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             tarifa_primer_km: costos.tarifaPrimerKm,
             tarifa_subsecuente: costos.tarifaSubsecuente,
             notas_adicionales: notasAdicionales.trim() || null,
+            foto_evidencia_url: fotoUrl,
+            latitud_completado: ubicacion?.latitud ?? null,
+            longitud_completado: ubicacion?.longitud ?? null,
+            distancia_obra_metros: distanciaObra ?? null,
           })
           .eq("id_detalle_material", detalleId);
 
@@ -590,13 +634,17 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     vale?.id_vale,
     userProfile,
     notasAdicionales,
+    fotoUrl,
+    ubicacion,
+    distanciaObra,
   ]);
 
   const handleCloseSuccess = useCallback(() => {
     setShowSuccessModal(false);
+    resetEvidencia();
     onRefresh();
     onClose();
-  }, [onRefresh, onClose]);
+  }, [onRefresh, onClose, resetEvidencia]);
 
   const handleGenerarPDFAhora = useCallback(() => {
     if (!updatedVale) {
@@ -637,6 +685,22 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           <Text style={styles.folio}>{vale.folio}</Text>
           <StatusBadge estado={vale.estado} />
         </View>
+
+        {/* Mensaje de bloqueo por fecha */}
+        {vale?.estado === "en_proceso" && !esMismoDia && (
+          <View style={styles.bloqueadoContainer}>
+            <MaterialCommunityIcons
+              name="lock-clock"
+              size={18}
+              color={colors.primary}
+            />
+            <Text style={styles.bloqueadoTexto}>
+              Este vale no puede completarse porque fue creado el{" "}
+              {formatDate(vale.fecha_creacion)}. Solo se puede completar el
+              mismo día.
+            </Text>
+          </View>
+        )}
 
         {/* Información General */}
         <View style={styles.section}>
@@ -885,11 +949,33 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               </Text>
             )}
 
+            <EvidenciaCaptura
+              folioVale={vale?.folio}
+              foto={foto}
+              fotoUrl={fotoUrl}
+              ubicacion={ubicacion}
+              distanciaObra={distanciaObra}
+              dentroDelRadio={dentroDelRadio}
+              obraTieneCoordenadas={obraTieneCoordenadas}
+              radioConfigurado={radioConfigurado}
+              loadingFoto={loadingFoto}
+              loadingUbicacion={loadingUbicacion}
+              errorFoto={errorFoto}
+              errorUbicacion={errorUbicacion}
+              onTomarFoto={tomarFoto}
+              onCapturarUbicacion={capturarUbicacion}
+            />
+
             <PrimaryButton
               title="Completar Vale"
               onPress={handleCompletarValeTipo3}
               loading={savingToneladas}
-              disabled={!cantidadConfirmada || cantidadConfirmada <= 0}
+              disabled={
+                !cantidadConfirmada ||
+                cantidadConfirmada <= 0 ||
+                !evidenciaLista ||
+                (obraTieneCoordenadas && dentroDelRadio === false)
+              }
               icon="check-circle"
               backgroundColor={colors.accent}
             />
@@ -934,6 +1020,23 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               maxLength={200}
             />
 
+            <EvidenciaCaptura
+              folioVale={vale?.folio}
+              foto={foto}
+              fotoUrl={fotoUrl}
+              ubicacion={ubicacion}
+              distanciaObra={distanciaObra}
+              dentroDelRadio={dentroDelRadio}
+              obraTieneCoordenadas={obraTieneCoordenadas}
+              radioConfigurado={radioConfigurado}
+              loadingFoto={loadingFoto}
+              loadingUbicacion={loadingUbicacion}
+              errorFoto={errorFoto}
+              errorUbicacion={errorUbicacion}
+              onTomarFoto={tomarFoto}
+              onCapturarUbicacion={capturarUbicacion}
+            />
+
             <PrimaryButton
               title="Completar Vale"
               onPress={handleCompletarVale}
@@ -942,7 +1045,9 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
                 !pesoToneladas ||
                 pesoToneladas <= 0 ||
                 !folioBanco ||
-                folioBanco.trim() === ""
+                folioBanco.trim() === "" ||
+                !evidenciaLista ||
+                (obraTieneCoordenadas && dentroDelRadio === false)
               }
               icon="check-circle"
               backgroundColor={colors.accent}
@@ -1087,5 +1192,22 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 2,
     borderTopColor: colors.accent,
+  },
+  bloqueadoContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#FFF3E0",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  bloqueadoTexto: {
+    fontSize: 13,
+    color: colors.primary,
+    flex: 1,
+    lineHeight: 18,
   },
 });

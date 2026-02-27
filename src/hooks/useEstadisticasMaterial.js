@@ -34,6 +34,13 @@ export const useEstadisticasMaterial = (
     let fechaInicio, fechaFin;
 
     switch (periodo) {
+      case "hoy":
+        fechaInicio = new Date(hoy);
+        fechaInicio.setHours(0, 0, 0, 0);
+        fechaFin = new Date(hoy);
+        fechaFin.setHours(23, 59, 59, 999);
+        break;
+
       case "semana": {
         const diaSemana = (hoy.getDay() + 6) % 7; // Lunes = 0
         fechaInicio = new Date(hoy);

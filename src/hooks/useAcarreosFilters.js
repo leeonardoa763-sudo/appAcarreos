@@ -99,12 +99,15 @@ export const useAcarreosFilters = (persistedFilters = null) => {
         }
 
         // ── Filtro: material ────────────────────────────────────────────────
-        // Solo aplica a vales tipo material
-        if (filters.materialId !== null && vale.tipo_vale === "material") {
-          const tieneMaterial = vale.vale_material_detalles?.some(
-            (d) => d.material?.id_material === filters.materialId,
-          );
-          if (!tieneMaterial) return false;
+        // Solo aplica a vales de tipo material; los de renta los deja pasar
+        if (filters.materialId !== null) {
+          if (vale.tipo_vale === "material") {
+            const tieneMaterial = vale.vale_material_detalles?.some(
+              (d) => d.material?.id_material === filters.materialId,
+            );
+            if (!tieneMaterial) return false;
+          }
+          // Los vales de renta no se filtran por material, pasan siempre
         }
 
         // ── Filtro: sindicato ───────────────────────────────────────────────
