@@ -175,7 +175,13 @@ const AcarreosScreen = () => {
               material,
               id_tipo_de_material
             ),
-            bancos:id_banco (banco)
+            bancos:id_banco (
+              id_banco,
+              banco
+            ),
+            sindicatos:id_sindicato (
+              sindicato
+            )
           ),
           vale_renta_detalle (
             *,

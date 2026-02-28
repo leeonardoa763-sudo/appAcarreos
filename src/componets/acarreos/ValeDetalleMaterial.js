@@ -314,6 +314,9 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             bancos:id_banco (
               id_banco,
               banco
+            ),
+            sindicatos:id_sindicato (
+              sindicato
             )
           )
         `,
@@ -612,6 +615,9 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             bancos:id_banco (
               id_banco,
               banco
+            ),
+            sindicatos:id_sindicato (
+              sindicato
             )
           )
         `,
@@ -779,7 +785,11 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           <InfoRow
             icon="home-group"
             label="Sindicato"
-            value={vale.vehiculos?.sindicatos?.sindicato || "N/A"}
+            value={
+              detalleMaterial?.sindicatos?.sindicato ||
+              vale?.vehiculos?.sindicatos?.sindicato ||
+              "N/A"
+            }
           />
 
           {/* ✅ NUEVO: Mostrar quien creó el vale */}

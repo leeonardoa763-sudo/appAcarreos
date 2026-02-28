@@ -480,7 +480,11 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           <InfoRow
             icon="home-group"
             label="Sindicato"
-            value={vale.vehiculos?.sindicatos?.sindicato || "N/A"}
+            value={
+              detalleRenta?.sindicatos?.sindicato ||
+              vale?.vehiculos?.sindicatos?.sindicato ||
+              "N/A"
+            }
           />
 
           <InfoRow

@@ -152,6 +152,7 @@ export const useValeMaterialLogic = (materiales) => {
         id_vale: valeNuevo.id_vale,
         id_material: formData.materialId,
         id_banco: formData.bancoId,
+        id_sindicato: formData.sindicatoId,
         capacidad_m3: parseFloat(formData.capacidad),
         distancia_km: parseFloat(formData.distancia),
         cantidad_pedida_m3: parseFloat(formData.cantidadSolicitada),
@@ -257,6 +258,9 @@ export const useValeMaterialLogic = (materiales) => {
           bancos:id_banco (
             id_banco,
             banco
+          ),
+          sindicatos:id_sindicato (
+            sindicato
           )
         )
       `,

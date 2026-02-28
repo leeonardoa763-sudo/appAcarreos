@@ -30,7 +30,7 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const esCopiaBlanca = colorCopia.toLowerCase() === "blanca";
 
   // Extraer datos del vale
-  const detalle = valeData.vale_material_detalles?.[0] || {};
+  const detalle = valeData.vale_material_detalles?.[0];
   const material = detalle.material?.material || "N/A";
   const banco = detalle.bancos?.banco || "N/A";
   const capacidad = detalle.capacidad_m3 || "N/A";
@@ -80,7 +80,11 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const empresa = valeData.obras?.empresas?.empresa || "CONSTRUCCION";
   const operador = valeData.operadores?.nombre_completo || "N/A";
   const placas = valeData.vehiculos?.placas || "N/A";
-  const sindicato = valeData.vehiculos?.sindicatos?.sindicato || "N/A";
+
+  const sindicato =
+    detalle?.sindicatos?.sindicato ||
+    valeData.vehiculos?.sindicatos?.sindicato ||
+    "N/A";
 
   // Persona que creó el vale
   const creador = valeData.persona
