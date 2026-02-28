@@ -2,7 +2,7 @@
   "expo": {
     "name": "Control de Acarreos",
     "slug": "control-acarreos",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,11 +18,13 @@
       "infoPlist": {
         "UIFileSharingEnabled": true,
         "LSSupportsOpeningDocumentsInPlace": true,
-        "NSCameraUsageDescription": "Se requiere acceso a la cámara para escanear códigos QR y tomar fotos de los vales."
+        "NSCameraUsageDescription": "Se requiere acceso a la cámara para tomar fotos de los vales.",
+        "NSLocationWhenInUseUsageDescription": "Se requiere acceso a la ubicación para registrar el punto de carga y entrega del material.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Se requiere acceso a la ubicación para registrar el punto de carga y entrega del material."
       }
     },
     "android": {
-      "versionCode": 8,
+      "versionCode": 9,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FF6B35"
@@ -57,7 +59,21 @@
         }
       ],
       "expo-secure-store",
-      "react-native-ble-manager"
+      "react-native-ble-manager",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Se requiere acceso a la cámara para tomar fotos de los vales.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Se requiere acceso a la ubicación para registrar el punto de carga y entrega del material.",
+          "locationWhenInUsePermission": "Se requiere acceso a la ubicación para registrar el punto de carga y entrega del material."
+        }
+      ]
     ],
     "extra": {
       "eas": {
