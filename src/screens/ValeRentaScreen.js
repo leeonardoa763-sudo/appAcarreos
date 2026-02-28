@@ -1,6 +1,5 @@
 /**
  * ValeRentaScreen.js
- *
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -12,8 +11,10 @@ import {
   Alert,
   ActivityIndicator,
   InteractionManager,
+  TouchableOpacity,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
 import { commonStyles } from "../styles";
@@ -38,9 +39,7 @@ import {
 import SectionHeader from "../componets/common/SectionHeader";
 import PrimaryButton from "../componets/common/PrimaryButton";
 import FormInput from "../componets/forms/FormInput";
-import FormPicker from "../componets/forms/FormPicker";
 import CustomModalPicker from "../componets/forms/CustomModalPicker";
-import FormTimePicker from "../componets/forms/FormTimePicker";
 import CustomTimePicker from "../componets/forms/CustomTimePicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 import SuccessModal from "../componets/common/SuccessModal";
@@ -55,13 +54,10 @@ const ValeRentaScreen = () => {
   const navigation = useNavigation();
   const { userProfile, userRole } = useAuth();
   const esChecador = userRole === "CHECADOR";
-  // Refs para control
   const isMounted = useRef(true);
 
-  // Hook para obtener obras del usuario
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
-  // Hook para catálogos
   const {
     materiales,
     sindicatos,
@@ -77,9 +73,8 @@ const ValeRentaScreen = () => {
     "vehiculos",
   ]);
 
-  // Hook para generar folio CON obraDataParaFolio
   const { generateFolio } = useFolioGenerator();
-  // Estados del formulario
+
   const [formData, setFormData] = useState({
     materialId: null,
     capacidad: "",
@@ -90,6 +85,9 @@ const ValeRentaScreen = () => {
     notasAdicionales: "",
   });
 
+  // Estado del checkbox "completar después"
+  const [completarDespues, setCompletarDespues] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -97,24 +95,20 @@ const ValeRentaScreen = () => {
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
 
-  // Presupuesto de renta disponible para la obra seleccionada
   const { presupuestoRenta, rentaConsultada } = usePresupuestoObra({
     id_obra: obraSeleccionada,
   });
 
-  // Bloquear creación si presupuesto agotado
   const presupuestoAgotado =
     presupuestoRenta?.nivel === "blocked" ||
     presupuestoRenta?.sinConfigurar === true;
 
-  // Cleanup al desmontar
   useEffect(() => {
     return () => {
       isMounted.current = false;
     };
   }, []);
 
-  // Efecto: Pre-seleccionar obra automáticamente
   useEffect(() => {
     if (obras.length > 0 && !obraSeleccionada) {
       const obraPrincipal = obras.find((o) => o.esPrincipal) || obras[0];
@@ -122,13 +116,11 @@ const ValeRentaScreen = () => {
     }
   }, [obras, obraSeleccionada]);
 
-  // Efecto: Construir obraData para folio
   useEffect(() => {
     if (obraSeleccionada && obras.length > 0) {
       const obraActual = obras.find((o) => o.id === obraSeleccionada);
-
       if (obraActual) {
-        const obraData = {
+        setObraDataParaFolio({
           id_obra: obraActual.id,
           obra: obraActual.nombre,
           cc: obraActual.cc,
@@ -138,9 +130,7 @@ const ValeRentaScreen = () => {
             sufijo: obraActual.sufijo,
             logo: obraActual.logo,
           },
-        };
-
-        setObraDataParaFolio(obraData);
+        });
       } else {
         setObraDataParaFolio(null);
       }
@@ -149,7 +139,25 @@ const ValeRentaScreen = () => {
     }
   }, [obraSeleccionada, obras]);
 
-  // Validaciones
+  // Al activar "completar después", limpiar operador y vehículo
+  const handleToggleCompletarDespues = () => {
+    const nuevoValor = !completarDespues;
+    setCompletarDespues(nuevoValor);
+
+    if (nuevoValor) {
+      setFormData((prev) => ({
+        ...prev,
+        selectedOperador: null,
+        selectedVehiculo: null,
+      }));
+      // Limpiar errores de esos campos
+      setErrors((prev) => {
+        const { operadorId, vehiculoId, ...resto } = prev;
+        return resto;
+      });
+    }
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -165,21 +173,23 @@ const ValeRentaScreen = () => {
     const errorHora = validateHoraInicioNoFutura(formData.horaInicio);
     if (errorHora) newErrors.horaInicio = errorHora;
 
-    const errorOperador = validateOperadorId(
-      formData.selectedOperador?.id_operador,
-    );
-    if (errorOperador) newErrors.operadorId = errorOperador;
+    // Solo validar operador y vehículo si NO se eligió completar después
+    if (!completarDespues) {
+      const errorOperador = validateOperadorId(
+        formData.selectedOperador?.id_operador,
+      );
+      if (errorOperador) newErrors.operadorId = errorOperador;
 
-    const errorVehiculo = validateVehiculoId(
-      formData.selectedVehiculo?.id_vehiculo,
-    );
-    if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
+      const errorVehiculo = validateVehiculoId(
+        formData.selectedVehiculo?.id_vehiculo,
+      );
+      if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Crear vale
   const handleCrearVale = async () => {
     if (!validateForm()) {
       Alert.alert(
@@ -199,7 +209,6 @@ const ValeRentaScreen = () => {
 
       const folio = await generateFolio(obraDataParaFolio);
 
-      // Verificar que el folio no exista
       const { data: verificacion } = await supabase
         .from("vales")
         .select("folio")
@@ -210,7 +219,6 @@ const ValeRentaScreen = () => {
         throw new Error(`El folio ${folio} ya existe en la base de datos`);
       }
 
-      // Crear vale principal
       const { data: valeData, error: valeError } = await supabase
         .from("vales")
         .insert({
@@ -219,8 +227,13 @@ const ValeRentaScreen = () => {
           id_obra: obraDataParaFolio.id_obra,
           id_empresa: obraDataParaFolio.empresas.id_empresa,
           id_persona_creador: userProfile.id_persona,
-          id_operador: formData.selectedOperador.id_operador,
-          id_vehiculo: formData.selectedVehiculo.id_vehiculo,
+          // null si se eligió completar después
+          id_operador: completarDespues
+            ? null
+            : formData.selectedOperador.id_operador,
+          id_vehiculo: completarDespues
+            ? null
+            : formData.selectedVehiculo.id_vehiculo,
           estado: "en_proceso",
           qr_verification_url: generateVerificationUrl(folio),
         })
@@ -229,7 +242,6 @@ const ValeRentaScreen = () => {
 
       if (valeError) throw valeError;
 
-      // Buscar precio de renta
       const precioRenta = preciosRenta.find(
         (p) => p.id_sindicato === formData.sindicatoId,
       );
@@ -238,7 +250,6 @@ const ValeRentaScreen = () => {
         throw new Error("No se encontró precio para el sindicato seleccionado");
       }
 
-      // Crear detalle del vale
       const { error: detalleError } = await supabase
         .from("vale_renta_detalle")
         .insert({
@@ -255,7 +266,6 @@ const ValeRentaScreen = () => {
 
       if (detalleError) throw detalleError;
 
-      // Verificar si componente sigue montado
       if (!isMounted.current) return;
 
       setValeCreado(folio);
@@ -271,28 +281,19 @@ const ValeRentaScreen = () => {
     }
   };
 
-  /**
-   * Navegación robusta usando InteractionManager
-   * Espera a que todas las interacciones/animaciones terminen
-   */
   const handleNavigateToAcarreos = () => {
-    // Cerrar modal inmediatamente
     if (isMounted.current) {
       setShowSuccessModal(false);
     }
 
-    // Usar InteractionManager para esperar el momento óptimo
     InteractionManager.runAfterInteractions(() => {
       if (!isMounted.current) return;
 
-      // Volver a ValesMain primero
       navigation.navigate("ValesMain");
 
-      // Dar un frame para que la navegación se procese
       requestAnimationFrame(() => {
         if (!isMounted.current) return;
 
-        // Navegar al tab de Acarreos
         const tabNavigator = navigation.getParent();
         if (tabNavigator && tabNavigator.navigate) {
           tabNavigator.navigate("Acarreos");
@@ -301,9 +302,6 @@ const ValeRentaScreen = () => {
     });
   };
 
-  /**
-   * Crear otro vale
-   */
   const handleCreateAnother = () => {
     if (isMounted.current) {
       setShowSuccessModal(false);
@@ -316,7 +314,6 @@ const ValeRentaScreen = () => {
     }
   };
 
-  // Loading
   if (loadingObras || loadingCatalogos) {
     return (
       <View style={styles.loadingContainer}>
@@ -326,7 +323,6 @@ const ValeRentaScreen = () => {
     );
   }
 
-  // Sin obras asignadas
   if (!loadingObras && obras.length === 0) {
     return (
       <View style={styles.loadingContainer}>
@@ -339,7 +335,6 @@ const ValeRentaScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Indicador de presupuesto fijo arriba */}
       {rentaConsultada && (
         <View style={styles.presupuestoFijo}>
           <PresupuestoIndicator
@@ -355,6 +350,7 @@ const ValeRentaScreen = () => {
           />
         </View>
       )}
+
       <KeyboardAvoidingScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -445,6 +441,36 @@ const ValeRentaScreen = () => {
 
         {/* SECCIÓN: DATOS DE OPERADOR */}
         <View style={styles.section}>
+          {/* Checkbox: completar después */}
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={handleToggleCompletarDespues}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.checkbox,
+                completarDespues && styles.checkboxActivo,
+              ]}
+            >
+              {completarDespues && (
+                <MaterialCommunityIcons
+                  name="check"
+                  size={14}
+                  color={colors.surface}
+                />
+              )}
+            </View>
+            <View style={styles.checkboxTextos}>
+              <Text style={styles.checkboxLabel}>
+                Completar operador después
+              </Text>
+              <Text style={styles.checkboxSubtitle}>
+                Podrás asignarlo desde la pantalla de Acarreos
+              </Text>
+            </View>
+          </TouchableOpacity>
+
           <DatosOperadorSection
             selectedOperador={formData.selectedOperador}
             selectedVehiculo={formData.selectedVehiculo}
@@ -462,6 +488,7 @@ const ValeRentaScreen = () => {
             sindicatoId={formData.sindicatoId}
             operadores={operadores}
             vehiculos={vehiculos}
+            disabled={completarDespues}
           />
         </View>
 
@@ -479,11 +506,14 @@ const ValeRentaScreen = () => {
         </View>
       </KeyboardAvoidingScrollView>
 
-      {/* Modal de éxito */}
       <SuccessModal
         visible={showSuccessModal}
         title="Vale Creado"
-        message={`Vale ${valeCreado} creado exitosamente.\n\nEl vale quedó en estado "En Proceso". Podrás completarlo desde la pantalla de Acarreos cuando el operador termine el trabajo.`}
+        message={`Vale ${valeCreado} creado exitosamente.\n\n${
+          completarDespues
+            ? "El operador y vehículo quedaron pendientes. Asígnalos desde la pantalla de Acarreos."
+            : 'El vale quedó en estado "En Proceso". Podrás completarlo desde la pantalla de Acarreos cuando el operador termine el trabajo.'
+        }`}
         primaryAction={{
           text: "Ver Acarreos",
           icon: "clipboard-list",
@@ -501,4 +531,43 @@ const ValeRentaScreen = () => {
 
 export default ValeRentaScreen;
 
-const styles = commonStyles;
+const styles = {
+  ...commonStyles,
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.secondary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  checkboxActivo: {
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
+  },
+  checkboxTextos: {
+    flex: 1,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  checkboxSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+};

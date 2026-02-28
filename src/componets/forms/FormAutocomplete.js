@@ -1,29 +1,4 @@
-/**
- * FormAutocomplete.js
- *
- * Componente de autocompletado con búsqueda en tiempo real
- *
- * PROPÓSITO:
- * - Búsqueda incremental mientras el usuario escribe
- * - Filtrado automático de opciones
- * - Compatible con catálogos de Supabase
- * - Cierre automático de teclado al seleccionar
- *
- * USADO EN:
- * - DatosOperadorSection (operadores y vehículos)
- *
- * PROPS:
- * - label: string - Texto del label
- * - value: number - ID seleccionado
- * - onSelect: function - Callback al seleccionar (recibe objeto completo)
- * - items: array - Lista de opciones
- * - displayField: string - Campo a mostrar (ej: 'nombre_completo', 'placas')
- * - valueField: string - Campo del ID (ej: 'id_operador', 'id_vehiculo')
- * - placeholder: string - Texto del placeholder
- * - error: string - Mensaje de error
- */
-
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -44,28 +19,28 @@ const FormAutocomplete = ({
   valueField,
   placeholder = "Buscar...",
   error = null,
+  disabled = false,
 }) => {
   const [searchText, setSearchText] = useState("");
   const [showList, setShowList] = useState(false);
+  // Flag para saber si el usuario está tocando la lista
+  const isSelectingItem = useRef(false);
 
-  // Filtrar items basado en búsqueda
   const filteredItems = useMemo(() => {
     if (!searchText) return items;
     const search = searchText.toLowerCase();
     return items.filter((item) =>
-      item[displayField]?.toLowerCase().includes(search)
+      item[displayField]?.toLowerCase().includes(search),
     );
   }, [items, searchText, displayField]);
 
-  // Obtener el item seleccionado
   const selectedItem = items.find((item) => item[valueField] === value);
 
   const handleSelectItem = (item) => {
+    isSelectingItem.current = false;
     setSearchText("");
     setShowList(false);
     onSelect(item);
-
-    // Cerrar teclado automáticamente
     Keyboard.dismiss();
   };
 
@@ -79,26 +54,37 @@ const FormAutocomplete = ({
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
 
-      <View style={[styles.inputContainer, error && styles.errorBorder]}>
+      <View
+        style={[
+          styles.inputContainer,
+          error && styles.errorBorder,
+          disabled && styles.disabledContainer,
+        ]}
+      >
         <TextInput
-          style={styles.input}
+          style={[styles.input, disabled && styles.disabledInput]}
           value={selectedItem ? selectedItem[displayField] : searchText}
+          editable={!disabled}
           onChangeText={(text) => {
             setSearchText(text);
             setShowList(true);
             if (!text) onSelect(null);
           }}
-          onFocus={() => setShowList(true)}
+          onFocus={() => {
+            if (!disabled) setShowList(true);
+          }}
           onBlur={() => {
-            // Pequeño delay para permitir que el onPress del item se ejecute primero
-            setTimeout(() => setShowList(false), 150);
+            // Solo cerrar si el usuario NO está tocando la lista
+            if (!isSelectingItem.current) {
+              setShowList(false);
+            }
           }}
           placeholder={placeholder}
           placeholderTextColor={colors.textSecondary}
           returnKeyType="done"
           blurOnSubmit={true}
         />
-        {selectedItem && (
+        {selectedItem && !disabled && (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
             <Text style={styles.clearText}>✕</Text>
           </TouchableOpacity>
@@ -110,13 +96,34 @@ const FormAutocomplete = ({
           <ScrollView
             style={styles.list}
             nestedScrollEnabled
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
+            // Al iniciar scroll o touch en la lista, marcar el flag
+            onScrollBeginDrag={() => {
+              isSelectingItem.current = true;
+            }}
+            onMomentumScrollEnd={() => {
+              // Al terminar el scroll, si no seleccionó nada, apagar el flag
+              // con un pequeño delay para dar tiempo al onPress
+              setTimeout(() => {
+                isSelectingItem.current = false;
+              }, 200);
+            }}
           >
             {filteredItems.map((item) => (
               <TouchableOpacity
                 key={item[valueField]?.toString()}
                 style={styles.listItem}
+                // Marcar flag ANTES de que se dispare el onBlur del TextInput
+                onPressIn={() => {
+                  isSelectingItem.current = true;
+                }}
                 onPress={() => handleSelectItem(item)}
+                // Si cancela el press, apagar el flag
+                onPressOut={() => {
+                  setTimeout(() => {
+                    isSelectingItem.current = false;
+                  }, 200);
+                }}
               >
                 <Text style={styles.listItemText}>{item[displayField]}</Text>
               </TouchableOpacity>
@@ -155,11 +162,17 @@ const styles = StyleSheet.create({
   errorBorder: {
     borderColor: colors.danger,
   },
+  disabledContainer: {
+    opacity: 0.5,
+  },
   input: {
     flex: 1,
     fontSize: 16,
     color: colors.textPrimary,
     paddingVertical: 12,
+  },
+  disabledInput: {
+    color: colors.textSecondary,
   },
   clearButton: {
     padding: 4,

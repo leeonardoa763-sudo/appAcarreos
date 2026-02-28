@@ -111,8 +111,12 @@ export const useValeMaterialLogic = (materiales) => {
             id_obra: obraData.id_obra,
             id_empresa: obraData.empresas.id_empresa,
             id_persona_creador: userProfile.id_persona,
-            id_operador: formData.selectedOperador?.id_operador,
-            id_vehiculo: formData.selectedVehiculo?.id_vehiculo,
+            id_operador: formData.completarDespues
+              ? null
+              : formData.selectedOperador?.id_operador,
+            id_vehiculo: formData.completarDespues
+              ? null
+              : formData.selectedVehiculo?.id_vehiculo,
             estado: estadoInicial,
             qr_verification_url: verificationUrl,
             // Tepetate flujo directo: la misma persona es computadora y emisora

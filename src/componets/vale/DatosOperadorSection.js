@@ -38,6 +38,7 @@ const DatosOperadorSection = ({
   sindicatoId,
   operadores = [],
   vehiculos = [],
+  disabled = false,
 }) => {
   // Filtrar operadores por sindicato seleccionado
   const operadoresFiltrados = useMemo(() => {
@@ -70,6 +71,7 @@ const DatosOperadorSection = ({
         valueField="id_operador"
         placeholder="Buscar operador..."
         error={errors.operadorId}
+        disabled={disabled}
       />
 
       <FormAutocomplete
@@ -81,6 +83,7 @@ const DatosOperadorSection = ({
         valueField="id_vehiculo"
         placeholder="Buscar placas..."
         error={errors.vehiculoId}
+        disabled={disabled}
       />
 
       <FormInput

@@ -3,8 +3,15 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, Alert, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  Alert,
+  ActivityIndicator,
+  TouchableOpacity,
+} from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 // Config
 import { colors } from "../config/colors";
@@ -65,6 +72,7 @@ const ValeMaterialScreen = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
+  const [completarDespues, setCompletarDespues] = useState(false);
 
   // Hooks de formulario y lógica
   const {
@@ -226,6 +234,19 @@ const ValeMaterialScreen = () => {
     return unsubscribe;
   }, [navigation]);
 
+  const handleToggleCompletarDespues = () => {
+    const nuevoValor = !completarDespues;
+    setCompletarDespues(nuevoValor);
+
+    if (nuevoValor) {
+      setFormData((prev) => ({
+        ...prev,
+        selectedOperador: null,
+        selectedVehiculo: null,
+      }));
+    }
+  };
+
   // Función: Reset completo
   const resetForm = () => {
     resetFormData();
@@ -237,7 +258,7 @@ const ValeMaterialScreen = () => {
 
   // Función: Crear vale
   const handleCrearVale = async () => {
-    if (!validateForm(esTipo3DirectFlow)) {
+    if (!validateForm(esTipo3DirectFlow, completarDespues)) {
       Alert.alert(
         "Campos incompletos",
         "Por favor completa todos los campos requeridos",
@@ -257,7 +278,7 @@ const ValeMaterialScreen = () => {
 
     try {
       const { valeCompleto, folio } = await crearVale(
-        formData,
+        { ...formData, completarDespues },
         obraDataParaFolio,
         userProfile,
         generateFolio,
@@ -483,9 +504,38 @@ const ValeMaterialScreen = () => {
             />
           )}
         </View>
-
         {/* SECCIÓN: DATOS DE OPERADOR */}
         <View style={styles.section}>
+          {/* Checkbox: completar después */}
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={handleToggleCompletarDespues}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.checkbox,
+                completarDespues && styles.checkboxActivo,
+              ]}
+            >
+              {completarDespues && (
+                <MaterialCommunityIcons
+                  name="check"
+                  size={14}
+                  color={colors.surface}
+                />
+              )}
+            </View>
+            <View style={styles.checkboxTextos}>
+              <Text style={styles.checkboxLabel}>
+                Completar operador después
+              </Text>
+              <Text style={styles.checkboxSubtitle}>
+                Podrás asignarlo desde la pantalla de Acarreos
+              </Text>
+            </View>
+          </TouchableOpacity>
+
           <DatosOperadorSection
             selectedOperador={formData.selectedOperador}
             selectedVehiculo={formData.selectedVehiculo}
@@ -503,6 +553,7 @@ const ValeMaterialScreen = () => {
             sindicatoId={formData.sindicatoId}
             operadores={operadores}
             vehiculos={vehiculos}
+            disabled={completarDespues}
           />
         </View>
 
@@ -591,5 +642,42 @@ const styles = {
     paddingHorizontal: 16,
     paddingTop: 8,
     backgroundColor: colors.background,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.secondary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  checkboxActivo: {
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
+  },
+  checkboxTextos: {
+    flex: 1,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  checkboxSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 };

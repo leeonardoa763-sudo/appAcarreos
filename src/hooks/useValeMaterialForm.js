@@ -4,7 +4,6 @@
  * Hook para manejar el estado y validaciones del formulario de vale de material
  * NOTA: La lógica de cálculo de distancia ahora está en ValeMaterialScreen
  */
-
 import { useState } from "react";
 import {
   validateOperadorId,
@@ -35,8 +34,10 @@ export const useValeMaterialForm = (materiales = []) => {
 
   const [errors, setErrors] = useState({});
 
-  // Función: Validar formulario
-  const validateForm = (esTipo3DirectFlow = false) => {
+  const validateForm = (
+    esTipo3DirectFlow = false,
+    completarDespues = false,
+  ) => {
     const newErrors = {};
 
     const errorMaterial = validateMaterialId(formData.materialId);
@@ -66,22 +67,24 @@ export const useValeMaterialForm = (materiales = []) => {
     const errorSindicato = validateSindicatoId(formData.sindicatoId);
     if (errorSindicato) newErrors.sindicatoId = errorSindicato;
 
-    const errorOperador = validateOperadorId(
-      formData.selectedOperador?.id_operador,
-    );
-    if (errorOperador) newErrors.operadorId = errorOperador;
+    // Solo validar operador y vehículo si NO se va a completar después
+    if (!completarDespues) {
+      const errorOperador = validateOperadorId(
+        formData.selectedOperador?.id_operador,
+      );
+      if (errorOperador) newErrors.operadorId = errorOperador;
 
-    const errorVehiculo = validateVehiculoId(
-      formData.selectedVehiculo?.id_vehiculo,
-    );
-    if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
+      const errorVehiculo = validateVehiculoId(
+        formData.selectedVehiculo?.id_vehiculo,
+      );
+      if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
+    }
 
     // Validación requisición: Obligatoria solo para materiales tipo 1
     const materialSeleccionado = materiales.find(
       (m) => m.id_material === formData.materialId,
     );
     const esTipo1 = materialSeleccionado?.id_tipo_de_material === 1;
-
     if (esTipo1 && !formData.requisicion?.trim()) {
       newErrors.requisicion =
         "La requisición es obligatoria para este material";
@@ -98,12 +101,9 @@ export const useValeMaterialForm = (materiales = []) => {
     }
 
     setErrors(newErrors);
-
-    const isValid = Object.keys(newErrors).length === 0;
-    return isValid;
+    return Object.keys(newErrors).length === 0;
   };
 
-  // Función: Resetear formulario
   const resetForm = () => {
     setFormData({
       materialId: null,

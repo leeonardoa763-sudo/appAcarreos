@@ -10,7 +10,7 @@ import {
 import BleManager from "react-native-ble-manager";
 
 // 3. Local - Debug
-import { addDebugLog } from "../components/debug/DebugLogger";
+import { addDebugLog } from "../componets/debug/DebugLogger";
 
 const BleManagerModule = NativeModules.BleManager;
 const bleEmitter = new NativeEventEmitter(BleManagerModule);

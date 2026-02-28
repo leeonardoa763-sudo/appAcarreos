@@ -17,10 +17,20 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, Alert } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
+
+import { useCatalogos } from "../../hooks/useCatalogos";
+import FormAutocomplete from "../forms/FormAutocomplete";
 
 import KeyboardAvoidingScrollView from "../common/KeyboardAvoidingScrollView";
 import StatusBadge from "../common/StatusBadge";
@@ -45,6 +55,20 @@ import {
 
 const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const { userProfile } = useAuth();
+
+  const { operadores, vehiculos } = useCatalogos(["operadores", "vehiculos"]);
+
+  const detalleRenta = vale?.vale_renta_detalle?.[0];
+  const tieneDatosPendientes = !vale?.id_operador || !vale?.id_vehiculo;
+
+  const sindicatoId = detalleRenta?.id_sindicato;
+  const operadoresFiltrados = operadores.filter(
+    (op) => !sindicatoId || op.id_sindicato === sindicatoId,
+  );
+  const vehiculosFiltrados = vehiculos.filter(
+    (v) => !sindicatoId || v.id_sindicato === sindicatoId,
+  );
+
   const [horaFin, setHoraFin] = useState(null);
   const [numeroViajes, setNumeroViajes] = useState(1);
   const [esRentaPorDia, setEsRentaPorDia] = useState(false);
@@ -81,12 +105,15 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const isInitialized = useRef(false);
   const lastValeId = useRef(null);
 
-  const detalleRenta = vale?.vale_renta_detalle?.[0];
-  const canComplete = vale?.estado === "en_proceso" && detalleRenta;
-  const preciosRenta = detalleRenta?.precios_renta;
+  const [selectedOperador, setSelectedOperador] = useState(null);
+  const [selectedVehiculo, setSelectedVehiculo] = useState(null);
+  const [savingDatos, setSavingDatos] = useState(false);
+  const [datosPendientesGuardados, setDatosPendientesGuardados] =
+    useState(false);
 
-  // Log temporal
-  console.log("[DetalleRenta] id_obra pasado al hook:", vale?.obras?.id_obra);
+  const canComplete = vale?.estado === "en_proceso" && detalleRenta;
+
+  const preciosRenta = detalleRenta?.precios_renta;
 
   const {
     viajes,
@@ -179,8 +206,44 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     return `$${parseFloat(amount).toFixed(2)} MXN`;
   };
 
+  const handleGuardarDatosPendientes = useCallback(async () => {
+    if (!selectedOperador || !selectedVehiculo) {
+      Alert.alert("Campos requeridos", "Selecciona operador y vehículo");
+      return;
+    }
+
+    try {
+      setSavingDatos(true);
+
+      const { error } = await supabase
+        .from("vales")
+        .update({
+          id_operador: selectedOperador.id_operador,
+          id_vehiculo: selectedVehiculo.id_vehiculo,
+        })
+        .eq("id_vale", vale.id_vale);
+
+      if (error) throw error;
+
+      setDatosPendientesGuardados(true);
+    } catch (error) {
+      Alert.alert("Error", "No se pudo guardar. Intenta de nuevo.");
+    } finally {
+      setSavingDatos(false);
+    }
+  }, [selectedOperador, selectedVehiculo, vale.id_vale, onRefresh]);
+
   const handleGuardarHoraFin = useCallback(async () => {
     if (!canComplete) return;
+
+    // Si hay datos pendientes, validar que se hayan seleccionado
+    if (tieneDatosPendientes && (!selectedOperador || !selectedVehiculo)) {
+      Alert.alert(
+        "Datos incompletos",
+        "Debes asignar operador y vehículo antes de completar",
+      );
+      return;
+    }
 
     const errorDia = validateMismoDiaCreacion(vale?.fecha_creacion);
     if (errorDia) {
@@ -284,6 +347,11 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           estado: "emitido",
           id_persona_completador: userProfile.id_persona,
           fecha_completado: new Date().toISOString(),
+          // Si había datos pendientes, guardarlos junto con el completado
+          ...(tieneDatosPendientes && {
+            id_operador: selectedOperador.id_operador,
+            id_vehiculo: selectedVehiculo.id_vehiculo,
+          }),
         })
         .eq("id_vale", vale.id_vale);
 
@@ -576,8 +644,76 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Completar Vale</Text>
             <Text style={styles.sectionSubtitle}>
-              Captura la hora de fin y el número de viajes realizados
+              Captura los datos para completar el vale
             </Text>
+
+            {/* Datos pendientes: operador y vehículo */}
+            {tieneDatosPendientes && !datosPendientesGuardados && (
+              <View style={styles.datosPendientesInline}>
+                <View style={styles.pendienteHeader}>
+                  <MaterialCommunityIcons
+                    name="alert-circle"
+                    size={18}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.pendienteTitulo}>
+                    Asignar Operador y Vehículo
+                  </Text>
+                </View>
+                <Text style={styles.pendienteSubtitulo}>
+                  Requeridos para completar el vale
+                </Text>
+
+                <FormAutocomplete
+                  label="Operador"
+                  value={selectedOperador?.id_operador}
+                  onSelect={setSelectedOperador}
+                  items={operadoresFiltrados}
+                  displayField="nombre_completo"
+                  valueField="id_operador"
+                  placeholder="Buscar operador..."
+                  disabled={savingDatos}
+                />
+
+                <FormAutocomplete
+                  label="Placas del Vehículo"
+                  value={selectedVehiculo?.id_vehiculo}
+                  onSelect={setSelectedVehiculo}
+                  items={vehiculosFiltrados}
+                  displayField="placas"
+                  valueField="id_vehiculo"
+                  placeholder="Buscar placas..."
+                  disabled={savingDatos}
+                />
+
+                {/* Botón secundario discreto */}
+                <TouchableOpacity
+                  style={[
+                    styles.botonGuardarDatos,
+                    (!selectedOperador || !selectedVehiculo) &&
+                      styles.botonGuardarDatosDisabled,
+                  ]}
+                  onPress={handleGuardarDatosPendientes}
+                  disabled={
+                    savingDatos || !selectedOperador || !selectedVehiculo
+                  }
+                  activeOpacity={0.7}
+                >
+                  {savingDatos ? (
+                    <ActivityIndicator size="small" color={colors.secondary} />
+                  ) : (
+                    <MaterialCommunityIcons
+                      name="content-save"
+                      size={16}
+                      color={colors.secondary}
+                    />
+                  )}
+                  <Text style={styles.botonGuardarDatosTexto}>
+                    Guardar datos
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* ← PASO 4.4: Sección de viajes justo arriba de los checkboxes */}
             <ViajesRentaSection
@@ -828,5 +964,55 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.primary,
     lineHeight: 18,
+  },
+  seccionPendiente: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  pendienteHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  pendienteTitulo: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  pendienteSubtitulo: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  datosPendientesInline: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  botonGuardarDatos: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-end",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    marginTop: 4,
+  },
+  botonGuardarDatosDisabled: {
+    borderColor: colors.border,
+    opacity: 0.5,
+  },
+  botonGuardarDatosTexto: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.secondary,
   },
 });

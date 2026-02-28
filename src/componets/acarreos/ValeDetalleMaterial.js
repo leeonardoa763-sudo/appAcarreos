@@ -16,7 +16,15 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
@@ -32,13 +40,16 @@ import SuccessModal from "../common/SuccessModal";
 import PrimaryButton from "../common/PrimaryButton";
 import GenerarPDFButton from "../vale/GenerarPDFButton";
 
+import { useCatalogos } from "../../hooks/useCatalogos";
+import FormAutocomplete from "../forms/FormAutocomplete";
+
 import useEvidenciaVale from "../../hooks/useEvidenciaVale";
 import EvidenciaCaptura from "../vale/EvidenciaCaptura";
 
 const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const { userProfile } = useAuth();
   // Estados para OTROS TIPOS
-
+  const { operadores, vehiculos } = useCatalogos(["operadores", "vehiculos"]);
   const [pesoToneladas, setPesoToneladas] = useState(null);
   const [folioBanco, setFolioBanco] = useState("");
 
@@ -68,6 +79,11 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
   // Estados comunes
   const [savingToneladas, setSavingToneladas] = useState(false);
+  const [selectedOperador, setSelectedOperador] = useState(null);
+  const [selectedVehiculo, setSelectedVehiculo] = useState(null);
+  const [savingDatos, setSavingDatos] = useState(false);
+  const [datosPendientesGuardados, setDatosPendientesGuardados] =
+    useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successData, setSuccessData] = useState(null);
   const [updatedVale, setUpdatedVale] = useState(null);
@@ -77,6 +93,15 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const lastValeId = useRef(null);
 
   const detalleMaterial = vale?.vale_material_detalles?.[0];
+  const tieneDatosPendientes = !vale?.id_operador || !vale?.id_vehiculo;
+
+  const sindicatoId = detalleMaterial?.id_sindicato;
+  const operadoresFiltrados = operadores.filter(
+    (op) => !sindicatoId || op.id_sindicato === sindicatoId,
+  );
+  const vehiculosFiltrados = vehiculos.filter(
+    (v) => !sindicatoId || v.id_sindicato === sindicatoId,
+  );
   const hoy = new Date();
   const fechaCreacion = vale?.fecha_creacion
     ? new Date(vale.fecha_creacion)
@@ -88,7 +113,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     : false;
 
   const canComplete =
-    vale?.estado === "en_proceso" && detalleMaterial && esMismoDia;
+    vale?.estado === "en_proceso" &&
+    detalleMaterial &&
+    esMismoDia &&
+    (!tieneDatosPendientes || datosPendientesGuardados);
 
   // NUEVO: Detectar si es tipo 3
   const esTipo3 = detalleMaterial?.material?.id_tipo_de_material === 3;
@@ -639,6 +667,33 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     distanciaObra,
   ]);
 
+  const handleGuardarDatosPendientes = useCallback(async () => {
+    if (!selectedOperador || !selectedVehiculo) {
+      Alert.alert("Campos requeridos", "Selecciona operador y vehículo");
+      return;
+    }
+
+    try {
+      setSavingDatos(true);
+
+      const { error } = await supabase
+        .from("vales")
+        .update({
+          id_operador: selectedOperador.id_operador,
+          id_vehiculo: selectedVehiculo.id_vehiculo,
+        })
+        .eq("id_vale", vale.id_vale);
+
+      if (error) throw error;
+
+      setDatosPendientesGuardados(true);
+    } catch (error) {
+      Alert.alert("Error", "No se pudo guardar. Intenta de nuevo.");
+    } finally {
+      setSavingDatos(false);
+    }
+  }, [selectedOperador, selectedVehiculo, vale.id_vale]);
+
   const handleCloseSuccess = useCallback(() => {
     setShowSuccessModal(false);
     resetEvidencia();
@@ -909,6 +964,71 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
                   />
                 </View>
               )}
+            </View>
+          )}
+
+        {/* Datos pendientes: operador y vehículo */}
+        {tieneDatosPendientes &&
+          !datosPendientesGuardados &&
+          vale?.estado === "en_proceso" && (
+            <View style={styles.datosPendientesInline}>
+              <View style={styles.pendienteHeader}>
+                <MaterialCommunityIcons
+                  name="alert-circle"
+                  size={18}
+                  color={colors.primary}
+                />
+                <Text style={styles.pendienteTitulo}>
+                  Asignar Operador y Vehículo
+                </Text>
+              </View>
+              <Text style={styles.pendienteSubtitulo}>
+                Requeridos para completar el vale
+              </Text>
+
+              <FormAutocomplete
+                label="Operador"
+                value={selectedOperador?.id_operador}
+                onSelect={setSelectedOperador}
+                items={operadoresFiltrados}
+                displayField="nombre_completo"
+                valueField="id_operador"
+                placeholder="Buscar operador..."
+                disabled={savingDatos}
+              />
+
+              <FormAutocomplete
+                label="Placas del Vehículo"
+                value={selectedVehiculo?.id_vehiculo}
+                onSelect={setSelectedVehiculo}
+                items={vehiculosFiltrados}
+                displayField="placas"
+                valueField="id_vehiculo"
+                placeholder="Buscar placas..."
+                disabled={savingDatos}
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.botonGuardarDatos,
+                  (!selectedOperador || !selectedVehiculo) &&
+                    styles.botonGuardarDatosDisabled,
+                ]}
+                onPress={handleGuardarDatosPendientes}
+                disabled={savingDatos || !selectedOperador || !selectedVehiculo}
+                activeOpacity={0.7}
+              >
+                {savingDatos ? (
+                  <ActivityIndicator size="small" color={colors.secondary} />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="content-save"
+                    size={16}
+                    color={colors.secondary}
+                  />
+                )}
+                <Text style={styles.botonGuardarDatosTexto}>Guardar datos</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -1209,5 +1329,51 @@ const styles = StyleSheet.create({
     color: colors.primary,
     flex: 1,
     lineHeight: 18,
+  },
+  datosPendientesInline: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  pendienteHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  pendienteTitulo: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  pendienteSubtitulo: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  botonGuardarDatos: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-end",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    marginTop: 4,
+  },
+  botonGuardarDatosDisabled: {
+    borderColor: colors.border,
+    opacity: 0.5,
+  },
+  botonGuardarDatosTexto: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.secondary,
   },
 });

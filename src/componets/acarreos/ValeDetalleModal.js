@@ -90,8 +90,13 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 )}
               </View>
             </View>
-
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity
+              onPress={() => {
+                onRefresh();
+                onClose();
+              }}
+              style={styles.closeButton}
+            >
               <MaterialCommunityIcons name="close" size={28} color="#FFFFFF" />
             </TouchableOpacity>
           </View>

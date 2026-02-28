@@ -50,13 +50,11 @@ const ValesScreen = () => {
 
   const { buscarValePorFolio, loading: loadingVale } = useValeByFolio();
 
-  // Callback al detectar folio desde QR
   const handleFolioDetectado = useCallback(
     async (folio) => {
       const vale = await buscarValePorFolio(folio);
       if (!vale) return;
 
-      // Navegar a Acarreos pasando el vale encontrado como param
       const tabNavigator = navigation.getParent();
       if (tabNavigator) {
         tabNavigator.navigate("Acarreos", { valeEscaneado: vale });
@@ -108,7 +106,8 @@ const ValesScreen = () => {
   const esChecador = userRole === "CHECADOR";
 
   const buttonConfigs = [
-    {
+    // Crear vale: solo si NO es checador
+    !esChecador && {
       onPress: handleCrearVale,
       iconName: "file-document-plus",
       buttonText: "Crear Nuevo Vale",
@@ -116,6 +115,7 @@ const ValesScreen = () => {
       backgroundColor: "#E8501A",
       isMain: true,
     },
+    // Escanear: todos los roles
     {
       onPress: requestPermissionAndOpen,
       iconName: loadingVale ? "loading" : "qrcode-scan",
@@ -125,25 +125,23 @@ const ValesScreen = () => {
       isMain: true,
       loading: loadingVale,
     },
-    {
+    // Archivados: solo si NO es checador
+    !esChecador && {
       onPress: handleVerArchivados,
       iconName: "archive",
       buttonText: "Archivados",
       subtitle: "Ver histórico",
       backgroundColor: "#2E4057",
     },
-    ...(!esChecador
-      ? [
-          {
-            onPress: handleVerTarifas,
-            iconName: "currency-usd",
-            buttonText: "Tarifas",
-            subtitle: "Consultar precios",
-            backgroundColor: "#145A32",
-          },
-        ]
-      : []),
-  ];
+    // Tarifas: solo si NO es checador
+    !esChecador && {
+      onPress: handleVerTarifas,
+      iconName: "currency-usd",
+      buttonText: "Tarifas",
+      subtitle: "Consultar precios",
+      backgroundColor: "#145A32",
+    },
+  ].filter(Boolean);
 
   return (
     <ScrollView
@@ -183,7 +181,6 @@ const ValesScreen = () => {
         userObras={obras || []}
       />
 
-      {/* Modal del escáner QR */}
       <QRScannerModal
         visible={scannerVisible}
         scanning={scanning}
