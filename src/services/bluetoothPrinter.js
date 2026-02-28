@@ -9,6 +9,9 @@ import {
 // 2. Third party
 import BleManager from "react-native-ble-manager";
 
+// 3. Local - Debug
+import { addDebugLog } from "../components/debug/DebugLogger";
+
 const BleManagerModule = NativeModules.BleManager;
 const bleEmitter = new NativeEventEmitter(BleManagerModule);
 
@@ -74,8 +77,10 @@ export const verificarBluetooth = async () => {
   try {
     await inicializarBluetooth();
     const estado = await BleManager.checkState();
+    addDebugLog(`Bluetooth checkState: ${estado}`);
     return estado === "on";
-  } catch {
+  } catch (error) {
+    addDebugLog(`Error verificarBluetooth: ${error.message}`, "ERROR");
     throw new Error("No se pudo verificar el estado del Bluetooth");
   }
 };
@@ -87,7 +92,10 @@ export const escanearImpresoras = () => {
   return new Promise(async (resolve, reject) => {
     try {
       await inicializarBluetooth();
+      addDebugLog("BLE inicializado");
+
       const permisosOk = await solicitarPermisos();
+      addDebugLog(`Permisos Bluetooth: ${permisosOk}`);
       if (!permisosOk) throw new Error("Permisos Bluetooth denegados");
 
       const dispositivos = [];
@@ -95,6 +103,9 @@ export const escanearImpresoras = () => {
       const suscripcion = bleEmitter.addListener(
         "BleManagerDiscoverPeripheral",
         (device) => {
+          addDebugLog(
+            `Dispositivo detectado: ${device.name || "sin nombre"} | ${device.id}`,
+          );
           const yaExiste = dispositivos.some((d) => d.id === device.id);
           if (!yaExiste) {
             dispositivos.push({
@@ -107,12 +118,17 @@ export const escanearImpresoras = () => {
       );
 
       await BleManager.scan([], 5, true);
+      addDebugLog("Scan iniciado - esperando 5 segundos...");
 
       setTimeout(() => {
         suscripcion.remove();
+        addDebugLog(
+          `Scan terminado. Total: ${dispositivos.length} dispositivos`,
+        );
         resolve(dispositivos);
       }, 5500);
     } catch (error) {
+      addDebugLog(`Error escaneo: ${error.message}`, "ERROR");
       reject(new Error("No se pudo escanear dispositivos Bluetooth"));
     }
   });
@@ -123,14 +139,17 @@ export const escanearImpresoras = () => {
  */
 export const conectarImpresora = async (deviceId) => {
   try {
+    addDebugLog(`Conectando a: ${deviceId}`);
     await BleManager.connect(deviceId);
+    addDebugLog("Conexion exitosa, obteniendo servicios...");
     await BleManager.retrieveServices(deviceId);
+    addDebugLog("Servicios obtenidos correctamente");
     return true;
-  } catch {
+  } catch (error) {
+    addDebugLog(`Error conexion: ${error.message}`, "ERROR");
     throw new Error("No se pudo conectar a la impresora");
   }
 };
-
 /**
  * Desconecta el dispositivo
  */

@@ -1,5 +1,9 @@
 // 1. React
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import DebugLogger, {
+  initDebugLogger,
+  addDebugLog,
+} from "../debug/DebugLogger";
 
 // 2. React Native
 import {
@@ -71,6 +75,10 @@ const ImprimirTicketButton = ({
   const [mostrarModal, setMostrarModal] = useState(false);
   const [impresoras, setImpresoras] = useState([]);
 
+  useEffect(() => {
+    initDebugLogger();
+  }, []);
+
   const puedeImprimir = impresiones > 0;
 
   const descontarImpresion = useCallback(async () => {
@@ -98,7 +106,9 @@ const ImprimirTicketButton = ({
 
   const handleMostrarImpresoras = useCallback(async () => {
     try {
+      addDebugLog("Boton presionado - verificando bluetooth...");
       const bluetoothActivo = await verificarBluetooth();
+      addDebugLog(`Bluetooth activo: ${bluetoothActivo}`);
       if (!bluetoothActivo) {
         Alert.alert(
           "Bluetooth desactivado",
@@ -108,9 +118,15 @@ const ImprimirTicketButton = ({
       }
       setMostrarModal(true);
       setEscaneando(true);
+      addDebugLog("Iniciando escaneo de impresoras...");
       const dispositivos = await escanearImpresoras();
+      addDebugLog(
+        `Escaneo completo. Dispositivos encontrados: ${dispositivos.length}`,
+      );
+      dispositivos.forEach((d) => addDebugLog(`  - ${d.name} | ${d.address}`));
       setImpresoras(dispositivos);
     } catch (error) {
+      addDebugLog(`ERROR: ${error.message}`, "ERROR");
       Alert.alert("Error", error.message);
     } finally {
       setEscaneando(false);
@@ -261,6 +277,8 @@ const ImprimirTicketButton = ({
                   )}
                 />
               )}
+              {/* DEBUG TEMPORAL */}
+              <DebugLogger />
             </View>
           </View>
         </Modal>
