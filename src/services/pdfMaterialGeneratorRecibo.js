@@ -78,8 +78,8 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const nombreObra = valeData.obras?.obra || "N/A";
   const obra = cc ? `${cc} - ${nombreObra}` : nombreObra;
   const empresa = valeData.obras?.empresas?.empresa || "CONSTRUCCION";
-  const operador = valeData.operadores?.nombre_completo || "N/A";
-  const placas = valeData.vehiculos?.placas || "N/A";
+  const operador = valeData.operadores?.nombre_completo || "Pendiente";
+  const placas = valeData.vehiculos?.placas || "Pendiente";
 
   const sindicato =
     detalle?.sindicatos?.sindicato ||

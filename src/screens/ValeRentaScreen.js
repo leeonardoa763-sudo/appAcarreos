@@ -24,6 +24,9 @@ import { useAuth } from "../hooks/useAuth";
 import { useCatalogos } from "../hooks/useCatalogos";
 import { useFolioGenerator } from "../hooks/useFolioGenerator";
 import { useObras } from "../hooks/useObras";
+// Agrega estas dos líneas a los imports locales
+import { useValeRentaPDF } from "../hooks/useValeRentaPDF";
+import QRCodeGenerator from "../componets/common/QRCodeGenerator";
 
 // Validaciones
 import {
@@ -85,6 +88,14 @@ const ValeRentaScreen = () => {
     notasAdicionales: "",
   });
 
+  const {
+    qrDataUrl,
+    compartirPDF,
+    handleQRGenerated,
+    navegarAcarreos,
+    resetPDFState,
+    setMounted,
+  } = useValeRentaPDF(navigation);
   // Estado del checkbox "completar después"
   const [completarDespues, setCompletarDespues] = useState(false);
 
@@ -94,6 +105,7 @@ const ValeRentaScreen = () => {
   const [valeCreado, setValeCreado] = useState(null);
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
+  const [triggerPDFRojo, setTriggerPDFRojo] = useState(false);
 
   const { presupuestoRenta, rentaConsultada } = usePresupuestoObra({
     id_obra: obraSeleccionada,
@@ -102,6 +114,12 @@ const ValeRentaScreen = () => {
   const presupuestoAgotado =
     presupuestoRenta?.nivel === "blocked" ||
     presupuestoRenta?.sinConfigurar === true;
+
+  useEffect(() => {
+    return () => {
+      setMounted(false);
+    };
+  }, [setMounted]);
 
   useEffect(() => {
     return () => {
@@ -268,7 +286,63 @@ const ValeRentaScreen = () => {
 
       if (!isMounted.current) return;
 
-      setValeCreado(folio);
+      // Construir objeto con relaciones que necesita el recibo térmico
+      const valeParaPDF = {
+        ...valeData,
+        folio,
+        obras: {
+          obra: obraDataParaFolio.obra,
+          cc: obraDataParaFolio.cc,
+          empresas: obraDataParaFolio.empresas,
+        },
+        operadores: completarDespues
+          ? null
+          : formData.selectedOperador
+            ? { nombre_completo: formData.selectedOperador.nombre_completo }
+            : null,
+        vehiculos: completarDespues
+          ? null
+          : formData.selectedVehiculo
+            ? {
+                placas: formData.selectedVehiculo.placas,
+                sindicatos: {
+                  sindicato:
+                    sindicatos.find(
+                      (s) => s.id_sindicato === formData.sindicatoId,
+                    )?.sindicato || "Pendiente",
+                },
+              }
+            : null,
+        persona: {
+          nombre: userProfile.nombre,
+          primer_apellido: userProfile.primer_apellido,
+          segundo_apellido: userProfile.segundo_apellido,
+        },
+        vale_renta_detalle: [
+          {
+            material: {
+              material:
+                materiales.find((m) => m.id_material === formData.materialId)
+                  ?.material || "N/A",
+            },
+            sindicatos: {
+              sindicato:
+                sindicatos.find((s) => s.id_sindicato === formData.sindicatoId)
+                  ?.sindicato || "Pendiente",
+            },
+            capacidad_m3: parseFloat(formData.capacidad),
+            hora_inicio: formData.horaInicio.toISOString(),
+            hora_fin: null,
+            es_renta_por_dia: false,
+            total_horas: null,
+            total_dias: null,
+            notas_adicionales: formData.notasAdicionales.trim() || null,
+            precios_renta: precioRenta || {},
+          },
+        ],
+      };
+
+      setValeCreado(valeParaPDF);
       setShowSuccessModal(true);
     } catch (error) {
       if (isMounted.current) {
@@ -509,22 +583,76 @@ const ValeRentaScreen = () => {
       <SuccessModal
         visible={showSuccessModal}
         title="Vale Creado"
-        message={`Vale ${valeCreado} creado exitosamente.\n\n${
+        message={`Vale ${valeCreado?.folio} creado exitosamente.\n\n${
           completarDespues
-            ? "El operador y vehículo quedaron pendientes. Asígnalos desde la pantalla de Acarreos."
-            : 'El vale quedó en estado "En Proceso". Podrás completarlo desde la pantalla de Acarreos cuando el operador termine el trabajo.'
-        }`}
+            ? "El operador y vehículo quedaron pendientes. Asígnalos desde Acarreos."
+            : 'El vale quedó en "En Proceso". Complétalo desde Acarreos cuando el operador termine.'
+        }\n\nGenera la copia roja antes de continuar.`}
         primaryAction={{
-          text: "Ver Acarreos",
-          icon: "clipboard-list",
-          onPress: handleNavigateToAcarreos,
+          text: "Generar Copia Roja",
+          icon: "file-pdf-box",
+          onPress: () => {
+            setShowSuccessModal(false);
+            setTimeout(() => setTriggerPDFRojo(true), 100);
+          },
         }}
-        secondaryAction={{
-          text: "Crear Otro Vale",
-          onPress: handleCreateAnother,
-        }}
-        onClose={handleCreateAnother}
+        onClose={() => {}}
       />
+
+      {/* QR Generator invisible — activa generación de copia roja */}
+      {triggerPDFRojo && valeCreado?.qr_verification_url && (
+        <View
+          style={{
+            position: "absolute",
+            left: -9999,
+            width: 1,
+            height: 1,
+            opacity: 0,
+          }}
+        >
+          <QRCodeGenerator
+            value={valeCreado.qr_verification_url}
+            onGenerated={(dataUrl) => {
+              console.log(
+                "[ValeRentaScreen] QR onGenerated llamado, dataUrl:",
+                !!dataUrl,
+              );
+              if (!dataUrl) {
+                console.error("[ValeRentaScreen] dataUrl vacío, abortando");
+                setTriggerPDFRojo(false);
+                return;
+              }
+              handleQRGenerated(dataUrl);
+              console.log("[ValeRentaScreen] Llamando compartirPDF...");
+              compartirPDF(valeCreado, dataUrl)
+                .then(() => {
+                  console.log(
+                    "[ValeRentaScreen] compartirPDF terminó exitosamente",
+                  );
+                })
+                .catch((err) => {
+                  console.error(
+                    "[ValeRentaScreen] Error en compartirPDF:",
+                    err,
+                  );
+                  Alert.alert(
+                    "Error",
+                    "No se pudo generar el PDF: " + err.message,
+                  );
+                })
+                .finally(() => {
+                  setTriggerPDFRojo(false);
+                  resetPDFState();
+                });
+            }}
+            onError={() => {
+              Alert.alert("Error", "No se pudo generar el código QR.");
+              setTriggerPDFRojo(false);
+            }}
+            size={200}
+          />
+        </View>
+      )}
     </View>
   );
 };
