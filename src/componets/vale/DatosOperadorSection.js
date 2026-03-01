@@ -20,9 +20,9 @@
  * - operadores: array - Lista de operadores
  * - vehiculos: array - Lista de vehículos
  */
-
+import { colors } from "../../config/colors";
 import React, { useMemo } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import SectionHeader from "../common/SectionHeader";
 import FormInput from "../forms/FormInput";
 import FormAutocomplete from "../forms/FormAutocomplete";
@@ -86,6 +86,27 @@ const DatosOperadorSection = ({
         disabled={disabled}
       />
 
+      {/* NUEVO: Visor de capacidad */}
+      {selectedVehiculo && (
+        <View
+          style={[
+            styles.capacidadVisor,
+            !selectedVehiculo.capacidad_m3 && styles.capacidadVisorAviso,
+          ]}
+        >
+          <Text style={styles.capacidadLabel}>Capacidad del vehículo</Text>
+          {selectedVehiculo.capacidad_m3 ? (
+            <Text style={styles.capacidadValor}>
+              {selectedVehiculo.capacidad_m3} m³
+            </Text>
+          ) : (
+            <Text style={styles.capacidadSinDatos}>
+              Sin capacidad configurada
+            </Text>
+          )}
+        </View>
+      )}
+
       <FormInput
         label="Notas Adicionales (Opcional)"
         value={notasAdicionales}
@@ -99,9 +120,38 @@ const DatosOperadorSection = ({
 };
 
 export default DatosOperadorSection;
-
 const styles = StyleSheet.create({
   section: {
     marginBottom: 0,
+  },
+  capacidadVisor: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  capacidadLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  capacidadValor: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.secondary,
+  },
+  capacidadVisorAviso: {
+    borderColor: colors.warning || "#F4A261",
+  },
+  capacidadSinDatos: {
+    fontSize: 13,
+    color: colors.warning || "#F4A261",
+    fontStyle: "italic",
+    fontSize: 10,
   },
 });

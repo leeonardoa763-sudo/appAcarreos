@@ -112,7 +112,7 @@ const ValeCard = ({ vale, onPress }) => {
           size={16}
           color={colors.textSecondary}
         />
-        <Text>{vale.operadores?.nombre_completo || "N/A"}</Text>
+        <Text>{vale.operadores?.nombre_completo || "Pendiente"}</Text>
       </View>
 
       <View style={styles.row}>
@@ -121,7 +121,7 @@ const ValeCard = ({ vale, onPress }) => {
           size={16}
           color={colors.textSecondary}
         />
-        <Text>{vale.vehiculos?.placas || "N/A"}</Text>
+        <Text>{vale.vehiculos?.placas || "Pendiente"}</Text>
       </View>
       {/* Mostrar persona que completó (solo si NO está en proceso) */}
       {vale.estado !== "en_proceso" && vale.persona_completador && (

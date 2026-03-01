@@ -46,20 +46,10 @@ export const useValeMaterialForm = (materiales = []) => {
     const errorBanco = validateBancoId(formData.bancoId);
     if (errorBanco) newErrors.bancoId = errorBanco;
 
-    const errorCapacidad = validateCapacidad(formData.capacidad);
-    if (errorCapacidad) newErrors.capacidad = errorCapacidad;
-
     const errorCantidad = validateCantidadSolicitada(
       formData.cantidadSolicitada,
     );
     if (errorCantidad) newErrors.cantidadSolicitada = errorCantidad;
-
-    const errorCapacidadVsCantidad = validateCapacidadVsCantidad(
-      formData.capacidad,
-      formData.cantidadSolicitada,
-    );
-    if (errorCapacidadVsCantidad)
-      newErrors.cantidadSolicitada = errorCapacidadVsCantidad;
 
     const errorDistancia = validateDistancia(formData.distancia);
     if (errorDistancia) newErrors.distancia = errorDistancia;
@@ -67,8 +57,18 @@ export const useValeMaterialForm = (materiales = []) => {
     const errorSindicato = validateSindicatoId(formData.sindicatoId);
     if (errorSindicato) newErrors.sindicatoId = errorSindicato;
 
-    // Solo validar operador y vehículo si NO se va a completar después
+    // Solo validar operador, vehículo y capacidad si NO se va a completar después
     if (!completarDespues) {
+      const errorCapacidad = validateCapacidad(formData.capacidad);
+      if (errorCapacidad) newErrors.capacidad = errorCapacidad;
+
+      const errorCapacidadVsCantidad = validateCapacidadVsCantidad(
+        formData.capacidad,
+        formData.cantidadSolicitada,
+      );
+      if (errorCapacidadVsCantidad)
+        newErrors.cantidadSolicitada = errorCapacidadVsCantidad;
+
       const errorOperador = validateOperadorId(
         formData.selectedOperador?.id_operador,
       );
@@ -78,6 +78,11 @@ export const useValeMaterialForm = (materiales = []) => {
         formData.selectedVehiculo?.id_vehiculo,
       );
       if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
+
+      const errorCapacidadVehiculo = validateCapacidadVehiculo(
+        formData.selectedVehiculo,
+      );
+      if (errorCapacidadVehiculo) newErrors.vehiculoId = errorCapacidadVehiculo;
     }
 
     // Validación requisición: Obligatoria solo para materiales tipo 1

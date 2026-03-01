@@ -59,9 +59,9 @@ export const useCatalogos = (catalogosRequeridos = []) => {
                   id_tipo_de_material,
                   tipo_de_material
                 )
-              `
+              `,
               )
-              .order("material") // Ordenar alfabéticamente
+              .order("material"), // Ordenar alfabéticamente
           );
         }
 
@@ -71,14 +71,14 @@ export const useCatalogos = (catalogosRequeridos = []) => {
             supabase
               .from("sindicatos")
               .select("id_sindicato, sindicato")
-              .order("sindicato") // Ordenar alfabéticamente
+              .order("sindicato"), // Ordenar alfabéticamente
           );
         }
 
         // CONSULTA DE BANCOS DE MATERIAL
         if (catalogosRequeridos.includes("bancos")) {
           promises.push(
-            supabase.from("bancos").select("id_banco, banco").order("banco") // Ordenar alfabéticamente
+            supabase.from("bancos").select("id_banco, banco").order("banco"), // Ordenar alfabéticamente
           );
         }
 
@@ -94,7 +94,7 @@ export const useCatalogos = (catalogosRequeridos = []) => {
               .from("operadores")
               .select("id_operador, nombre_completo, id_sindicato")
               .eq("activo", true)
-              .order("nombre_completo")
+              .order("nombre_completo"),
           );
         }
 
@@ -103,9 +103,9 @@ export const useCatalogos = (catalogosRequeridos = []) => {
           promises.push(
             supabase
               .from("vehiculos")
-              .select("id_vehiculo, placas, id_sindicato")
+              .select("id_vehiculo, placas, id_sindicato, capacidad_m3")
               .eq("activo", true)
-              .order("placas")
+              .order("placas"),
           );
         }
 

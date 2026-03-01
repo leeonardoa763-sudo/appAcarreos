@@ -33,6 +33,7 @@ import {
   validateOperadorId,
   validateVehiculoId,
   validateCapacidad,
+  validateCapacidadVehiculo,
   validateHoraInicioNoFutura,
   validateMaterialId,
   validateSindicatoId,
@@ -106,6 +107,9 @@ const ValeRentaScreen = () => {
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
   const [triggerPDFRojo, setTriggerPDFRojo] = useState(false);
+  // Agrega esto justo antes del return
+  const sinCapacidad =
+    formData.selectedVehiculo && !formData.selectedVehiculo.capacidad_m3;
 
   const { presupuestoRenta, rentaConsultada } = usePresupuestoObra({
     id_obra: obraSeleccionada,
@@ -167,6 +171,7 @@ const ValeRentaScreen = () => {
         ...prev,
         selectedOperador: null,
         selectedVehiculo: null,
+        capacidad: "",
       }));
       // Limpiar errores de esos campos
       setErrors((prev) => {
@@ -181,9 +186,6 @@ const ValeRentaScreen = () => {
 
     const errorMaterial = validateMaterialId(formData.materialId);
     if (errorMaterial) newErrors.materialId = errorMaterial;
-
-    const errorCapacidad = validateCapacidad(formData.capacidad);
-    if (errorCapacidad) newErrors.capacidad = errorCapacidad;
 
     const errorSindicato = validateSindicatoId(formData.sindicatoId);
     if (errorSindicato) newErrors.sindicatoId = errorSindicato;
@@ -202,6 +204,11 @@ const ValeRentaScreen = () => {
         formData.selectedVehiculo?.id_vehiculo,
       );
       if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
+
+      const errorCapacidadVehiculo = validateCapacidadVehiculo(
+        formData.selectedVehiculo,
+      );
+      if (errorCapacidadVehiculo) newErrors.vehiculoId = errorCapacidadVehiculo;
     }
 
     setErrors(newErrors);
@@ -477,18 +484,6 @@ const ValeRentaScreen = () => {
             error={errors.materialId}
           />
 
-          <FormInput
-            label="Capacidad"
-            value={formData.capacidad}
-            onChangeText={(value) =>
-              setFormData({ ...formData, capacidad: value })
-            }
-            placeholder="Ej: 8"
-            keyboardType="numeric"
-            suffix="m³"
-            error={errors.capacidad}
-          />
-
           <CustomModalPicker
             label="Sindicato"
             value={formData.sindicatoId}
@@ -551,9 +546,13 @@ const ValeRentaScreen = () => {
             onSelectOperador={(operador) =>
               setFormData({ ...formData, selectedOperador: operador })
             }
-            onSelectVehiculo={(vehiculo) =>
-              setFormData({ ...formData, selectedVehiculo: vehiculo })
-            }
+            onSelectVehiculo={(vehiculo) => {
+              setFormData((prev) => ({
+                ...prev,
+                selectedVehiculo: vehiculo,
+                capacidad: vehiculo?.capacidad_m3?.toString() ?? "",
+              }));
+            }}
             notasAdicionales={formData.notasAdicionales}
             onChangeNotas={(value) =>
               setFormData({ ...formData, notasAdicionales: value })
@@ -568,14 +567,28 @@ const ValeRentaScreen = () => {
 
         <View style={styles.buttonContainer}>
           <PrimaryButton
-            title={presupuestoAgotado ? "Presupuesto Agotado" : "Crear Vale"}
+            title={
+              presupuestoAgotado
+                ? "Presupuesto Agotado"
+                : sinCapacidad
+                  ? "Sin capacidad configurada"
+                  : "Crear Vale"
+            }
             onPress={handleCrearVale}
             loading={submitting}
-            icon={presupuestoAgotado ? "cancel" : "check-circle"}
-            backgroundColor={
-              presupuestoAgotado ? colors.disabled : colors.accent
+            icon={
+              presupuestoAgotado
+                ? "cancel"
+                : sinCapacidad
+                  ? "alert-circle"
+                  : "check-circle"
             }
-            disabled={presupuestoAgotado}
+            backgroundColor={
+              presupuestoAgotado || sinCapacidad
+                ? colors.disabled
+                : colors.accent
+            }
+            disabled={presupuestoAgotado || sinCapacidad}
           />
         </View>
       </KeyboardAvoidingScrollView>

@@ -223,7 +223,12 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         })
         .eq("id_vale", vale.id_vale);
 
-      if (error) throw error;
+      if (!error && selectedVehiculo.capacidad_m3) {
+        await supabase
+          .from("vale_renta_detalle")
+          .update({ capacidad_m3: selectedVehiculo.capacidad_m3 })
+          .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle);
+      }
 
       setDatosPendientesGuardados(true);
     } catch (error) {
@@ -690,6 +695,30 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
                   disabled={savingDatos}
                 />
 
+                {/* Visor de capacidad */}
+                {selectedVehiculo && (
+                  <View
+                    style={[
+                      styles.capacidadVisor,
+                      !selectedVehiculo.capacidad_m3 &&
+                        styles.capacidadVisorAviso,
+                    ]}
+                  >
+                    <Text style={styles.capacidadLabel}>
+                      Capacidad del vehículo
+                    </Text>
+                    {selectedVehiculo.capacidad_m3 ? (
+                      <Text style={styles.capacidadValor}>
+                        {selectedVehiculo.capacidad_m3} m³
+                      </Text>
+                    ) : (
+                      <Text style={styles.capacidadSinDatos}>
+                        Sin capacidad configurada
+                      </Text>
+                    )}
+                  </View>
+                )}
+
                 {/* Botón secundario discreto */}
                 <TouchableOpacity
                   style={[
@@ -1018,5 +1047,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: colors.secondary,
+  },
+  capacidadVisor: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  capacidadVisorAviso: {
+    borderColor: "#F4A261",
+  },
+  capacidadLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  capacidadValor: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.secondary,
+  },
+  capacidadSinDatos: {
+    fontSize: 13,
+    color: "#F4A261",
+    fontStyle: "italic",
   },
 });
