@@ -1,9 +1,5 @@
 // 1. React
-import React, { useState, useCallback, useEffect } from "react";
-import DebugLogger, {
-  initDebugLogger,
-  addDebugLog,
-} from "../debug/DebugLogger";
+import React, { useState, useCallback } from "react";
 
 // 2. React Native
 import {
@@ -38,6 +34,7 @@ let verificarBluetooth,
   imprimirTicket,
   generarTicketMaterial,
   generarTicketRenta;
+
 if (BLUETOOTH_ENABLED) {
   const bt = require("../../services/bluetoothPrinter");
   const tg = require("../../services/ticketGenerator");
@@ -49,19 +46,6 @@ if (BLUETOOTH_ENABLED) {
   imprimirTicket = bt.imprimirTicket;
 }
 
-/**
- * ImprimirTicketButton
- *
- * BLUETOOTH_ENABLED = false: Solo muestra botón PDF (Expo Go / iPhone)
- * BLUETOOTH_ENABLED = true:  Muestra ambos botones (Android con impresora)
- *
- * PROPS:
- * - valeId: string
- * - valeData: object
- * - impresiones: number
- * - estado: string
- * - onImpreso: function
- */
 const ImprimirTicketButton = ({
   valeId,
   valeData,
@@ -74,10 +58,6 @@ const ImprimirTicketButton = ({
   const [escaneando, setEscaneando] = useState(false);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [impresoras, setImpresoras] = useState([]);
-
-  useEffect(() => {
-    initDebugLogger();
-  }, []);
 
   const puedeImprimir = impresiones > 0;
 
@@ -106,9 +86,7 @@ const ImprimirTicketButton = ({
 
   const handleMostrarImpresoras = useCallback(async () => {
     try {
-      addDebugLog("Boton presionado - verificando bluetooth...");
       const bluetoothActivo = await verificarBluetooth();
-      addDebugLog(`Bluetooth activo: ${bluetoothActivo}`);
       if (!bluetoothActivo) {
         Alert.alert(
           "Bluetooth desactivado",
@@ -116,17 +94,13 @@ const ImprimirTicketButton = ({
         );
         return;
       }
+      setImpresoras([]);
       setMostrarModal(true);
       setEscaneando(true);
-      addDebugLog("Iniciando escaneo de impresoras...");
       const dispositivos = await escanearImpresoras();
-      addDebugLog(
-        `Escaneo completo. Dispositivos encontrados: ${dispositivos.length}`,
-      );
-      dispositivos.forEach((d) => addDebugLog(`  - ${d.name} | ${d.address}`));
       setImpresoras(dispositivos);
     } catch (error) {
-      addDebugLog(`ERROR: ${error.message}`, "ERROR");
+      setMostrarModal(false);
       Alert.alert("Error", error.message);
     } finally {
       setEscaneando(false);
@@ -136,17 +110,24 @@ const ImprimirTicketButton = ({
   const handleSeleccionarImpresora = useCallback(
     async (dispositivo) => {
       try {
-        setMostrarModal(false);
         setImprimiendo(true);
-        await conectarImpresora(dispositivo.address);
+        console.log(
+          `[BTN] Conectando a: ${dispositivo.name} | ${dispositivo.address}`,
+        );
+        const device = await conectarImpresora(dispositivo.address);
+        console.log("[BTN] Conexion exitosa, generando ticket...");
         const lineas =
           valeData.tipo_vale === "renta"
             ? generarTicketRenta(valeData)
             : generarTicketMaterial(valeData);
-        await imprimirTicket(dispositivo.address, lineas);
+        console.log(`[BTN] Ticket generado con ${lineas.length} lineas`);
+        await imprimirTicket(device, lineas);
+        console.log("[BTN] Impresion exitosa");
         await descontarImpresion();
-        onImpreso();
+        setMostrarModal(false);
+        onImpreso?.();
       } catch (error) {
+        console.log(`[BTN] Error: ${error.message}`);
         Alert.alert("Error al imprimir", error.message);
       } finally {
         setImprimiendo(false);
@@ -155,9 +136,30 @@ const ImprimirTicketButton = ({
     [valeData, descontarImpresion, onImpreso],
   );
 
+  const handleCerrarModal = useCallback(() => {
+    if (escaneando) {
+      Alert.alert(
+        "Escaneo en curso",
+        "Se esta buscando impresoras. ¿Deseas cancelar?",
+        [
+          { text: "Continuar", style: "cancel" },
+          {
+            text: "Cancelar",
+            style: "destructive",
+            onPress: () => {
+              setEscaneando(false);
+              setMostrarModal(false);
+            },
+          },
+        ],
+      );
+    } else {
+      setMostrarModal(false);
+    }
+  }, [escaneando]);
+
   return (
     <>
-      {/* Botón Bluetooth - solo si BLUETOOTH_ENABLED = true */}
       {BLUETOOTH_ENABLED && (
         <TouchableOpacity
           style={[styles.btn, !puedeImprimir && styles.btnDisabled]}
@@ -184,7 +186,6 @@ const ImprimirTicketButton = ({
         </TouchableOpacity>
       )}
 
-      {/* Botón PDF - siempre disponible */}
       <TouchableOpacity
         style={styles.btnPDF}
         onPress={handleCompartirPDF}
@@ -205,19 +206,18 @@ const ImprimirTicketButton = ({
         </Text>
       </TouchableOpacity>
 
-      {/* Modal impresoras - solo si BLUETOOTH_ENABLED = true */}
       {BLUETOOTH_ENABLED && (
         <Modal
           visible={mostrarModal}
           transparent
           animationType="slide"
-          onRequestClose={() => setMostrarModal(false)}
+          onRequestClose={handleCerrarModal}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitulo}>Seleccionar impresora</Text>
-                <TouchableOpacity onPress={() => setMostrarModal(false)}>
+                <TouchableOpacity onPress={handleCerrarModal}>
                   <MaterialCommunityIcons
                     name="close"
                     size={24}
@@ -227,23 +227,35 @@ const ImprimirTicketButton = ({
               </View>
 
               {escaneando ? (
-                <View style={styles.escaneandoContainer}>
+                <View style={styles.estadoContainer}>
                   <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={styles.escaneandoText}>
-                    Buscando impresoras...
-                  </Text>
+                  <Text style={styles.estadoText}>Buscando impresoras...</Text>
                 </View>
               ) : impresoras.length === 0 ? (
-                <View style={styles.escaneandoContainer}>
+                <View style={styles.estadoContainer}>
                   <MaterialCommunityIcons
                     name="printer-off"
                     size={48}
                     color={colors.textSecondary}
                   />
-                  <Text style={styles.escaneandoText}>
+                  <Text style={styles.estadoText}>
                     No se encontraron impresoras.{"\n"}
-                    Asegúrate de que estén encendidas y en modo Bluetooth.
+                    Asegurate de que esten encendidas y en modo Bluetooth.
                   </Text>
+                  <TouchableOpacity
+                    style={styles.btnReintentar}
+                    onPress={() => {
+                      setMostrarModal(false);
+                      setTimeout(handleMostrarImpresoras, 300);
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name="refresh"
+                      size={16}
+                      color={colors.secondary}
+                    />
+                    <Text style={styles.btnReintentarText}>Reintentar</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
                 <FlatList
@@ -277,8 +289,6 @@ const ImprimirTicketButton = ({
                   )}
                 />
               )}
-              {/* DEBUG TEMPORAL */}
-              <DebugLogger />
             </View>
           </View>
         </Modal>
@@ -329,7 +339,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: "60%",
+    maxHeight: "65%",
     paddingBottom: 30,
   },
   modalHeader: {
@@ -345,16 +355,32 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.textPrimary,
   },
-  escaneandoContainer: {
+  estadoContainer: {
     alignItems: "center",
     padding: 40,
     gap: 16,
   },
-  escaneandoText: {
+  estadoText: {
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: "center",
     lineHeight: 22,
+  },
+  btnReintentar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    gap: 6,
+    marginTop: 8,
+  },
+  btnReintentarText: {
+    fontSize: 14,
+    color: colors.secondary,
+    fontWeight: "600",
   },
   impresoraItem: {
     flexDirection: "row",

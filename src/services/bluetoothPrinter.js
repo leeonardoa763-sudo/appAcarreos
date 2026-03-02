@@ -1,21 +1,9 @@
 // 1. React Native
-import {
-  NativeEventEmitter,
-  NativeModules,
-  Platform,
-  PermissionsAndroid,
-} from "react-native";
+import { Platform, PermissionsAndroid } from "react-native";
 
 // 2. Third party
-import BleManager from "react-native-ble-manager";
+import RNBluetoothClassic from "react-native-bluetooth-classic";
 
-// 3. Local - Debug
-import { addDebugLog } from "../componets/debug/DebugLogger";
-
-const BleManagerModule = NativeModules.BleManager;
-const bleEmitter = new NativeEventEmitter(BleManagerModule);
-
-// Comandos ESC/POS
 const ESC = 0x1b;
 const GS = 0x1d;
 
@@ -29,27 +17,12 @@ export const ESCPOS = {
   DOUBLE_ON: [GS, 0x21, 0x11],
   DOUBLE_OFF: [GS, 0x21, 0x00],
   LINE_FEED: [0x0a],
-  // QR Code ESC/POS
   QR_MODEL: [GS, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00],
   QR_ERROR: [GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x33],
   QR_PRINT: [GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30],
-  CUT: [GS, 0x56, 0x41, 0x10],
+  CUT: [GS, 0x56, 0x00],
 };
 
-let bleInitialized = false;
-
-/**
- * Inicializa BleManager (llamar una vez al arrancar)
- */
-export const inicializarBluetooth = async () => {
-  if (bleInitialized) return;
-  await BleManager.start({ showAlert: false });
-  bleInitialized = true;
-};
-
-/**
- * Solicita permisos Bluetooth en Android
- */
 export const solicitarPermisos = async () => {
   if (Platform.OS !== "android") return true;
 
@@ -70,110 +43,60 @@ export const solicitarPermisos = async () => {
   }
 };
 
-/**
- * Verifica si el Bluetooth está habilitado
- */
 export const verificarBluetooth = async () => {
   try {
-    await inicializarBluetooth();
-    const estado = await BleManager.checkState();
-    addDebugLog(`Bluetooth checkState: ${estado}`);
-    return estado === "on";
+    const habilitado = await RNBluetoothClassic.isBluetoothEnabled();
+    console.log(`[BT] Bluetooth habilitado: ${habilitado}`);
+    return habilitado;
   } catch (error) {
-    addDebugLog(`Error verificarBluetooth: ${error.message}`, "ERROR");
+    console.log(`[BT] Error verificarBluetooth: ${error.message}`);
     throw new Error("No se pudo verificar el estado del Bluetooth");
   }
 };
 
-/**
- * Escanea dispositivos Bluetooth disponibles por 5 segundos
- */
-export const escanearImpresoras = () => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      await inicializarBluetooth();
-      addDebugLog("BLE inicializado");
+export const escanearImpresoras = async () => {
+  try {
+    console.log("[SCAN] Obteniendo dispositivos vinculados...");
 
-      const permisosOk = await solicitarPermisos();
-      addDebugLog(`Permisos Bluetooth: ${permisosOk}`);
-      if (!permisosOk) throw new Error("Permisos Bluetooth denegados");
+    const permisosOk = await solicitarPermisos();
+    console.log(`[SCAN] Permisos Bluetooth: ${permisosOk}`);
+    if (!permisosOk) throw new Error("Permisos Bluetooth denegados");
 
-      const dispositivos = [];
+    const dispositivos = await RNBluetoothClassic.getBondedDevices();
+    console.log(`[SCAN] Dispositivos vinculados: ${dispositivos.length}`);
+    dispositivos.forEach((d) =>
+      console.log(`[SCAN]   - ${d.name} | ${d.address}`),
+    );
 
-      const suscripcion = bleEmitter.addListener(
-        "BleManagerDiscoverPeripheral",
-        (device) => {
-          addDebugLog(
-            `Dispositivo detectado: ${device.name || "sin nombre"} | ${device.id}`,
-          );
-          const yaExiste = dispositivos.some((d) => d.id === device.id);
-          if (!yaExiste) {
-            dispositivos.push({
-              id: device.id,
-              address: device.id,
-              name: device.name || "Impresora sin nombre",
-            });
-          }
-        },
-      );
-
-      await BleManager.scan([], 5, true);
-      addDebugLog("Scan iniciado - esperando 5 segundos...");
-
-      setTimeout(() => {
-        suscripcion.remove();
-        addDebugLog(
-          `Scan terminado. Total: ${dispositivos.length} dispositivos`,
-        );
-        resolve(dispositivos);
-      }, 5500);
-    } catch (error) {
-      addDebugLog(`Error escaneo: ${error.message}`, "ERROR");
-      reject(new Error("No se pudo escanear dispositivos Bluetooth"));
-    }
-  });
+    return dispositivos.map((d) => ({
+      id: d.address,
+      address: d.address,
+      name: d.name || "Impresora sin nombre",
+    }));
+  } catch (error) {
+    console.log(`[SCAN] Error: ${error.message}`);
+    throw new Error("No se pudieron obtener los dispositivos vinculados");
+  }
 };
 
-/**
- * Conecta a una impresora por ID (dirección MAC en Android)
- */
-export const conectarImpresora = async (deviceId) => {
+export const conectarImpresora = async (address) => {
   try {
-    addDebugLog(`Conectando a: ${deviceId}`);
-    await BleManager.connect(deviceId);
-    addDebugLog("Conexion exitosa, obteniendo servicios...");
-    await BleManager.retrieveServices(deviceId);
-    addDebugLog("Servicios obtenidos correctamente");
-    return true;
+    console.log(`[CONNECT] Conectando a: ${address}`);
+    const dispositivo = await RNBluetoothClassic.connectToDevice(address);
+    console.log("[CONNECT] Conexion exitosa");
+    return dispositivo;
   } catch (error) {
-    addDebugLog(`Error conexion: ${error.message}`, "ERROR");
+    console.log(`[CONNECT] Error completo: ${JSON.stringify(error)}`);
+    console.log(`[CONNECT] Error message: ${error.message}`);
+    console.log(`[CONNECT] Error code: ${error.code}`);
     throw new Error("No se pudo conectar a la impresora");
   }
 };
-/**
- * Desconecta el dispositivo
- */
-export const desconectarImpresora = async (deviceId) => {
-  try {
-    await BleManager.disconnect(deviceId);
-    return true;
-  } catch {
-    throw new Error("No se pudo desconectar la impresora");
-  }
-};
 
-/**
- * Convierte string a bytes
- */
 const stringToBytes = (texto) => {
   return Array.from(new TextEncoder().encode(texto));
 };
 
-/**
- * Genera bytes ESC/POS para imprimir un QR
- * @param {string} url    - Contenido del QR
- * @param {number} tamano - Tamaño del módulo (1-8), default 4
- */
 const qrToBytes = (url, tamano = 4) => {
   const buffer = [];
   const data = stringToBytes(url);
@@ -181,27 +104,15 @@ const qrToBytes = (url, tamano = 4) => {
   const lenL = len & 0xff;
   const lenH = (len >> 8) & 0xff;
 
-  // Modelo QR
   buffer.push(...ESCPOS.QR_MODEL);
-
-  // Tamaño del módulo
   buffer.push(GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, tamano);
-
-  // Nivel de corrección de errores (M)
   buffer.push(...ESCPOS.QR_ERROR);
-
-  // Datos del QR
   buffer.push(GS, 0x28, 0x6b, lenL, lenH, 0x31, 0x50, 0x30, ...data);
-
-  // Imprimir QR
   buffer.push(...ESCPOS.QR_PRINT);
 
   return buffer;
 };
 
-/**
- * Formatea texto en columnas para 32 caracteres (48mm)
- */
 const formatearColumnas = (textos, anchos) => {
   let fila = "";
   textos.forEach((texto, i) => {
@@ -212,52 +123,9 @@ const formatearColumnas = (textos, anchos) => {
   return fila;
 };
 
-/**
- * Busca la característica escribible del dispositivo
- */
-const obtenerCaracteristicaEscritura = async (deviceId) => {
-  const servicios = await BleManager.retrieveServices(deviceId);
-
-  for (const char of servicios.characteristics || []) {
-    const propiedades = char.properties || {};
-    const esEscribible =
-      propiedades.Write === "Write" ||
-      propiedades.WriteWithoutResponse === "WriteWithoutResponse" ||
-      propiedades.Write === true ||
-      propiedades.WriteWithoutResponse === true;
-
-    if (esEscribible) {
-      return {
-        serviceUUID: char.service,
-        characteristicUUID: char.characteristic,
-      };
-    }
-  }
-
-  throw new Error("No se encontró característica de escritura en la impresora");
-};
-
-/**
- * Envía bytes a la impresora en chunks de 512
- */
-const enviarBytes = async (deviceId, bytes) => {
-  const { serviceUUID, characteristicUUID } =
-    await obtenerCaracteristicaEscritura(deviceId);
-
-  const CHUNK_SIZE = 512;
-  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-    const chunk = bytes.slice(i, i + CHUNK_SIZE);
-    await BleManager.write(deviceId, serviceUUID, characteristicUUID, chunk);
-  }
-};
-
-/**
- * Imprime el ticket
- * @param {string} deviceId - ID del dispositivo conectado
- * @param {Array}  lineas   - Array de objetos generados por ticketGenerator
- */
-export const imprimirTicket = async (deviceId, lineas) => {
+export const imprimirTicket = async (dispositivo, lineas) => {
   try {
+    console.log("[PRINT] Generando buffer de impresion...");
     const buffer = [];
 
     buffer.push(...ESCPOS.INIT);
@@ -292,17 +160,21 @@ export const imprimirTicket = async (deviceId, lineas) => {
       }
     }
 
-    // Avanzar papel y cortar
     buffer.push(...ESCPOS.LINE_FEED);
     buffer.push(...ESCPOS.LINE_FEED);
     buffer.push(...ESCPOS.LINE_FEED);
     buffer.push(...ESCPOS.CUT);
 
-    await enviarBytes(deviceId, buffer);
+    console.log(`[PRINT] Enviando ${buffer.length} bytes...`);
+    const base64 = btoa(String.fromCharCode(...buffer));
+    await dispositivo.write(base64, "base64");
+    console.log("[PRINT] Impresion completada");
     return true;
   } catch (error) {
+    console.log(`[PRINT] Error completo: ${JSON.stringify(error)}`);
+    console.log(`[PRINT] Error message: ${error.message}`);
     throw new Error(
-      "Error al imprimir. Verifica la conexión con la impresora.",
+      "Error al imprimir. Verifica la conexion con la impresora.",
     );
   }
 };

@@ -48,13 +48,13 @@ const traducirEstado = (estado) => {
  * Genera líneas del ticket de vale de MATERIAL
  */
 export const generarTicketMaterial = (vale) => {
+  console.log("[TICKET] vale completo:", JSON.stringify(vale, null, 2));
   const detalle = vale?.vale_material_detalles?.[0] || {};
   const cc = vale.obras?.cc || "";
   const nombreObra = vale.obras?.obra || "N/A";
   const obra = cc ? `${cc}-${nombreObra}` : nombreObra;
   const empresa = vale.obras?.empresas?.empresa || "CONSTRUCCION";
-  const operador = vale.operadores?.nombre_completo || "N/A";
-  const placas = vale.vehiculos?.placas || "N/A";
+  const placas = vale.vehiculos?.placas || "";
   const material = detalle.material?.material || "N/A";
   const banco = detalle.bancos?.banco || "N/A";
   const capacidad = detalle.capacidad_m3 ? `${detalle.capacidad_m3} m3` : "N/A";
@@ -62,6 +62,7 @@ export const generarTicketMaterial = (vale) => {
     ? `${detalle.cantidad_pedida_m3} m3`
     : "N/A";
   const distancia = detalle.distancia_km ? `${detalle.distancia_km} km` : "N/A";
+  const requisicion = detalle.requisicion || null;
   const fecha = formatearFecha(vale.fecha_creacion);
   const hora = formatearHora(vale.fecha_creacion);
   const estado = traducirEstado(vale.estado);
@@ -69,7 +70,7 @@ export const generarTicketMaterial = (vale) => {
   const qrUrl =
     vale.qr_verification_url || `https://web-acarreos.vercel.app/vale/${folio}`;
 
-  return [
+  const lineas = [
     {
       tipo: "texto",
       contenido: `${empresa}\n`,
@@ -80,11 +81,7 @@ export const generarTicketMaterial = (vale) => {
       contenido: "VALE DE MATERIAL\n",
       opciones: { align: ALINEACION.CENTRO, bold: true },
     },
-    {
-      tipo: "texto",
-      contenido: `${folio}\n`,
-      opciones: { align: ALINEACION.CENTRO, bold: true },
-    },
+
     {
       tipo: "texto",
       contenido: `${fecha} ${hora}\n`,
@@ -112,6 +109,18 @@ export const generarTicketMaterial = (vale) => {
       opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
     { tipo: "separador" },
+  ];
+
+  // Requisicion solo si existe
+  if (requisicion) {
+    lineas.push({
+      tipo: "texto",
+      contenido: `REQUISICION: ${requisicion}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+    });
+  }
+
+  lineas.push(
     {
       tipo: "texto",
       contenido: `MATERIAL: ${material}\n`,
@@ -135,13 +144,8 @@ export const generarTicketMaterial = (vale) => {
     { tipo: "separador" },
     {
       tipo: "texto",
-      contenido: `OPERADOR:\n${operador}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
-    },
-    {
-      tipo: "texto",
       contenido: `PLACAS: ${placas}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA },
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
     { tipo: "separador" },
     {
@@ -150,18 +154,24 @@ export const generarTicketMaterial = (vale) => {
       opciones: { align: ALINEACION.CENTRO },
     },
     {
-      tipo: "qr",
-      contenido: qrUrl,
-      tamano: 120,
+      tipo: "texto",
+      contenido: `IMPRESO: ${formatearFecha(new Date())} ${formatearHora(new Date())}\n`,
+      opciones: { align: ALINEACION.CENTRO },
     },
     {
       tipo: "texto",
       contenido: `${folio}\n`,
-      opciones: { align: ALINEACION.CENTRO },
+      opciones: { align: ALINEACION.CENTRO, bold: true },
     },
-  ];
-};
+    {
+      tipo: "qr",
+      contenido: qrUrl,
+      tamano: 120,
+    },
+  );
 
+  return lineas;
+};
 /**
  * Genera líneas del ticket de vale de RENTA
  */
