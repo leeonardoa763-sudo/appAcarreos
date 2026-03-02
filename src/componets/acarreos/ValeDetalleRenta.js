@@ -44,6 +44,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const detalleRenta = vale?.vale_renta_detalle?.[0];
   const tieneDatosPendientes =
     !valeLocal?.id_operador || !valeLocal?.id_vehiculo;
+
   const sindicatoId = detalleRenta?.id_sindicato;
 
   const operadoresFiltrados = operadores.filter(
@@ -124,11 +125,15 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   } = useViajesRenta(detalleRenta?.id_vale_renta_detalle, vale?.id_obra);
 
   // Sincronizar valeLocal cuando se abre un vale diferente
+
   useEffect(() => {
     if (vale?.id_vale !== valeLocal?.id_vale) {
       setValeLocal(vale);
+    } else if (vale?.id_operador && !valeLocal?.id_operador) {
+      // El prop llegó actualizado del servidor con operador, sincronizar
+      setValeLocal((prev) => ({ ...prev, ...vale }));
     }
-  }, [vale?.id_vale]);
+  }, [vale?.id_vale, vale?.id_operador, vale?.id_vehiculo]);
 
   // --- Inicialización al cambiar de vale ---
   useEffect(() => {
@@ -245,8 +250,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           capacidad_m3: selectedVehiculo.capacidad_m3,
         },
       });
-
-      onRefresh();
     } catch (error) {
       Alert.alert("Error", "No se pudo guardar. Intenta de nuevo.");
     } finally {

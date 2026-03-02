@@ -89,6 +89,14 @@ const SeccionCompletarVale = ({
   saving,
   onCompletar,
 }) => {
+  console.log(
+    "[SeccionCompletarVale] RENDER - tieneDatosPendientes:",
+    tieneDatosPendientes,
+    "| datosPendientesGuardados:",
+    datosPendientesGuardados,
+    "| vale.id_operador:",
+    vale?.id_operador,
+  );
   const botonDeshabilitado =
     saving ||
     !!mensajeBloqueo ||
