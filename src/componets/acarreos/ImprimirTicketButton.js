@@ -21,12 +21,6 @@ import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
 import { BLUETOOTH_ENABLED } from "../../config/features";
 
-// 5. Local - Servicios
-import {
-  generarYCompartirPDFTicket,
-  generarYCompartirPDFTicketRenta,
-} from "../../services/pdfTicketGenerator";
-
 // Solo se importa si Bluetooth está activo
 let verificarBluetooth,
   escanearImpresoras,
@@ -53,13 +47,29 @@ const ImprimirTicketButton = ({
   estado,
   onImpreso,
 }) => {
-  const [generandoPDF, setGenerandoPDF] = useState(false);
   const [imprimiendo, setImprimiendo] = useState(false);
   const [escaneando, setEscaneando] = useState(false);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [impresoras, setImpresoras] = useState([]);
 
-  const puedeImprimir = impresiones > 0;
+  // Validar que el vale sea del mismo día o día siguiente
+  const validarFechaImpresion = useCallback(() => {
+    if (!valeData?.fecha_creacion) return false;
+    const hoy = new Date();
+    const fechaCreacion = new Date(valeData.fecha_creacion);
+
+    hoy.setHours(0, 0, 0, 0);
+    fechaCreacion.setHours(0, 0, 0, 0);
+
+    const diffMs = hoy - fechaCreacion;
+    const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    return diffDias <= 1; // mismo día (0) o día siguiente (1)
+  }, [valeData?.fecha_creacion]);
+
+  const dentroDeRangoFecha = validarFechaImpresion();
+  const esEnProceso = estado === "en_proceso";
+  const puedeImprimir = impresiones > 0 && esEnProceso && dentroDeRangoFecha;
 
   const descontarImpresion = useCallback(async () => {
     const { error } = await supabase
@@ -68,21 +78,6 @@ const ImprimirTicketButton = ({
       .eq("id_vale", valeId);
     if (error) throw error;
   }, [valeId, impresiones]);
-
-  const handleCompartirPDF = useCallback(async () => {
-    try {
-      setGenerandoPDF(true);
-      if (valeData.tipo_vale === "renta") {
-        await generarYCompartirPDFTicketRenta(valeData);
-      } else {
-        await generarYCompartirPDFTicket(valeData);
-      }
-    } catch (error) {
-      Alert.alert("Error", error.message);
-    } finally {
-      setGenerandoPDF(false);
-    }
-  }, [valeData]);
 
   const handleMostrarImpresoras = useCallback(async () => {
     try {
@@ -179,32 +174,16 @@ const ImprimirTicketButton = ({
           <Text style={styles.btnText}>
             {imprimiendo
               ? "Imprimiendo..."
-              : puedeImprimir
-                ? `Imprimir ticket (${impresiones})`
-                : "Ticket impreso"}
+              : !esEnProceso
+                ? "Solo vales en proceso"
+                : !dentroDeRangoFecha
+                  ? "Plazo de impresion vencido"
+                  : impresiones > 0
+                    ? "Imprimir ticket"
+                    : "Ticket impreso"}
           </Text>
         </TouchableOpacity>
       )}
-
-      <TouchableOpacity
-        style={styles.btnPDF}
-        onPress={handleCompartirPDF}
-        disabled={generandoPDF}
-        activeOpacity={0.7}
-      >
-        {generandoPDF ? (
-          <ActivityIndicator size={13} color="#FFFFFF" />
-        ) : (
-          <MaterialCommunityIcons
-            name="file-pdf-box"
-            size={13}
-            color="#FFFFFF"
-          />
-        )}
-        <Text style={styles.btnText}>
-          {generandoPDF ? "Generando..." : "Compartir ticket"}
-        </Text>
-      </TouchableOpacity>
 
       {BLUETOOTH_ENABLED && (
         <Modal
@@ -310,18 +289,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     gap: 6,
   },
-  btnPDF: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.5)",
-    marginTop: 4,
-    gap: 6,
-  },
+
   btnDisabled: {
     opacity: 0.4,
   },

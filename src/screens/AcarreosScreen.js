@@ -185,7 +185,7 @@ const AcarreosScreen = () => {
           ),
           vale_renta_detalle (
             *,
-            material:id_material (material),
+            material:id_material (material, es_material_descarga),
             sindicatos:id_sindicato (sindicato),
             precios_renta (
               costo_hr,

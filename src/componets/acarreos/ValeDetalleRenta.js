@@ -33,6 +33,7 @@ import SeccionDetallesRenta from "./rentaHelpers/SeccionDetallesRenta";
 import SeccionTarifas from "./rentaHelpers/SeccionTarifas";
 import SeccionCompletarVale from "./rentaHelpers/SeccionCompletarVale";
 import { rentaStyles as styles } from "./rentaHelpers/rentaStyles";
+import TicketDescargaSection from "./rentaHelpers/TicketDescargaSection";
 
 import { Text } from "react-native";
 
@@ -445,6 +446,13 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           detalleRenta={detalleRenta}
           formatTime={formatTime}
           formatDate={formatDate}
+        />
+        {/* Tickets de descarga — solo para materiales con es_material_descarga = true */}
+        <TicketDescargaSection
+          vale={vale}
+          detalleRenta={detalleRenta}
+          viajes={viajes}
+          totalViajes={totalViajes}
         />
 
         <SeccionTarifas
