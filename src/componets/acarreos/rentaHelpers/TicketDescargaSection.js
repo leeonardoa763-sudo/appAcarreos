@@ -109,7 +109,6 @@ const TicketDescargaSection = ({
     registrando,
     totalTickets,
     esMaterialDescarga,
-    calcularPuedeGenerar,
     registrarTicket,
   } = useTicketsDescarga({ vale, detalleRenta });
 
@@ -126,10 +125,14 @@ const TicketDescargaSection = ({
     return null;
   }
 
-  const puedeGenerar = calcularPuedeGenerar(
-    totalViajes,
-    datosPendientesGuardados,
-  );
+  const tieneAsignacion =
+    datosPendientesGuardados || !!(vale?.id_operador && vale?.id_vehiculo);
+
+  const puedeGenerar =
+    esMaterialDescarga &&
+    vale?.estado === "en_proceso" &&
+    tieneAsignacion &&
+    (totalTickets === 0 || totalViajes >= totalTickets);
   const numeroSiguienteTicket = totalTickets + 1;
 
   // Razón por la que no puede generar (para feedback al usuario)

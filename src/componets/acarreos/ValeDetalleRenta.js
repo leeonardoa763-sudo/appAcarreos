@@ -42,7 +42,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const { operadores, vehiculos } = useCatalogos(["operadores", "vehiculos"]);
 
   const detalleRenta = vale?.vale_renta_detalle?.[0];
-  const tieneDatosPendientes = !vale?.id_operador || !vale?.id_vehiculo;
+  const tieneDatosPendientes =
+    !valeLocal?.id_operador || !valeLocal?.id_vehiculo;
   const sindicatoId = detalleRenta?.id_sindicato;
 
   const operadoresFiltrados = operadores.filter(
@@ -467,18 +468,18 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       <KeyboardAvoidingScrollView>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.folio}>{vale.folio}</Text>
-          <StatusBadge estado={vale.estado} />
+          <Text style={styles.folio}>{valeLocal.folio}</Text>
+          <StatusBadge estado={valeLocal.estado} />
         </View>
 
         <SeccionInfoGeneral
-          vale={vale}
+          vale={valeLocal}
           detalleRenta={detalleRenta}
           formatDate={formatDate}
         />
 
         <SeccionDetallesRenta
-          vale={vale}
+          vale={valeLocal}
           detalleRenta={detalleRenta}
           formatTime={formatTime}
           formatDate={formatDate}
