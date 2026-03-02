@@ -103,7 +103,7 @@ export const useViajesRenta = (idValeRentaDetalle, idObra) => {
 
   const puedeRegistrar = useCallback(() => {
     const resultado = viajes.length === 0 || minutosRestantes <= 0;
-    console.log("[Viajes] puedeRegistrar:", { minutosRestantes, resultado });
+
     return resultado;
   }, [viajes, minutosRestantes]);
 

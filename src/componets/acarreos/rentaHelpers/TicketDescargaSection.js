@@ -27,6 +27,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Modal, // ← AGREGAR
+  FlatList, // ← AGREGAR
 } from "react-native";
 
 // 3. Third party
@@ -99,6 +101,7 @@ const TicketDescargaSection = ({
   detalleRenta,
   viajes = [],
   totalViajes = 0,
+  datosPendientesGuardados = false,
 }) => {
   const {
     tickets,
@@ -112,16 +115,21 @@ const TicketDescargaSection = ({
 
   const [modalVisible, setModalVisible] = useState(false);
   const [imprimiendo, setImprimiendo] = useState(false);
+  // NUEVOS:
+  const [mostrarModalImpresoras, setMostrarModalImpresoras] = useState(false);
+  const [escaneando, setEscaneando] = useState(false);
+  const [impresoras, setImpresoras] = useState([]);
+  const [ticketPendiente, setTicketPendiente] = useState(null); // ticket esperando impresora
 
   // Si el material no aplica, no renderizar nada
   if (!esMaterialDescarga) {
-    console.log(
-      "[TicketDescargaSection] Material sin es_material_descarga, no se muestra",
-    );
     return null;
   }
 
-  const puedeGenerar = calcularPuedeGenerar(totalViajes);
+  const puedeGenerar = calcularPuedeGenerar(
+    totalViajes,
+    datosPendientesGuardados,
+  );
   const numeroSiguienteTicket = totalTickets + 1;
 
   // Razón por la que no puede generar (para feedback al usuario)
@@ -157,22 +165,20 @@ const TicketDescargaSection = ({
       if (!ticketData) return;
 
       console.log(
-        "[TicketDescargaSection] Ticket creado, procediendo a imprimir:",
-        ticketData,
+        "[TicketDescargaSection] Ticket creado:",
+        ticketData.folio_ticket,
       );
 
-      // 2. Si Bluetooth está habilitado, conectar e imprimir
       if (!BLUETOOTH_ENABLED) {
         Alert.alert(
           "Ticket Registrado",
-          `Folio: ${ticketData.folio_ticket}\nBanco: ${ticketData.banco_descarga}\n\nImpresora Bluetooth no disponible en este dispositivo.`,
+          `Folio: ${ticketData.folio_ticket}\nBanco: ${ticketData.banco_descarga}\n\nImpresora Bluetooth no disponible.`,
         );
         return;
       }
 
+      // 2. Verificar Bluetooth y escanear impresoras
       try {
-        setImprimiendo(true);
-
         const bluetoothActivo = await verificarBluetooth();
         if (!bluetoothActivo) {
           Alert.alert(
@@ -182,28 +188,38 @@ const TicketDescargaSection = ({
           return;
         }
 
-        const impresoras = await escanearImpresoras();
-        if (!impresoras || impresoras.length === 0) {
-          Alert.alert(
-            "Sin impresoras",
-            "No se encontraron impresoras Bluetooth cercanas.",
-          );
-          return;
-        }
+        setEscaneando(true);
+        setImpresoras([]);
+        setTicketPendiente(ticketData); // guardar para imprimir cuando seleccionen impresora
+        setMostrarModalImpresoras(true);
 
-        // Si hay una sola impresora, conectar directo. Si hay varias, usar la primera.
-        // (Podría expandirse para mostrar selector como ImprimirTicketButton)
-        const dispositivo = impresoras[0];
+        const dispositivosEncontrados = await escanearImpresoras();
+        setImpresoras(dispositivosEncontrados);
+      } catch (error) {
+        console.error("[TicketDescargaSection] Error escaneando:", error);
+        Alert.alert("Error", "No se pudieron buscar impresoras.");
+      } finally {
+        setEscaneando(false);
+      }
+    },
+    [registrarTicket],
+  );
+
+  const handleSeleccionarImpresora = useCallback(
+    async (dispositivo) => {
+      try {
+        setImprimiendo(true);
         console.log(
-          "[TicketDescargaSection] Conectando a impresora:",
+          "[TicketDescargaSection] Conectando a:",
           dispositivo.name,
+          dispositivo.address,
         );
 
         const device = await conectarImpresora(dispositivo.address);
         const lineas = generarContenidoTicketDescarga(
           vale,
           detalleRenta,
-          ticketData,
+          ticketPendiente,
         );
 
         console.log(
@@ -214,22 +230,44 @@ const TicketDescargaSection = ({
         await imprimirTicket(device, lineas);
 
         console.log("[TicketDescargaSection] Impresion exitosa");
+        setMostrarModalImpresoras(false);
+        setTicketPendiente(null);
         Alert.alert(
           "Listo",
-          `Ticket ${ticketData.folio_ticket} impreso correctamente.`,
+          `Ticket ${ticketPendiente.folio_ticket} impreso correctamente.`,
         );
       } catch (error) {
         console.error("[TicketDescargaSection] Error al imprimir:", error);
         Alert.alert(
           "Error al imprimir",
-          `El ticket fue registrado pero no se pudo imprimir.\nFolio: ${ticketData.folio_ticket}\n\n${error.message}`,
+          `El ticket fue registrado pero no se pudo imprimir.\n\n${error.message}`,
         );
       } finally {
         setImprimiendo(false);
       }
     },
-    [vale, detalleRenta, registrarTicket],
+    [vale, detalleRenta, ticketPendiente],
   );
+
+  const handleCerrarModalImpresoras = useCallback(() => {
+    if (escaneando) {
+      Alert.alert("Escaneo en curso", "¿Deseas cancelar la búsqueda?", [
+        { text: "Continuar", style: "cancel" },
+        {
+          text: "Cancelar",
+          style: "destructive",
+          onPress: () => {
+            setEscaneando(false);
+            setMostrarModalImpresoras(false);
+            setTicketPendiente(null);
+          },
+        },
+      ]);
+    } else {
+      setMostrarModalImpresoras(false);
+      setTicketPendiente(null);
+    }
+  }, [escaneando]);
 
   const handleCancelarModal = useCallback(() => {
     setModalVisible(false);
@@ -323,6 +361,103 @@ const TicketDescargaSection = ({
         numeroTicket={numeroSiguienteTicket}
         loading={registrando}
       />
+
+      {/* Modal selector de impresora — igual que ImprimirTicketButton */}
+      {BLUETOOTH_ENABLED && (
+        <Modal
+          visible={mostrarModalImpresoras}
+          transparent
+          animationType="slide"
+          onRequestClose={handleCerrarModalImpresoras}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitulo}>Seleccionar impresora</Text>
+                <TouchableOpacity onPress={handleCerrarModalImpresoras}>
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={24}
+                    color={colors.textPrimary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {escaneando ? (
+                <View style={styles.estadoContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={styles.estadoTexto}>Buscando impresoras...</Text>
+                </View>
+              ) : impresoras.length === 0 ? (
+                <View style={styles.estadoContainer}>
+                  <MaterialCommunityIcons
+                    name="printer-off"
+                    size={48}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.estadoTexto}>
+                    No se encontraron impresoras.{"\n"}Asegúrate de que estén
+                    encendidas.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.btnReintentar}
+                    onPress={() => {
+                      setMostrarModalImpresoras(false);
+                      setTimeout(handleConfirmarBanco, 300);
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name="refresh"
+                      size={16}
+                      color={colors.secondary}
+                    />
+                    <Text style={styles.btnReintentarTexto}>Reintentar</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <FlatList
+                  data={impresoras}
+                  keyExtractor={(item) => item.address}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.impresoraItem}
+                      onPress={() => handleSeleccionarImpresora(item)}
+                      disabled={imprimiendo}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons
+                        name="printer-pos"
+                        size={24}
+                        color={colors.secondary}
+                      />
+                      <View style={styles.impresoraInfo}>
+                        <Text style={styles.impresoraNombre}>
+                          {item.name || "Impresora sin nombre"}
+                        </Text>
+                        <Text style={styles.impresoraAddress}>
+                          {item.address}
+                        </Text>
+                      </View>
+                      {imprimiendo ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.secondary}
+                        />
+                      ) : (
+                        <MaterialCommunityIcons
+                          name="chevron-right"
+                          size={20}
+                          color={colors.textSecondary}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -453,7 +588,7 @@ const generarContenidoTicketDescarga = (vale, detalleRenta, ticketData) => {
     },
     {
       tipo: "texto",
-      contenido: "Escanear para verificar vale original\n",
+      contenido: "Escanear para verificar",
       opciones: { align: ALINEACION.CENTRO },
     },
     { tipo: "qr", contenido: qrUrl, tamano: 120 },
@@ -583,6 +718,76 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
     fontStyle: "italic",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "65%",
+    paddingBottom: 30,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+  },
+  modalTitulo: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  estadoContainer: {
+    alignItems: "center",
+    padding: 40,
+    gap: 16,
+  },
+  estadoTexto: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  btnReintentar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    gap: 6,
+  },
+  btnReintentarTexto: {
+    fontSize: 14,
+    color: colors.secondary,
+    fontWeight: "600",
+  },
+  impresoraItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+    gap: 12,
+  },
+  impresoraInfo: { flex: 1 },
+  impresoraNombre: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  impresoraAddress: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });
 

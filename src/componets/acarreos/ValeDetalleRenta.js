@@ -69,6 +69,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const [savingDatos, setSavingDatos] = useState(false);
   const [datosPendientesGuardados, setDatosPendientesGuardados] =
     useState(false);
+  const [valeLocal, setValeLocal] = useState(vale);
 
   // --- Estados de datos pendientes ---
   const [selectedOperador, setSelectedOperador] = useState(null);
@@ -83,6 +84,15 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   // --- Refs para inicialización ---
   const isInitialized = useRef(false);
   const lastValeId = useRef(null);
+
+  const formatCurrency = useCallback((valor) => {
+    if (!valor) return "N/A";
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      minimumFractionDigits: 2,
+    }).format(valor);
+  }, []);
 
   // --- Hooks externos ---
   const {
@@ -111,6 +121,13 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     totalViajes,
     registrarViaje,
   } = useViajesRenta(detalleRenta?.id_vale_renta_detalle, vale?.id_obra);
+
+  // Sincronizar valeLocal cuando se abre un vale diferente
+  useEffect(() => {
+    if (vale?.id_vale !== valeLocal?.id_vale) {
+      setValeLocal(vale);
+    }
+  }, [vale?.id_vale]);
 
   // --- Inicialización al cambiar de vale ---
   useEffect(() => {
@@ -195,6 +212,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     }
     try {
       setSavingDatos(true);
+
       const { error } = await supabase
         .from("vales")
         .update({
@@ -203,19 +221,37 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         })
         .eq("id_vale", vale.id_vale);
 
-      if (!error && selectedVehiculo.capacidad_m3) {
+      if (error) throw error;
+
+      if (selectedVehiculo.capacidad_m3) {
         await supabase
           .from("vale_renta_detalle")
           .update({ capacidad_m3: selectedVehiculo.capacidad_m3 })
           .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle);
       }
+
       setDatosPendientesGuardados(true);
+
+      // Actualizar el vale local para que TicketDescargaSection
+      // detecte inmediatamente que ya tiene operador y vehículo
+      setValeLocal({
+        ...vale,
+        id_operador: selectedOperador.id_operador,
+        id_vehiculo: selectedVehiculo.id_vehiculo,
+        operadores: { nombre_completo: selectedOperador.nombre_completo },
+        vehiculos: {
+          placas: selectedVehiculo.placas,
+          capacidad_m3: selectedVehiculo.capacidad_m3,
+        },
+      });
+
+      onRefresh();
     } catch (error) {
       Alert.alert("Error", "No se pudo guardar. Intenta de nuevo.");
     } finally {
       setSavingDatos(false);
     }
-  }, [selectedOperador, selectedVehiculo, vale.id_vale, detalleRenta]);
+  }, [selectedOperador, selectedVehiculo, vale, detalleRenta, onRefresh]);
 
   const handleCompletar = useCallback(async () => {
     if (!canComplete) return;
@@ -447,24 +483,27 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           formatTime={formatTime}
           formatDate={formatDate}
         />
-        {/* Tickets de descarga — solo para materiales con es_material_descarga = true */}
-        <TicketDescargaSection
-          vale={vale}
-          detalleRenta={detalleRenta}
-          viajes={viajes}
-          totalViajes={totalViajes}
-        />
 
         <SeccionTarifas
           vale={vale}
           detalleRenta={detalleRenta}
           preciosRenta={preciosRenta}
           userProfile={userProfile}
+          formatCurrency={formatCurrency}
+        />
+
+        {/* Tickets de descarga — solo para materiales es_material_descarga = true */}
+        <TicketDescargaSection
+          vale={valeLocal}
+          detalleRenta={detalleRenta}
+          viajes={viajes}
+          totalViajes={totalViajes}
+          datosPendientesGuardados={datosPendientesGuardados}
         />
 
         {canComplete && (
           <SeccionCompletarVale
-            vale={vale}
+            vale={valeLocal}
             tieneDatosPendientes={tieneDatosPendientes}
             datosPendientesGuardados={datosPendientesGuardados}
             operadoresFiltrados={operadoresFiltrados}

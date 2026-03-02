@@ -44,6 +44,7 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
     esValeRenta && detalleRenta?.material?.es_material_descarga === true;
 
   // Condiciones base del vale
+
   const tieneOperadorYVehiculo = !!(vale?.id_operador && vale?.id_vehiculo);
   const estaEnProceso = vale?.estado === "en_proceso";
 
@@ -63,21 +64,14 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
    *   - Necesita al menos tantos viajes como tickets ya impresos
    */
   const calcularPuedeGenerar = useCallback(
-    (viajesRegistrados = 0) => {
-      if (!esMaterialDescarga) {
-        console.log(
-          "[useTicketsDescarga] No aplica: material sin es_material_descarga",
-        );
-        return false;
-      }
-      if (!estaEnProceso) {
-        console.log(
-          "[useTicketsDescarga] No aplica: vale no está en_proceso, estado:",
-          vale?.estado,
-        );
-        return false;
-      }
-      if (!tieneOperadorYVehiculo) {
+    (viajesRegistrados = 0, operadorYVehiculoGuardados = false) => {
+      if (!esMaterialDescarga) return false;
+      if (!estaEnProceso) return false;
+
+      // Usar override si se pasó, o el valor del vale
+      const tieneAsignacion =
+        operadorYVehiculoGuardados || tieneOperadorYVehiculo;
+      if (!tieneAsignacion) {
         console.log(
           "[useTicketsDescarga] No aplica: falta operador o vehículo",
         );
@@ -97,13 +91,7 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
       });
       return puedeGenerar;
     },
-    [
-      esMaterialDescarga,
-      estaEnProceso,
-      tieneOperadorYVehiculo,
-      totalTickets,
-      vale?.estado,
-    ],
+    [esMaterialDescarga, estaEnProceso, tieneOperadorYVehiculo, totalTickets],
   );
 
   // ─── Cargar tickets existentes ────────────────────────────────────────────
