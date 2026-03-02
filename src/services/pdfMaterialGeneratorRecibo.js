@@ -33,7 +33,7 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const detalle = valeData.vale_material_detalles?.[0];
   const material = detalle.material?.material || "N/A";
   const banco = detalle.bancos?.banco || "N/A";
-  const capacidad = detalle.capacidad_m3 || "N/A";
+  const capacidad = detalle.capacidad_m3 || "Pendiente";
   const distancia = detalle.distancia_km || "N/A";
   const cantidadPedida = detalle.cantidad_pedida_m3 || "N/A";
   const requisicion = detalle.requisicion || null;
@@ -78,8 +78,8 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const nombreObra = valeData.obras?.obra || "N/A";
   const obra = cc ? `${cc} - ${nombreObra}` : nombreObra;
   const empresa = valeData.obras?.empresas?.empresa || "CONSTRUCCION";
-  const operador = valeData.operadores?.nombre_completo || "N/A";
-  const placas = valeData.vehiculos?.placas || "N/A";
+  const operador = valeData.operadores?.nombre_completo || "Pendiente";
+  const placas = valeData.vehiculos?.placas || "Pendiente";
 
   const sindicato =
     detalle?.sindicatos?.sindicato ||

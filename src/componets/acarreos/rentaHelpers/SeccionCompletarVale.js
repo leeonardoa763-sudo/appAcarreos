@@ -1,0 +1,205 @@
+/**
+ * components/acarreos/rentaHelpers/SeccionCompletarVale.js
+ *
+ * Sección "Completar Vale" del detalle de renta.
+ * Contiene el formulario completo para completar un vale en proceso:
+ * - Formulario de datos pendientes (operador/vehículo)
+ * - Registro de viajes
+ * - Checkboxes de tipo de renta
+ * - Selector de hora fin
+ * - Notas adicionales
+ * - Captura de evidencia
+ * - Botón de completar
+ *
+ * PROPS:
+ * - vale: object
+ * - detalleRenta: object
+ * - tieneDatosPendientes: boolean
+ * - datosPendientesGuardados: boolean
+ * - operadoresFiltrados: array
+ * - vehiculosFiltrados: array
+ * - selectedOperador: object | null
+ * - selectedVehiculo: object | null
+ * - onSelectOperador: function
+ * - onSelectVehiculo: function
+ * - onGuardarDatos: function
+ * - savingDatos: boolean
+ * - viajes: array
+ * - loadingViajes: boolean
+ * - registrando: boolean
+ * - puedeRegistrar: boolean
+ * - totalViajes: number
+ * - onRegistrarViaje: function
+ * - esRentaPorDia: boolean
+ * - esRentaPorMedioDia: boolean
+ * - onChangeRentaPorDia: function
+ * - onChangeRentaPorMedioDia: function
+ * - horaFin: Date | null
+ * - onChangeHoraFin: function
+ * - notasAdicionales: string
+ * - onChangeNotas: function
+ * - evidenciaProps: object — todas las props de EvidenciaCaptura
+ * - mensajeBloqueo: string | null
+ * - saving: boolean
+ * - onCompletar: function
+ */
+
+import React from "react";
+import { View, Text } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { colors } from "../../../config/colors";
+import { rentaStyles as styles } from "./rentaStyles";
+
+import DatosPendientesForm from "./DatosPendientesForm";
+import ViajesRentaSection from "../ViajesRentaSection";
+import FormCheckbox from "../../forms/FormCheckbox";
+import CustomTimePicker from "../../forms/CustomTimePicker";
+import FormInput from "../../forms/FormInput";
+import EvidenciaCaptura from "../../vale/EvidenciaCaptura";
+import PrimaryButton from "../../common/PrimaryButton";
+
+const SeccionCompletarVale = ({
+  vale,
+  tieneDatosPendientes,
+  datosPendientesGuardados,
+  operadoresFiltrados,
+  vehiculosFiltrados,
+  selectedOperador,
+  selectedVehiculo,
+  onSelectOperador,
+  onSelectVehiculo,
+  onGuardarDatos,
+  savingDatos,
+  viajes,
+  loadingViajes,
+  registrando,
+  puedeRegistrar,
+  totalViajes,
+  onRegistrarViaje,
+  esRentaPorDia,
+  esRentaPorMedioDia,
+  onChangeRentaPorDia,
+  onChangeRentaPorMedioDia,
+  horaFin,
+  onChangeHoraFin,
+  notasAdicionales,
+  onChangeNotas,
+  evidenciaProps,
+  mensajeBloqueo,
+  saving,
+  onCompletar,
+}) => {
+  const botonDeshabilitado =
+    saving ||
+    !!mensajeBloqueo ||
+    (!esRentaPorDia && !esRentaPorMedioDia && !horaFin) ||
+    !evidenciaProps.evidenciaLista ||
+    (evidenciaProps.obraTieneCoordenadas &&
+      evidenciaProps.dentroDelRadio === false);
+
+  const helperText = esRentaPorDia
+    ? "Renta por día completo — mínimo 8 hrs desde inicio"
+    : esRentaPorMedioDia
+      ? "Renta por medio día — mínimo 4 hrs desde inicio"
+      : "Hora de fin requerida para renta por hora";
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Completar Vale</Text>
+      <Text style={styles.sectionSubtitle}>
+        Captura los datos para completar el vale
+      </Text>
+
+      {tieneDatosPendientes && !datosPendientesGuardados && (
+        <DatosPendientesForm
+          operadoresFiltrados={operadoresFiltrados}
+          vehiculosFiltrados={vehiculosFiltrados}
+          selectedOperador={selectedOperador}
+          selectedVehiculo={selectedVehiculo}
+          onSelectOperador={onSelectOperador}
+          onSelectVehiculo={onSelectVehiculo}
+          onGuardar={onGuardarDatos}
+          saving={savingDatos}
+        />
+      )}
+
+      <ViajesRentaSection
+        viajes={viajes}
+        loading={loadingViajes}
+        registrando={registrando}
+        puedeRegistrar={puedeRegistrar}
+        totalViajes={totalViajes}
+        onRegistrarViaje={onRegistrarViaje}
+      />
+
+      <FormCheckbox
+        label="Renta por día completo"
+        value={esRentaPorDia}
+        onChange={onChangeRentaPorDia}
+      />
+
+      <FormCheckbox
+        label="Renta por medio día"
+        value={esRentaPorMedioDia}
+        onChange={onChangeRentaPorMedioDia}
+      />
+
+      <CustomTimePicker
+        label="Hora de Fin"
+        value={horaFin}
+        onChange={onChangeHoraFin}
+        disabled={esRentaPorDia || esRentaPorMedioDia}
+      />
+
+      <FormInput
+        label="Notas (opcional)"
+        value={notasAdicionales}
+        onChangeText={onChangeNotas}
+        placeholder=""
+        multiline
+        maxLength={200}
+      />
+
+      <EvidenciaCaptura
+        folioVale={vale?.folio}
+        foto={evidenciaProps.foto}
+        fotoUrl={evidenciaProps.fotoUrl}
+        ubicacion={evidenciaProps.ubicacion}
+        distanciaObra={evidenciaProps.distanciaObra}
+        dentroDelRadio={evidenciaProps.dentroDelRadio}
+        obraTieneCoordenadas={evidenciaProps.obraTieneCoordenadas}
+        radioConfigurado={evidenciaProps.radioConfigurado}
+        loadingFoto={evidenciaProps.loadingFoto}
+        loadingUbicacion={evidenciaProps.loadingUbicacion}
+        errorFoto={evidenciaProps.errorFoto}
+        errorUbicacion={evidenciaProps.errorUbicacion}
+        onTomarFoto={evidenciaProps.onTomarFoto}
+        onCapturarUbicacion={evidenciaProps.onCapturarUbicacion}
+      />
+
+      {mensajeBloqueo && (
+        <View style={styles.bloqueoContainer}>
+          <MaterialCommunityIcons
+            name="alert-circle"
+            size={18}
+            color={colors.primary}
+          />
+          <Text style={styles.bloqueoText}>{mensajeBloqueo}</Text>
+        </View>
+      )}
+
+      <PrimaryButton
+        title="Completar Vale"
+        onPress={onCompletar}
+        loading={saving}
+        disabled={botonDeshabilitado}
+        icon="check-circle"
+        backgroundColor={colors.accent}
+      />
+
+      <Text style={styles.helperText}>{helperText}</Text>
+    </View>
+  );
+};
+
+export default SeccionCompletarVale;

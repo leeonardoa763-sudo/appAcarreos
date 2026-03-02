@@ -189,6 +189,17 @@ export const validateHoraInicioNoFutura = (hora) => {
 };
 
 /**
+ * Valida que el vehículo seleccionado tenga capacidad configurada
+ */
+export const validateCapacidadVehiculo = (vehiculo) => {
+  if (!vehiculo) return null;
+  if (!vehiculo.capacidad_m3) {
+    return "El vehículo seleccionado no tiene capacidad configurada";
+  }
+  return null;
+};
+
+/**
  * Valida que la hora de fin sea anterior a la hora actual
  * Usada al COMPLETAR un vale de renta por horas
  */

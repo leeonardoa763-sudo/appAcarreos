@@ -243,6 +243,7 @@ const ValeMaterialScreen = () => {
         ...prev,
         selectedOperador: null,
         selectedVehiculo: null,
+        capacidad: "",
       }));
     }
   };
@@ -329,6 +330,10 @@ const ValeMaterialScreen = () => {
       </View>
     );
   }
+
+  // Justo antes del return, agregar:
+  const sinCapacidad =
+    formData.selectedVehiculo && !formData.selectedVehiculo.capacidad_m3;
 
   return (
     <View style={styles.container}>
@@ -447,18 +452,6 @@ const ValeMaterialScreen = () => {
           />
 
           <FormInput
-            label="Capacidad"
-            value={formData.capacidad}
-            onChangeText={(value) =>
-              setFormData({ ...formData, capacidad: value })
-            }
-            placeholder="Ej: 10"
-            keyboardType="numeric"
-            suffix="m³"
-            error={errors.capacidad}
-          />
-
-          <FormInput
             label="Distancia"
             value={formData.distancia}
             onChangeText={() => {}}
@@ -542,9 +535,13 @@ const ValeMaterialScreen = () => {
             onSelectOperador={(operador) =>
               setFormData({ ...formData, selectedOperador: operador })
             }
-            onSelectVehiculo={(vehiculo) =>
-              setFormData({ ...formData, selectedVehiculo: vehiculo })
-            }
+            onSelectVehiculo={(vehiculo) => {
+              setFormData((prev) => ({
+                ...prev,
+                selectedVehiculo: vehiculo,
+                capacidad: vehiculo?.capacidad_m3?.toString() ?? "",
+              }));
+            }}
             notasAdicionales={formData.notasAdicionales}
             onChangeNotas={(value) =>
               setFormData({ ...formData, notasAdicionales: value })
@@ -592,14 +589,28 @@ const ValeMaterialScreen = () => {
         {/* Botón crear vale */}
         <View style={styles.buttonContainer}>
           <PrimaryButton
-            title={presupuestoAgotado ? "Presupuesto Agotado" : "Crear Vale"}
+            title={
+              presupuestoAgotado
+                ? "Presupuesto Agotado"
+                : sinCapacidad
+                  ? "Sin capacidad configurada"
+                  : "Crear Vale"
+            }
             onPress={handleCrearVale}
             loading={submitting || generatingPDF}
-            icon={presupuestoAgotado ? "cancel" : "check-circle"}
-            backgroundColor={
-              presupuestoAgotado ? colors.disabled : colors.accent
+            icon={
+              presupuestoAgotado
+                ? "cancel"
+                : sinCapacidad
+                  ? "alert-circle"
+                  : "check-circle"
             }
-            disabled={presupuestoAgotado}
+            backgroundColor={
+              presupuestoAgotado || sinCapacidad
+                ? colors.disabled
+                : colors.accent
+            }
+            disabled={presupuestoAgotado || sinCapacidad}
           />
         </View>
       </KeyboardAvoidingScrollView>
