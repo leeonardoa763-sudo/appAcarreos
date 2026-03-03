@@ -203,7 +203,11 @@ const ValeCard = ({ vale, onPress }) => {
 
       {/* Footer con fecha y botón */}
       <View style={styles.footer}>
-        <Text style={styles.dateText}>{formatDate(vale.fecha_creacion)}</Text>
+        <Text style={styles.dateText}>
+          {isRenta
+            ? formatDate(rentaInfo?.horaInicio ?? vale.fecha_creacion)
+            : formatDate(vale.fecha_creacion)}
+        </Text>
         <TouchableOpacity
           style={[
             styles.button,

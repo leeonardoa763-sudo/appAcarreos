@@ -277,6 +277,7 @@ const FilterBar = ({
   sindicatos = [],
   operadores = [],
   vehiculos = [],
+  esChecador = false,
 }) => {
   // Controla qué dropdown está abierto. Solo uno a la vez.
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -300,14 +301,18 @@ const FilterBar = ({
     {
       key: "soloHoy",
       icon: "calendar-today",
-      label: "Hoy",
+      label: esChecador ? "Hoy (fijo)" : "Hoy",
       active: filters.soloHoy,
       hasDropdown: false,
       onPress: () => {
+        if (esChecador) return;
         closeAll();
         setFilter("soloHoy", !filters.soloHoy);
       },
-      onClear: () => setFilter("soloHoy", false),
+      onClear: () => {
+        if (esChecador) return;
+        setFilter("soloHoy", false);
+      },
     },
     {
       key: "obra",

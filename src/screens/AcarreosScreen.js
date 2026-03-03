@@ -36,9 +36,10 @@ import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
 import CollapsibleSection from "../componets/common/CollapsibleSection";
 
 const AcarreosScreen = () => {
-  const { userProfile } = useAuth();
+  const { userProfile, userRole } = useAuth();
   const route = useRoute();
-  const esChecador = userProfile?.roles?.role === "CHECADOR";
+  const esChecador = userRole === "CHECADOR";
+
   //  Obtener obras asignadas (incluir loading)
   const { obras, loading: obrasLoading } = useObras(userProfile?.id_persona);
 
@@ -59,7 +60,7 @@ const AcarreosScreen = () => {
   ]);
 
   const { filters, setFilter, clearFilters, applyFilters, activeCount } =
-    useAcarreosFilters();
+    useAcarreosFilters(null, esChecador);
 
   const isMounted = useRef(true);
   const isFetching = useRef(false);
@@ -385,6 +386,7 @@ const AcarreosScreen = () => {
           sindicatos={sindicatos}
           operadores={operadores}
           vehiculos={vehiculos}
+          esChecador={esChecador}
         />
 
         {/* ========== SECCIÓN MATERIAL ========== */}
@@ -567,62 +569,65 @@ const AcarreosScreen = () => {
               showsVerticalScrollIndicator={false}
             />
           </CollapsibleSection>
-
           {/* Renta - Verificados */}
-          <CollapsibleSection
-            title="Verificados"
-            icon="check-decagram"
-            count={rentaSeparado.verificados.length}
-            defaultCollapsed={true}
-            iconColor={colors.info}
-            badgeColor={colors.info}
-          >
-            <FlatList
-              data={rentaSeparado.verificados}
-              renderItem={renderValeItem}
-              keyExtractor={(item) => item.id_vale.toString()}
-              ListEmptyComponent={() => (
-                <EmptyState
-                  icon="truck-outline"
-                  text={
-                    searchQuery
-                      ? "No se encontraron vales verificados"
-                      : "No hay vales de renta verificados"
-                  }
-                />
-              )}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          </CollapsibleSection>
+          {!esChecador && (
+            <CollapsibleSection
+              title="Verificados"
+              icon="check-decagram"
+              count={rentaSeparado.verificados.length}
+              defaultCollapsed={true}
+              iconColor={colors.info}
+              badgeColor={colors.info}
+            >
+              <FlatList
+                data={rentaSeparado.verificados}
+                renderItem={renderValeItem}
+                keyExtractor={(item) => item.id_vale.toString()}
+                ListEmptyComponent={() => (
+                  <EmptyState
+                    icon="truck-outline"
+                    text={
+                      searchQuery
+                        ? "No se encontraron vales verificados"
+                        : "No hay vales de renta verificados"
+                    }
+                  />
+                )}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+              />
+            </CollapsibleSection>
+          )}
 
           {/* Renta - Conciliados */}
-          <CollapsibleSection
-            title="Conciliados"
-            icon="currency-usd"
-            count={rentaSeparado.conciliados.length}
-            defaultCollapsed={true}
-            iconColor={colors.success}
-            badgeColor={colors.success}
-          >
-            <FlatList
-              data={rentaSeparado.conciliados}
-              renderItem={renderValeItem}
-              keyExtractor={(item) => item.id_vale.toString()}
-              ListEmptyComponent={() => (
-                <EmptyState
-                  icon="truck-outline"
-                  text={
-                    searchQuery
-                      ? "No se encontraron vales conciliados"
-                      : "No hay vales de renta conciliados"
-                  }
-                />
-              )}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          </CollapsibleSection>
+          {!esChecador && (
+            <CollapsibleSection
+              title="Conciliados"
+              icon="currency-usd"
+              count={rentaSeparado.conciliados.length}
+              defaultCollapsed={true}
+              iconColor={colors.success}
+              badgeColor={colors.success}
+            >
+              <FlatList
+                data={rentaSeparado.conciliados}
+                renderItem={renderValeItem}
+                keyExtractor={(item) => item.id_vale.toString()}
+                ListEmptyComponent={() => (
+                  <EmptyState
+                    icon="truck-outline"
+                    text={
+                      searchQuery
+                        ? "No se encontraron vales conciliados"
+                        : "No hay vales de renta conciliados"
+                    }
+                  />
+                )}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+              />
+            </CollapsibleSection>
+          )}
         </View>
       </ScrollView>
 

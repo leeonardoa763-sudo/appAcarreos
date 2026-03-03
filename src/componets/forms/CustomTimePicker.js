@@ -1,27 +1,20 @@
 /**
  * CustomTimePicker.js
  *
- * SELECTOR DE HORA PERSONALIZADO - COMPATIBLE CON TODOS LOS DISPOSITIVOS
+ * SELECTOR DE FECHA Y HORA PERSONALIZADO - COMPATIBLE CON TODOS LOS DISPOSITIVOS
  *
  * PROPÓSITO:
  * - Reemplazo del DateTimePicker que da problemas en diferentes dispositivos
- * - Modal con 3 scrolls: Hora (1-12) | Minuto (00-59) | AM/PM
+ * - Modal con selector de fecha (cuando allowFutureDates=true) + 3 scrolls de hora
  * - Diseño consistente en iOS y Android
- * - Sin dependencias de componentes nativos problemáticos
- *
- * USADO EN:
- * - ValeRentaScreen (Hora Inicio)
- * - ValeDetalleRenta (Hora Fin)
  *
  * PROPS:
- * - label: string - Texto del label
- * - value: Date - Hora seleccionada
- * - onChange: function - Callback al cambiar hora (recibe Date)
- * - enabled: boolean - Si está habilitado o no
- * - disabled: boolean - Alias de enabled
- * - error: string - Mensaje de error (opcional)
- * - minimumDate: Date - Hora mínima permitida (opcional, no implementado aún)
- * - maximumDate: Date - Hora máxima permitida (opcional, no implementado aún)
+ * - label: string
+ * - value: Date
+ * - onChange: function (recibe Date)
+ * - enabled / disabled: boolean
+ * - error: string
+ * - allowFutureDates: boolean - Si true, muestra selector de fecha (hoy en adelante)
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -35,9 +28,48 @@ import {
   Pressable,
   Platform,
   SafeAreaView,
+  ScrollView,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
+
+// Genera los próximos N días a partir de hoy
+const generarDiasFuturos = (cantidad = 7) => {
+  const dias = [];
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  for (let i = 0; i < cantidad; i++) {
+    const fecha = new Date(hoy);
+    fecha.setDate(hoy.getDate() + i);
+    dias.push(fecha);
+  }
+  return dias;
+};
+
+const NOMBRES_DIA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const NOMBRES_MES = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+];
+
+const esMismaFecha = (a, b) => {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+};
 
 const CustomTimePicker = ({
   label,
@@ -46,41 +78,55 @@ const CustomTimePicker = ({
   enabled = true,
   disabled = false,
   error = null,
-  minimumDate = null,
-  maximumDate = null,
+  allowFutureDates = false,
 }) => {
   const [showModal, setShowModal] = useState(false);
   const isEnabled = enabled && !disabled;
 
-  // Estados internos para los 3 selectores
   const [selectedHour, setSelectedHour] = useState(12);
   const [selectedMinute, setSelectedMinute] = useState(0);
   const [selectedPeriod, setSelectedPeriod] = useState("AM");
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Referencias para los FlatLists
   const hourListRef = useRef(null);
   const minuteListRef = useRef(null);
 
-  // Datos para las listas
-  const hours = Array.from({ length: 12 }, (_, i) => i + 1); // 1-12
-  const minutes = Array.from({ length: 60 }, (_, i) => i); // 0-59
+  const diasFuturos = generarDiasFuturos(7);
+  const hours = Array.from({ length: 12 }, (_, i) => i + 1);
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
   const periods = ["AM", "PM"];
 
-  // Formatear hora para mostrar (ej: "08:30 AM")
-  const formatTime = (date) => {
-    if (!date) return "Seleccionar hora";
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const displayHours = hours % 12 || 12;
-    const displayMinutes = minutes < 10 ? `0${minutes}` : minutes;
-    return `${displayHours}:${displayMinutes} ${ampm}`;
+  // Formatea la fecha y hora para mostrar en el botón
+  const formatDisplay = (date) => {
+    if (!date) return "Seleccionar fecha y hora";
+
+    const h = date.getHours();
+    const m = date.getMinutes();
+    const ampm = h >= 12 ? "PM" : "AM";
+    const displayH = h % 12 || 12;
+    const displayM = m < 10 ? `0${m}` : m;
+    const timeStr = `${displayH}:${displayM} ${ampm}`;
+
+    if (!allowFutureDates) return timeStr;
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const fechaVal = new Date(date);
+    fechaVal.setHours(0, 0, 0, 0);
+    const diffDias = Math.round((fechaVal - hoy) / (1000 * 60 * 60 * 24));
+
+    let fechaStr;
+    if (diffDias === 0) fechaStr = "Hoy";
+    else if (diffDias === 1) fechaStr = "Mañana";
+    else
+      fechaStr = `${NOMBRES_DIA[date.getDay()]} ${date.getDate()} ${NOMBRES_MES[date.getMonth()]}`;
+
+    return `${fechaStr}, ${timeStr}`;
   };
 
-  // Sincronizar estado interno con value externo al abrir modal
+  // Sincronizar estado interno al abrir
   useEffect(() => {
     if (showModal) {
-      // Si hay value usa ese, si no usa hora actual
       const base = value ?? new Date();
       const h = base.getHours();
       const m = base.getMinutes();
@@ -90,6 +136,19 @@ const CustomTimePicker = ({
       setSelectedHour(hour12);
       setSelectedMinute(m);
       setSelectedPeriod(period);
+
+      if (allowFutureDates) {
+        const fechaBase = new Date(base);
+        fechaBase.setHours(0, 0, 0, 0);
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        // Solo pre-seleccionar si es hoy o futuro
+        if (fechaBase >= hoy) {
+          setSelectedDate(fechaBase);
+        } else {
+          setSelectedDate(hoy);
+        }
+      }
 
       setTimeout(() => {
         hourListRef.current?.scrollToIndex({
@@ -104,43 +163,47 @@ const CustomTimePicker = ({
         });
       }, 100);
     }
-  }, [showModal, value]);
+  }, [showModal]);
 
-  // Abrir modal
   const openModal = () => {
-    if (isEnabled) {
-      setShowModal(true);
-    }
+    if (isEnabled) setShowModal(true);
   };
 
-  // Confirmar selección
   const handleConfirm = () => {
-    // Convertir hora 12h a 24h
     let hour24 = selectedHour;
-    if (selectedPeriod === "PM" && selectedHour !== 12) {
+    if (selectedPeriod === "PM" && selectedHour !== 12)
       hour24 = selectedHour + 12;
-    } else if (selectedPeriod === "AM" && selectedHour === 12) {
-      hour24 = 0;
-    }
+    else if (selectedPeriod === "AM" && selectedHour === 12) hour24 = 0;
 
-    // Crear Date usando fecha de HOY con la hora local explícita
-    // NO usar new Date(value) para evitar problemas de zona horaria
-    const hoy = new Date();
-    const newDate = new Date(
-      hoy.getFullYear(),
-      hoy.getMonth(),
-      hoy.getDate(),
-      hour24,
-      selectedMinute,
-      0,
-      0,
-    );
+    let newDate;
+    if (allowFutureDates) {
+      // Combinar fecha seleccionada + hora seleccionada
+      newDate = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        hour24,
+        selectedMinute,
+        0,
+        0,
+      );
+    } else {
+      const hoy = new Date();
+      newDate = new Date(
+        hoy.getFullYear(),
+        hoy.getMonth(),
+        hoy.getDate(),
+        hour24,
+        selectedMinute,
+        0,
+        0,
+      );
+    }
 
     onChange(newDate);
     setShowModal(false);
   };
 
-  // Renderizar item de hora
   const renderHourItem = ({ item }) => {
     const isSelected = item === selectedHour;
     return (
@@ -161,7 +224,6 @@ const CustomTimePicker = ({
     );
   };
 
-  // Renderizar item de minuto
   const renderMinuteItem = ({ item }) => {
     const isSelected = item === selectedMinute;
     const displayValue = item < 10 ? `0${item}` : `${item}`;
@@ -183,7 +245,6 @@ const CustomTimePicker = ({
     );
   };
 
-  // Renderizar item de periodo (AM/PM)
   const renderPeriodItem = ({ item }) => {
     const isSelected = item === selectedPeriod;
     return (
@@ -204,12 +265,31 @@ const CustomTimePicker = ({
     );
   };
 
+  // Preview de la selección actual en el modal
+  const getPreviewText = () => {
+    const displayM =
+      selectedMinute < 10 ? `0${selectedMinute}` : selectedMinute;
+    const timeStr = `${selectedHour}:${displayM} ${selectedPeriod}`;
+
+    if (!allowFutureDates) return timeStr;
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const diffDias = Math.round((selectedDate - hoy) / (1000 * 60 * 60 * 24));
+
+    let fechaStr;
+    if (diffDias === 0) fechaStr = "Hoy";
+    else if (diffDias === 1) fechaStr = "Mañana";
+    else
+      fechaStr = `${NOMBRES_DIA[selectedDate.getDay()]} ${selectedDate.getDate()}`;
+
+    return `${fechaStr}, ${timeStr}`;
+  };
+
   return (
     <View style={styles.container}>
-      {/* Label */}
       {label && <Text style={styles.label}>{label}</Text>}
 
-      {/* Botón selector */}
       <TouchableOpacity
         style={[
           styles.timeButton,
@@ -217,12 +297,11 @@ const CustomTimePicker = ({
           error && styles.timeButtonError,
         ]}
         onPress={openModal}
-        disabled={!isEnabled}
-        activeOpacity={0.7}
+        activeOpacity={isEnabled ? 0.7 : 1}
       >
         <View style={styles.iconContainer}>
           <MaterialCommunityIcons
-            name="clock-outline"
+            name={allowFutureDates ? "calendar-clock" : "clock-outline"}
             size={20}
             color={isEnabled ? colors.primary : colors.disabled}
           />
@@ -234,7 +313,7 @@ const CustomTimePicker = ({
             !isEnabled && styles.timeTextDisabled,
           ]}
         >
-          {formatTime(value)}
+          {formatDisplay(value)}
         </Text>
         <MaterialCommunityIcons
           name="chevron-down"
@@ -243,10 +322,8 @@ const CustomTimePicker = ({
         />
       </TouchableOpacity>
 
-      {/* Mensaje de error */}
       {error && <Text style={styles.errorText}>{error}</Text>}
 
-      {/* Modal con selectores de hora */}
       <Modal
         visible={showModal}
         transparent={true}
@@ -259,7 +336,7 @@ const CustomTimePicker = ({
             onPress={() => setShowModal(false)}
           >
             <Pressable style={styles.modalContent} onPress={() => {}}>
-              {/* Header del modal */}
+              {/* Header */}
               <View style={styles.modalHeader}>
                 <TouchableOpacity
                   onPress={() => setShowModal(false)}
@@ -278,9 +355,86 @@ const CustomTimePicker = ({
                 </TouchableOpacity>
               </View>
 
-              {/* Contenedor de los 3 selectores */}
+              {/* SELECTOR DE FECHA — solo si allowFutureDates */}
+              {allowFutureDates && (
+                <View style={styles.datePickerContainer}>
+                  <Text style={styles.dateSectionLabel}>Fecha</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.dateScrollContent}
+                  >
+                    {diasFuturos.map((dia, index) => {
+                      const isSelected = esMismaFecha(dia, selectedDate);
+                      const hoy = new Date();
+                      hoy.setHours(0, 0, 0, 0);
+                      const diffDias = Math.round(
+                        (dia - hoy) / (1000 * 60 * 60 * 24),
+                      );
+
+                      let etiqueta;
+                      if (diffDias === 0) etiqueta = "Hoy";
+                      else if (diffDias === 1) etiqueta = "Mañana";
+                      else etiqueta = NOMBRES_DIA[dia.getDay()];
+
+                      return (
+                        <TouchableOpacity
+                          key={index}
+                          style={[
+                            styles.dateChip,
+                            isSelected && styles.dateChipSelected,
+                          ]}
+                          onPress={() => {
+                            const hoy = new Date();
+                            hoy.setHours(0, 0, 0, 0);
+                            const esFuturo =
+                              Math.round((dia - hoy) / (1000 * 60 * 60 * 24)) >
+                              0;
+                            setSelectedDate(dia);
+                            if (esFuturo) {
+                              setSelectedHour(8);
+                              setSelectedMinute(0);
+                              setSelectedPeriod("AM");
+                            }
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.dateChipLabel,
+                              isSelected && styles.dateChipLabelSelected,
+                            ]}
+                          >
+                            {etiqueta}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.dateChipNum,
+                              isSelected && styles.dateChipNumSelected,
+                            ]}
+                          >
+                            {dia.getDate()}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.dateChipMes,
+                              isSelected && styles.dateChipMesSelected,
+                            ]}
+                          >
+                            {NOMBRES_MES[dia.getMonth()]}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Divisor */}
+              {allowFutureDates && <View style={styles.divider} />}
+
+              {/* SELECTORES DE HORA */}
               <View style={styles.pickersContainer}>
-                {/* Selector de Hora (1-12) */}
                 <View style={styles.pickerColumn}>
                   <Text style={styles.pickerLabel}>Hora</Text>
                   <FlatList
@@ -298,10 +452,8 @@ const CustomTimePicker = ({
                   />
                 </View>
 
-                {/* Separador */}
                 <Text style={styles.separator}>:</Text>
 
-                {/* Selector de Minuto (00-59) */}
                 <View style={styles.pickerColumn}>
                   <Text style={styles.pickerLabel}>Minuto</Text>
                   <FlatList
@@ -319,7 +471,6 @@ const CustomTimePicker = ({
                   />
                 </View>
 
-                {/* Selector de AM/PM */}
                 <View style={styles.pickerColumn}>
                   <Text style={styles.pickerLabel}>Periodo</Text>
                   <FlatList
@@ -332,18 +483,14 @@ const CustomTimePicker = ({
                 </View>
               </View>
 
-              {/* Vista previa de hora seleccionada */}
+              {/* Preview */}
               <View style={styles.previewContainer}>
                 <MaterialCommunityIcons
                   name="clock-check-outline"
                   size={20}
                   color={colors.accent}
                 />
-                <Text style={styles.previewText}>
-                  {`${selectedHour}:${
-                    selectedMinute < 10 ? `0${selectedMinute}` : selectedMinute
-                  } ${selectedPeriod}`}
-                </Text>
+                <Text style={styles.previewText}>{getPreviewText()}</Text>
               </View>
             </Pressable>
           </Pressable>
@@ -366,7 +513,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
-  // Botón selector
   timeButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -399,20 +545,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
-  // Error
   errorText: {
     fontSize: 12,
     color: colors.danger,
     marginTop: 4,
   },
 
-  // SafeArea para iOS
   safeArea: {
     flex: 1,
     backgroundColor: "transparent",
   },
-
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -422,7 +564,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    height: Platform.OS === "ios" ? "65%" : "70%",
+    height: Platform.OS === "ios" ? "75%" : "80%",
     paddingBottom: Platform.OS === "ios" ? 0 : 20,
   },
   modalHeader: {
@@ -434,6 +576,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.input.border,
     backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   modalTitle: {
     fontSize: 18,
@@ -453,13 +597,79 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // Contenedor de los 3 selectores
+  // Selector de fecha
+  datePickerContainer: {
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  dateSectionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    paddingHorizontal: 20,
+    marginBottom: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  dateScrollContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  dateChip: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.input.border,
+    backgroundColor: colors.surface,
+    minWidth: 60,
+  },
+  dateChipSelected: {
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
+  },
+  dateChipLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    textTransform: "uppercase",
+  },
+  dateChipLabelSelected: {
+    color: colors.surface,
+  },
+  dateChipNum: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    lineHeight: 28,
+  },
+  dateChipNumSelected: {
+    color: colors.surface,
+  },
+  dateChipMes: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  dateChipMesSelected: {
+    color: `${colors.surface}CC`,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: colors.input.border,
+    marginHorizontal: 20,
+    marginVertical: 8,
+  },
+
+  // Selectores de hora
   pickersContainer: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 12,
     flex: 1,
   },
   pickerColumn: {
@@ -482,8 +692,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     marginTop: 32,
   },
-
-  // Items de las listas
   timeItem: {
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -505,7 +713,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // Vista previa
+  // Preview
   previewContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -518,7 +726,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   previewText: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "700",
     color: colors.accent,
     marginLeft: 8,

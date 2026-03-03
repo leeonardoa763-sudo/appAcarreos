@@ -142,47 +142,46 @@ export const validateDistancia = (distancia) => {
 const TOLERANCIA_MINUTOS = 10;
 
 /**
- * Valida que la hora de inicio no sea futura (con tolerancia de 10 min)
- * Usada al CREAR un vale de renta
+ * Valida la hora de inicio al crear un vale de renta.
+ * - Si la fecha es futura (mañana o después): válido sin restricción de hora
+ * - Si la fecha es hoy: no puede exceder 10 min al futuro ni ser muy antigua
+ * - Si la fecha es pasada: siempre inválido
  */
 export const validateHoraInicioNoFutura = (hora) => {
   if (!hora) return "La hora de inicio es requerida";
 
   const ahora = new Date();
 
-  const minutosHora = hora.getHours() * 60 + hora.getMinutes();
-  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
-
-  // Tolerancia: 10 min hacia el futuro permitidos
-  const limiteMaximo = minutosAhora + TOLERANCIA_MINUTOS;
-  // Tolerancia: también permitir hasta 10 min en el pasado (margen de captura)
-  const limiteMinimo = minutosAhora - TOLERANCIA_MINUTOS;
-
-  console.log("[validateHoraInicioNoFutura] minutosHora:", minutosHora);
-  console.log("[validateHoraInicioNoFutura] minutosAhora:", minutosAhora);
-  console.log(
-    "[validateHoraInicioNoFutura] limiteMinimo:",
-    limiteMinimo,
-    "limiteMaximo:",
-    limiteMaximo,
+  // Comparar solo fechas (sin hora)
+  const fechaHora = new Date(
+    hora.getFullYear(),
+    hora.getMonth(),
+    hora.getDate(),
   );
+  const fechaHoy = new Date(
+    ahora.getFullYear(),
+    ahora.getMonth(),
+    ahora.getDate(),
+  );
+  const diffDias = Math.round((fechaHora - fechaHoy) / (1000 * 60 * 60 * 24));
 
-  if (minutosHora > limiteMaximo) {
-    const horaLimiteH = Math.floor(limiteMaximo / 60) % 24;
-    const horaLimiteM = limiteMaximo % 60;
-    const ampm = horaLimiteH >= 12 ? "PM" : "AM";
-    const displayH = horaLimiteH % 12 || 12;
-    const displayM = horaLimiteM < 10 ? `0${horaLimiteM}` : horaLimiteM;
-    return `La hora de inicio no puede ser futura. `;
+  // Fecha pasada: siempre inválido
+  if (diffDias < 0) {
+    return "No puedes crear vales con fecha pasada";
   }
 
-  if (minutosHora < limiteMinimo) {
-    const horaLimiteH = Math.floor(limiteMinimo / 60) % 24;
-    const horaLimiteM = limiteMinimo % 60;
-    const ampm = horaLimiteH >= 12 ? "PM" : "AM";
-    const displayH = horaLimiteH % 12 || 12;
-    const displayM = horaLimiteM < 10 ? `0${horaLimiteM}` : horaLimiteM;
-    return `La hora de inicio es muy antigua. `;
+  // Fecha futura (mañana o después): válido, cualquier hora
+  if (diffDias > 0) {
+    return null;
+  }
+
+  // Fecha de hoy: aplicar tolerancia de minutos
+  const minutosHora = hora.getHours() * 60 + hora.getMinutes();
+  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
+  const limiteMaximo = minutosAhora + TOLERANCIA_MINUTOS;
+
+  if (minutosHora > limiteMaximo) {
+    return "La hora de inicio no puede ser futura";
   }
 
   return null;
@@ -241,29 +240,47 @@ export const validateTiempoMinimoRenta = (horaInicioISO, tipo) => {
 };
 
 /**
- * Valida que el vale se pueda completar (no debe ser del mismo día de creación)
- * Si se creó hoy, puede completarse. Si se creó otro día, está bloqueado.
- * @param {string} fechaCreacionISO - ISO string de fecha_creacion del vale
- * @returns {string | null} - Mensaje de error o null si es válido
+ * Valida que el vale se pueda completar según su fecha de inicio.
+ * - Si hora_inicio es hoy: puede completarse
+ * - Si hora_inicio es futura (mañana o después): no puede completarse aún
+ * - Si hora_inicio fue ayer o antes: no puede completarse (contactar admin)
  */
 export const validateMismoDiaCreacion = (fechaCreacionISO) => {
   if (!fechaCreacionISO) return null;
 
-  const fechaCreacion = new Date(fechaCreacionISO);
+  // Usar hora_inicio en lugar de fecha_creacion para vales futuros
+  const fechaInicio = new Date(fechaCreacionISO);
   const ahora = new Date();
 
-  const mismoAnio = fechaCreacion.getFullYear() === ahora.getFullYear();
-  const mismoMes = fechaCreacion.getMonth() === ahora.getMonth();
-  const mismoDia = fechaCreacion.getDate() === ahora.getDate();
+  const inicioSoloFecha = new Date(
+    fechaInicio.getFullYear(),
+    fechaInicio.getMonth(),
+    fechaInicio.getDate(),
+  );
+  const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
 
-  if (!mismoAnio || !mismoMes || !mismoDia) {
-    const fechaStr = fechaCreacion.toLocaleDateString("es-MX", {
+  const diffDias = Math.round((inicioSoloFecha - hoy) / (1000 * 60 * 60 * 24));
+
+  // Fecha futura: aún no se puede completar
+  if (diffDias > 0) {
+    const fechaStr = fechaInicio.toLocaleDateString("es-MX", {
       weekday: "long",
       day: "2-digit",
       month: "long",
     });
-    return `Este vale fue creado el ${fechaStr} y ya no puede completarse. Si el trabajo se realizó, contacta al administrador.`;
+    return `Este vale está programado para el ${fechaStr} y aún no puede completarse.`;
   }
 
+  // Fecha pasada: ya no se puede completar
+  if (diffDias < 0) {
+    const fechaStr = fechaInicio.toLocaleDateString("es-MX", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+    });
+    return `Este vale fue programado para el ${fechaStr} y ya no puede completarse. Si el trabajo se realizó, contacta al administrador.`;
+  }
+
+  // Es hoy: puede completarse
   return null;
 };

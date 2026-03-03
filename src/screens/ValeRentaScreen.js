@@ -499,12 +499,13 @@ const ValeRentaScreen = () => {
           />
 
           <CustomTimePicker
-            label="Hora Inicio"
+            label="Fecha y Hora de Inicio"
             value={formData.horaInicio}
             onChange={(value) =>
               setFormData({ ...formData, horaInicio: value })
             }
             error={errors.horaInicio}
+            allowFutureDates={true}
           />
         </View>
 

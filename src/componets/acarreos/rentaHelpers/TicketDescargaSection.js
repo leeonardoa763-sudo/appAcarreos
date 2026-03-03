@@ -27,8 +27,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Modal, // ← AGREGAR
-  FlatList, // ← AGREGAR
+  Modal,
+  FlatList,
 } from "react-native";
 
 // 3. Third party
@@ -44,7 +44,7 @@ import { useTicketsDescarga } from "../../../hooks/useTicketsDescarga";
 // 6. Local - Componentes
 import BancoDescargaModal from "./BancoDescargaModal";
 
-// Imports condicionales de Bluetooth (igual que ImprimirTicketButton)
+// Imports condicionales de Bluetooth
 let verificarBluetooth, escanearImpresoras, conectarImpresora, imprimirTicket;
 
 if (BLUETOOTH_ENABLED) {
@@ -114,13 +114,11 @@ const TicketDescargaSection = ({
 
   const [modalVisible, setModalVisible] = useState(false);
   const [imprimiendo, setImprimiendo] = useState(false);
-  // NUEVOS:
   const [mostrarModalImpresoras, setMostrarModalImpresoras] = useState(false);
   const [escaneando, setEscaneando] = useState(false);
   const [impresoras, setImpresoras] = useState([]);
-  const [ticketPendiente, setTicketPendiente] = useState(null); // ticket esperando impresora
+  const [ticketPendiente, setTicketPendiente] = useState(null);
 
-  // Si el material no aplica, no renderizar nada
   if (!esMaterialDescarga) {
     return null;
   }
@@ -133,9 +131,9 @@ const TicketDescargaSection = ({
     vale?.estado === "en_proceso" &&
     tieneAsignacion &&
     (totalTickets === 0 || totalViajes >= totalTickets);
+
   const numeroSiguienteTicket = totalTickets + 1;
 
-  // Razón por la que no puede generar (para feedback al usuario)
   const razonBloqueado = () => {
     if (vale?.estado !== "en_proceso")
       return "Solo disponible en vales en proceso";
@@ -160,18 +158,33 @@ const TicketDescargaSection = ({
 
   const handleConfirmarBanco = useCallback(
     async (bancoDescarga) => {
-      console.log("[TicketDescargaSection] Banco confirmado:", bancoDescarga);
       setModalVisible(false);
 
-      // 1. Registrar el ticket en BD
+      // 1. Si Bluetooth está habilitado, verificarlo ANTES de registrar el ticket
+      if (BLUETOOTH_ENABLED) {
+        try {
+          const bluetoothActivo = await verificarBluetooth();
+          if (!bluetoothActivo) {
+            Alert.alert(
+              "Bluetooth desactivado",
+              "Activa el Bluetooth para conectar la impresora antes de generar el ticket.",
+            );
+            return; // Salir sin registrar nada
+          }
+        } catch (error) {
+          Alert.alert(
+            "Error",
+            "No se pudo verificar el estado del Bluetooth. Intenta de nuevo.",
+          );
+          return; // Salir sin registrar nada
+        }
+      }
+
+      // 2. Bluetooth activo (o no requerido) — ahora sí registrar el ticket en BD
       const ticketData = await registrarTicket(bancoDescarga);
       if (!ticketData) return;
 
-      console.log(
-        "[TicketDescargaSection] Ticket creado:",
-        ticketData.folio_ticket,
-      );
-
+      // 3. Si no hay Bluetooth, mostrar confirmación simple y terminar
       if (!BLUETOOTH_ENABLED) {
         Alert.alert(
           "Ticket Registrado",
@@ -180,26 +193,16 @@ const TicketDescargaSection = ({
         return;
       }
 
-      // 2. Verificar Bluetooth y escanear impresoras
+      // 4. Escanear impresoras (Bluetooth ya verificado activo)
       try {
-        const bluetoothActivo = await verificarBluetooth();
-        if (!bluetoothActivo) {
-          Alert.alert(
-            "Bluetooth desactivado",
-            "Activa el Bluetooth para conectar la impresora.",
-          );
-          return;
-        }
-
         setEscaneando(true);
         setImpresoras([]);
-        setTicketPendiente(ticketData); // guardar para imprimir cuando seleccionen impresora
+        setTicketPendiente(ticketData);
         setMostrarModalImpresoras(true);
 
         const dispositivosEncontrados = await escanearImpresoras();
         setImpresoras(dispositivosEncontrados);
       } catch (error) {
-        console.error("[TicketDescargaSection] Error escaneando:", error);
         Alert.alert("Error", "No se pudieron buscar impresoras.");
       } finally {
         setEscaneando(false);
@@ -212,11 +215,6 @@ const TicketDescargaSection = ({
     async (dispositivo) => {
       try {
         setImprimiendo(true);
-        console.log(
-          "[TicketDescargaSection] Conectando a:",
-          dispositivo.name,
-          dispositivo.address,
-        );
 
         const device = await conectarImpresora(dispositivo.address);
         const lineas = generarContenidoTicketDescarga(
@@ -225,14 +223,8 @@ const TicketDescargaSection = ({
           ticketPendiente,
         );
 
-        console.log(
-          "[TicketDescargaSection] Imprimiendo",
-          lineas.length,
-          "líneas",
-        );
         await imprimirTicket(device, lineas);
 
-        console.log("[TicketDescargaSection] Impresion exitosa");
         setMostrarModalImpresoras(false);
         setTicketPendiente(null);
         Alert.alert(
@@ -240,7 +232,6 @@ const TicketDescargaSection = ({
           `Ticket ${ticketPendiente.folio_ticket} impreso correctamente.`,
         );
       } catch (error) {
-        console.error("[TicketDescargaSection] Error al imprimir:", error);
         Alert.alert(
           "Error al imprimir",
           `El ticket fue registrado pero no se pudo imprimir.\n\n${error.message}`,
@@ -365,7 +356,7 @@ const TicketDescargaSection = ({
         loading={registrando}
       />
 
-      {/* Modal selector de impresora — igual que ImprimirTicketButton */}
+      {/* Modal selector de impresora */}
       {BLUETOOTH_ENABLED && (
         <Modal
           visible={mostrarModalImpresoras}
@@ -406,7 +397,7 @@ const TicketDescargaSection = ({
                     style={styles.btnReintentar}
                     onPress={() => {
                       setMostrarModalImpresoras(false);
-                      setTimeout(handleConfirmarBanco, 300);
+                      setTimeout(() => handleConfirmarBanco, 300);
                     }}
                   >
                     <MaterialCommunityIcons
@@ -467,7 +458,6 @@ const TicketDescargaSection = ({
 
 // ─── Generador de contenido para impresora térmica ────────────────────────────
 
-const SEPARADOR = "--------------------------------";
 const ALINEACION = { IZQUIERDA: "left", CENTRO: "center", DERECHA: "right" };
 
 const formatearFecha = (fecha) => {
@@ -488,9 +478,6 @@ const formatearHora = (fecha) => {
   });
 };
 
-/**
- * Genera las líneas ESC/POS para el ticket de descarga
- */
 const generarContenidoTicketDescarga = (vale, detalleRenta, ticketData) => {
   const empresa = vale.obras?.empresas?.empresa || "CONSTRUCCION";
   const cc = vale.obras?.cc || "";
@@ -508,15 +495,6 @@ const generarContenidoTicketDescarga = (vale, detalleRenta, ticketData) => {
   const qrUrl =
     vale.qr_verification_url ||
     `https://web-acarreos.vercel.app/vale/${vale.folio}`;
-
-  console.log("[generarContenidoTicketDescarga] Generando ticket:", {
-    folio_ticket: ticketData.folio_ticket,
-    banco: ticketData.banco_descarga,
-    empresa,
-    obra,
-    material,
-    placas,
-  });
 
   return [
     {

@@ -1,6 +1,6 @@
 // src/hooks/useAcarreosFilters.js
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 
 /**
  * Hook para gestionar filtros de la pantalla de Acarreos.
@@ -38,10 +38,20 @@ const FILTROS_INICIALES = {
   placas: null,
 };
 
-export const useAcarreosFilters = (persistedFilters = null) => {
+export const useAcarreosFilters = (
+  persistedFilters = null,
+  esChecador = false,
+) => {
   const [filters, setFilters] = useState(
     persistedFilters ?? { ...FILTROS_INICIALES },
   );
+
+  // Sincronizar soloHoy cuando esChecador cambia de false a true
+  useEffect(() => {
+    if (esChecador) {
+      setFilters((prev) => ({ ...prev, soloHoy: true }));
+    }
+  }, [esChecador]);
 
   // ─── Setter individual ─────────────────────────────────────────────────────
   // key: nombre del filtro, value: valor, label: texto para mostrar en chip
@@ -54,8 +64,8 @@ export const useAcarreosFilters = (persistedFilters = null) => {
   }, []);
 
   const clearFilters = useCallback(() => {
-    setFilters({ ...FILTROS_INICIALES });
-  }, []);
+    setFilters({ ...FILTROS_INICIALES, soloHoy: esChecador ? true : false });
+  }, [esChecador]);
 
   // ─── Contador de filtros activos ───────────────────────────────────────────
   const activeCount = useMemo(() => {
@@ -85,12 +95,25 @@ export const useAcarreosFilters = (persistedFilters = null) => {
         // ── Filtro: solo hoy ────────────────────────────────────────────────
         if (filters.soloHoy) {
           const hoy = new Date();
-          const fechaVale = new Date(vale.fecha_creacion);
-          const esHoy =
-            fechaVale.getFullYear() === hoy.getFullYear() &&
-            fechaVale.getMonth() === hoy.getMonth() &&
-            fechaVale.getDate() === hoy.getDate();
-          if (!esHoy) return false;
+
+          const esMismodia = (fechaISO) => {
+            if (!fechaISO) return false;
+            const fecha = new Date(fechaISO);
+            return (
+              fecha.getFullYear() === hoy.getFullYear() &&
+              fecha.getMonth() === hoy.getMonth() &&
+              fecha.getDate() === hoy.getDate()
+            );
+          };
+
+          // Vales de renta: comparar contra hora_inicio del detalle
+          // Vales de material: comparar contra fecha_creacion (no tienen fecha futura)
+          const fechaReferencia =
+            vale.tipo_vale === "renta"
+              ? vale.vale_renta_detalle?.[0]?.hora_inicio
+              : vale.fecha_creacion;
+
+          if (!esMismodia(fechaReferencia)) return false;
         }
 
         // ── Filtro: obra ────────────────────────────────────────────────────

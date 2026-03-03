@@ -135,38 +135,24 @@ const AuthGuard = ({ children }) => {
       },
     ]);
   };
-
-  // 🆕 PRIORIDAD 1: Verificando versión (antes que todo)
-  if (checkingVersion) {
+  // PRIORIDAD 1: Auth o versión cargando (agrupar ambos loadings)
+  if (checkingVersion || loading) {
     return (
       <View style={styles.centerContainer}>
-        <MaterialCommunityIcons
-          name="shield-check"
-          size={60}
-          color={colors.primary}
-        />
-        <ActivityIndicator
-          size="large"
-          color={colors.primary}
-          style={{ marginTop: 20 }}
-        />
-        <Text style={styles.loadingText}>Verificando versión...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Cargando...</Text>
+        <Text style={styles.loadingSubtext}>Verificando credenciales</Text>
       </View>
     );
   }
 
-  // 🆕 PRIORIDAD 2: Versión obsoleta (bloquear acceso)
+  // PRIORIDAD 2: Versión obsoleta (bloquear acceso)
   if (versionInfo && versionInfo.needsUpdate) {
     return <UpdateRequiredScreen versionInfo={versionInfo} />;
   }
 
-  // Usuario no autenticado - mostrar Login
-  if (!isAuthenticated) {
-    return <LoginScreen />;
-  }
-
-  // Error de timeout - mostrar pantalla de error con opciones
-  if (timeoutDetected && loading) {
+  // PRIORIDAD 3: Timeout detectado
+  if (timeoutDetected) {
     return (
       <View style={styles.errorContainer}>
         <MaterialCommunityIcons
@@ -174,13 +160,10 @@ const AuthGuard = ({ children }) => {
           size={80}
           color={colors.warning}
         />
-
         <Text style={styles.errorTitle}>Tiempo de Espera Agotado</Text>
-
         <Text style={styles.errorMessage}>
           La aplicación está tardando más de lo esperado en cargar tus datos.
         </Text>
-
         <View style={styles.timeoutInfoBox}>
           <MaterialCommunityIcons
             name="information-outline"
@@ -192,8 +175,6 @@ const AuthGuard = ({ children }) => {
             Problemas con el servidor{"\n"}• Datos móviles limitados
           </Text>
         </View>
-
-        {/* Botones de acción */}
         <View style={styles.timeoutActions}>
           <TouchableOpacity
             style={styles.retryButton}
@@ -209,7 +190,6 @@ const AuthGuard = ({ children }) => {
               {isRetrying ? "Reintentando..." : "Reintentar"}
             </Text>
           </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.signOutButton}
             onPress={handleSignOut}
@@ -223,7 +203,6 @@ const AuthGuard = ({ children }) => {
             <Text style={styles.signOutButtonText}>Cerrar Sesión</Text>
           </TouchableOpacity>
         </View>
-
         <Text style={styles.helpText}>
           Si el problema persiste, intenta cerrar sesión y volver a iniciar
         </Text>
@@ -231,33 +210,12 @@ const AuthGuard = ({ children }) => {
     );
   }
 
-  // Loading inicial
-  if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Cargando...</Text>
-        <Text style={styles.loadingSubtext}>Verificando credenciales</Text>
-
-        {/* Botón discreto de "¿Problemas?" que aparece después de 8 segundos */}
-        {timeoutDetected && (
-          <TouchableOpacity
-            style={styles.troubleButton}
-            onPress={() => setTimeoutDetected(true)}
-          >
-            <MaterialCommunityIcons
-              name="help-circle-outline"
-              size={16}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.troubleText}>¿Problemas para cargar?</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
+  // PRIORIDAD 4: No autenticado
+  if (!isAuthenticated) {
+    return <LoginScreen />;
   }
 
-  // Usuario discontinuado por administrador
+  // PRIORIDAD 5: Usuario inactivo
   if (profileError?.code === "USUARIO_INACTIVO") {
     return (
       <View style={styles.errorContainer}>
@@ -296,7 +254,7 @@ const AuthGuard = ({ children }) => {
     );
   }
 
-  // Usuario autenticado pero sin perfil en la base de datos
+  // PRIORIDAD 6: Sin perfil en BD
   if (profileError) {
     return (
       <View style={styles.errorContainer}>
@@ -305,15 +263,12 @@ const AuthGuard = ({ children }) => {
           size={80}
           color={colors.danger}
         />
-
         <Text style={styles.errorTitle}>Perfil No Encontrado</Text>
-
         <Text style={styles.errorMessage}>
           {profileError.code === "NO_PROFILE"
             ? profileError.message
             : "No se pudo cargar tu perfil de usuario."}
         </Text>
-
         {user?.email && (
           <View style={styles.userInfoBox}>
             <Text style={styles.userInfoLabel}>Email de sesión:</Text>
@@ -322,12 +277,10 @@ const AuthGuard = ({ children }) => {
             <Text style={styles.userInfoValue}>{user.id}</Text>
           </View>
         )}
-
         <Text style={styles.errorHelp}>
           Contacta al administrador para que vincule tu usuario con un perfil de
           residente o administrador.
         </Text>
-
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
           <MaterialCommunityIcons
             name="logout"

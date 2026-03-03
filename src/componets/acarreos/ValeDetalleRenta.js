@@ -42,8 +42,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const { operadores, vehiculos } = useCatalogos(["operadores", "vehiculos"]);
 
   const detalleRenta = vale?.vale_renta_detalle?.[0];
-  const tieneDatosPendientes =
-    !valeLocal?.id_operador || !valeLocal?.id_vehiculo;
 
   const sindicatoId = detalleRenta?.id_sindicato;
 
@@ -72,6 +70,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const [datosPendientesGuardados, setDatosPendientesGuardados] =
     useState(false);
   const [valeLocal, setValeLocal] = useState(vale);
+  const tieneDatosPendientes =
+    !valeLocal?.id_operador || !valeLocal?.id_vehiculo;
 
   // --- Estados de datos pendientes ---
   const [selectedOperador, setSelectedOperador] = useState(null);
@@ -136,21 +136,22 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   }, [vale?.id_vale, vale?.id_operador, vale?.id_vehiculo]);
 
   // --- Inicialización al cambiar de vale ---
+  // Reset al abrir el modal con un vale diferente o al reabrirlo
   useEffect(() => {
-    if (!vale || (lastValeId.current === vale.id_vale && isInitialized.current))
-      return;
+    if (!vale) return;
 
-    lastValeId.current = vale.id_vale;
-    isInitialized.current = true;
-
-    if (detalleRenta) {
-      setHoraFin(null);
-      setNumeroViajes(1);
-      setEsRentaPorDia(false);
-      setEsRentaPorMedioDia(false);
-      setNotasAdicionales(detalleRenta.notas_adicionales || "");
-    }
-  }, [vale?.id_vale, detalleRenta]);
+    setValeLocal(vale);
+    setSelectedOperador(null);
+    setSelectedVehiculo(null);
+    setDatosPendientesGuardados(false);
+    setHoraFin(null);
+    setNumeroViajes(1);
+    setEsRentaPorDia(false);
+    setEsRentaPorMedioDia(false);
+    setNotasAdicionales(detalleRenta?.notas_adicionales || "");
+    isInitialized.current = false;
+    lastValeId.current = null;
+  }, [vale?.id_vale]);
 
   // --- Cleanup al desmontar ---
   useEffect(() => {
@@ -166,7 +167,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   useEffect(() => {
     if (!canComplete || !detalleRenta) return;
 
-    const errorDia = validateMismoDiaCreacion(vale?.fecha_creacion);
+    const errorDia = validateMismoDiaCreacion(detalleRenta?.hora_inicio);
     if (errorDia) {
       setMensajeBloqueo(errorDia);
       return;
