@@ -38,6 +38,7 @@ import CollapsibleSection from "../componets/common/CollapsibleSection";
 const AcarreosScreen = () => {
   const { userProfile } = useAuth();
   const route = useRoute();
+  const esChecador = userProfile?.roles?.role === "CHECADOR";
   //  Obtener obras asignadas (incluir loading)
   const { obras, loading: obrasLoading } = useObras(userProfile?.id_persona);
 
@@ -132,7 +133,7 @@ const AcarreosScreen = () => {
         return;
       }
 
-      const { data: valesData, error: valesError } = await supabase
+      let queryVales = supabase
         .from("vales")
         .select(
           `
@@ -196,6 +197,16 @@ const AcarreosScreen = () => {
         )
         .in("id_obra", obrasIds)
         .order("fecha_creacion", { ascending: false });
+
+      if (esChecador) {
+        queryVales = queryVales.not(
+          "estado",
+          "in",
+          '("verificado","conciliado")',
+        );
+      }
+
+      const { data: valesData, error: valesError } = await queryVales;
 
       if (valesError) throw valesError;
 
@@ -437,60 +448,64 @@ const AcarreosScreen = () => {
           </CollapsibleSection>
 
           {/* Material - Verificados */}
-          <CollapsibleSection
-            title="Verificados"
-            icon="check-decagram"
-            count={materialSeparado.verificados.length}
-            defaultCollapsed={true}
-            iconColor={colors.info}
-            badgeColor={colors.info}
-          >
-            <FlatList
-              data={materialSeparado.verificados}
-              renderItem={renderValeItem}
-              keyExtractor={(item) => item.id_vale.toString()}
-              ListEmptyComponent={() => (
-                <EmptyState
-                  icon="package-variant-closed"
-                  text={
-                    searchQuery
-                      ? "No se encontraron vales verificados"
-                      : "No hay vales de material verificados"
-                  }
-                />
-              )}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          </CollapsibleSection>
+          {!esChecador && (
+            <CollapsibleSection
+              title="Verificados"
+              icon="check-decagram"
+              count={materialSeparado.verificados.length}
+              defaultCollapsed={true}
+              iconColor={colors.info}
+              badgeColor={colors.info}
+            >
+              <FlatList
+                data={materialSeparado.verificados}
+                renderItem={renderValeItem}
+                keyExtractor={(item) => item.id_vale.toString()}
+                ListEmptyComponent={() => (
+                  <EmptyState
+                    icon="package-variant-closed"
+                    text={
+                      searchQuery
+                        ? "No se encontraron vales verificados"
+                        : "No hay vales de material verificados"
+                    }
+                  />
+                )}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+              />
+            </CollapsibleSection>
+          )}
 
           {/* Material - Conciliados */}
-          <CollapsibleSection
-            title="Conciliados"
-            icon="currency-usd"
-            count={materialSeparado.conciliados.length}
-            defaultCollapsed={true}
-            iconColor={colors.success}
-            badgeColor={colors.success}
-          >
-            <FlatList
-              data={materialSeparado.conciliados}
-              renderItem={renderValeItem}
-              keyExtractor={(item) => item.id_vale.toString()}
-              ListEmptyComponent={() => (
-                <EmptyState
-                  icon="package-variant-closed"
-                  text={
-                    searchQuery
-                      ? "No se encontraron vales conciliados"
-                      : "No hay vales de material conciliados"
-                  }
-                />
-              )}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          </CollapsibleSection>
+          {!esChecador && (
+            <CollapsibleSection
+              title="Conciliados"
+              icon="currency-usd"
+              count={materialSeparado.conciliados.length}
+              defaultCollapsed={true}
+              iconColor={colors.success}
+              badgeColor={colors.success}
+            >
+              <FlatList
+                data={materialSeparado.conciliados}
+                renderItem={renderValeItem}
+                keyExtractor={(item) => item.id_vale.toString()}
+                ListEmptyComponent={() => (
+                  <EmptyState
+                    icon="package-variant-closed"
+                    text={
+                      searchQuery
+                        ? "No se encontraron vales conciliados"
+                        : "No hay vales de material conciliados"
+                    }
+                  />
+                )}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+              />
+            </CollapsibleSection>
+          )}
         </View>
 
         {/* ========== SECCIÓN RENTA ========== */}
