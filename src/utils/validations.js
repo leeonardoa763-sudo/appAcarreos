@@ -151,8 +151,9 @@ export const validateHoraInicioNoFutura = (hora) => {
   if (!hora) return "La hora de inicio es requerida";
 
   const ahora = new Date();
+  console.log("[ValidarHora] hora recibida:", hora.toISOString());
+  console.log("[ValidarHora] ahora:", ahora.toISOString());
 
-  // Comparar solo fechas (sin hora)
   const fechaHora = new Date(
     hora.getFullYear(),
     hora.getMonth(),
@@ -164,24 +165,28 @@ export const validateHoraInicioNoFutura = (hora) => {
     ahora.getDate(),
   );
   const diffDias = Math.round((fechaHora - fechaHoy) / (1000 * 60 * 60 * 24));
+  console.log("[ValidarHora] diffDias:", diffDias);
 
-  // Fecha pasada: siempre inválido
-  if (diffDias < 0) {
-    return "No puedes crear vales con fecha pasada";
-  }
+  if (diffDias < 0) return "No puedes crear vales con fecha pasada";
+  if (diffDias > 0) return null;
 
-  // Fecha futura (mañana o después): válido, cualquier hora
-  if (diffDias > 0) {
-    return null;
-  }
-
-  // Fecha de hoy: aplicar tolerancia de minutos
   const minutosHora = hora.getHours() * 60 + hora.getMinutes();
   const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
-  const limiteMaximo = minutosAhora + TOLERANCIA_MINUTOS;
+  console.log(
+    "[ValidarHora] minutosHora:",
+    minutosHora,
+    "| minutosAhora:",
+    minutosAhora,
+  );
+  console.log(
+    "[ValidarHora] limiteMax:",
+    minutosAhora + 10,
+    "| limiteMín:",
+    minutosAhora - 10,
+  );
 
-  if (minutosHora > limiteMaximo) {
-    return "La hora de inicio no puede ser futura";
+  if (minutosHora < minutosAhora - TOLERANCIA_MINUTOS) {
+    return "La hora de inicio no puede ser más de 10 minutos en el pasado";
   }
 
   return null;

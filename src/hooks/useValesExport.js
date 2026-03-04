@@ -22,6 +22,7 @@ import {
   fetchWeeksWithVales as fetchWeeksQuery,
   fetchValesMaterial,
   fetchValesRenta,
+  fetchTicketsDescarga,
 } from "./exportHelpers/valesQueries";
 
 // Transformación CSV
@@ -31,6 +32,8 @@ import {
   transformRentaData,
   MATERIAL_HEADERS,
   RENTA_HEADERS,
+  transformTicketsData,
+  TICKETS_HEADERS,
 } from "./exportHelpers/csvConverter";
 
 // File System
@@ -246,11 +249,74 @@ export const useValesExport = (obrasAsignadas = []) => {
     }
   };
 
+  /**
+   * Exporta tickets de descarga a CSV
+   * Filtra por semana del vale asociado
+   */
+  const exportTicketsCSV = async (weekNumber, year) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const obrasIds = getObrasIds();
+
+      if (obrasIds.length === 0) {
+        Alert.alert("Sin Obras", "No tienes obras asignadas para exportar.", [
+          { text: "OK" },
+        ]);
+        setLoading(false);
+        return false;
+      }
+
+      const tickets = await fetchTicketsDescarga(weekNumber, year, obrasIds);
+
+      if (!tickets || tickets.length === 0) {
+        Alert.alert(
+          "Sin Datos",
+          `No se encontraron tickets de descarga para la Semana ${weekNumber} del ${year}`,
+          [{ text: "OK" }],
+        );
+        setLoading(false);
+        return false;
+      }
+
+      const transformedData = transformTicketsData(tickets);
+      const csvContent = convertToCSV(transformedData, TICKETS_HEADERS);
+      const filename = `tickets_descarga_semana${weekNumber}_${year}.csv`;
+      await saveAndShareCSV(csvContent, filename);
+
+      const obrasNombres = obrasAsignadas.map((o) => o.nombre).join(", ");
+      const mensajeObras =
+        obrasAsignadas.length > 1
+          ? `de ${obrasAsignadas.length} obras (${obrasNombres})`
+          : `de ${obrasNombres}`;
+
+      Alert.alert(
+        "Exportación Exitosa",
+        `Se exportaron ${tickets.length} tickets de descarga ${mensajeObras}`,
+        [{ text: "OK" }],
+      );
+
+      setLoading(false);
+      return true;
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+      Alert.alert(
+        "Error",
+        `No se pudo exportar los tickets de descarga.\n\nDetalle: ${err.message}`,
+        [{ text: "OK" }],
+      );
+      return false;
+    }
+  };
+
   return {
     loading,
     error,
     fetchWeeksWithVales,
     exportMaterialCSV,
     exportRentaCSV,
+    exportTicketsCSV,
   };
 };

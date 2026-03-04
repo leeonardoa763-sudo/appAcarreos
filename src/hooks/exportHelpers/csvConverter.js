@@ -214,3 +214,53 @@ export const RENTA_HEADERS = [
   { key: "notas", label: "Notas" },
   { key: "link_qr", label: "Link QR" },
 ];
+
+/**
+ * Headers para exportación de tickets de descarga
+ */
+export const TICKETS_HEADERS = [
+  { key: "folio_ticket", label: "Folio Ticket" },
+  { key: "numero_ticket", label: "Numero Ticket" },
+  { key: "banco_descarga", label: "Banco de Descarga" },
+  { key: "fecha_impresion", label: "Fecha Impresion" },
+  { key: "folio_vale", label: "Folio Vale" },
+  { key: "fecha_vale", label: "Fecha Vale" },
+  { key: "semana", label: "Semana" },
+  { key: "estado_vale", label: "Estado Vale" },
+  { key: "obra", label: "Obra" },
+  { key: "material", label: "Material" },
+  { key: "operador", label: "Operador" },
+  { key: "placas", label: "Placas" },
+  { key: "residente", label: "Residente" },
+  { key: "registrado_por", label: "Registrado Por" },
+];
+
+/**
+ * Transforma datos de tickets de descarga a formato CSV
+ */
+export const transformTicketsData = (tickets) => {
+  return tickets.map((ticket) => {
+    const vale = ticket.vales || {};
+    const detalle = vale.vale_renta_detalle?.[0] || {};
+    const weekNum = vale.fecha_creacion
+      ? getWeekNumber(new Date(vale.fecha_creacion))
+      : "-";
+
+    return {
+      folio_ticket: ticket.folio_ticket || "-",
+      numero_ticket: ticket.numero_ticket || "-",
+      banco_descarga: ticket.banco_descarga || "-",
+      fecha_impresion: formatFechaHoraCompleta(ticket.fecha_impresion),
+      folio_vale: vale.folio || "-",
+      fecha_vale: formatDateOnly(vale.fecha_creacion),
+      semana: weekNum !== "-" ? `Semana ${weekNum}` : "-",
+      estado_vale: vale.estado || "-",
+      obra: vale.obras?.obra || "-",
+      material: detalle.material?.material || "-",
+      operador: getNombreCompleto(vale.operadores),
+      placas: vale.vehiculos?.placas || "-",
+      residente: getNombreCompleto(vale.persona),
+      registrado_por: getNombreCompleto(ticket.persona_registro),
+    };
+  });
+};

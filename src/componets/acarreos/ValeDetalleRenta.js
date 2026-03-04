@@ -122,7 +122,11 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     puedeRegistrar,
     totalViajes,
     registrarViaje,
-  } = useViajesRenta(detalleRenta?.id_vale_renta_detalle, vale?.id_obra);
+  } = useViajesRenta(
+    detalleRenta?.id_vale_renta_detalle,
+    vale?.id_obra,
+    detalleRenta?.hora_inicio,
+  );
 
   // Sincronizar valeLocal cuando se abre un vale diferente
 
@@ -265,6 +269,13 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       Alert.alert(
         "Datos incompletos",
         "Debes asignar operador y vehículo antes de completar",
+      );
+      return;
+    }
+    if (totalViajes === 0) {
+      Alert.alert(
+        "Sin viajes registrados",
+        "Debes registrar al menos un viaje antes de completar el vale.",
       );
       return;
     }
