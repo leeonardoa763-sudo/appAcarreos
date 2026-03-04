@@ -8,4 +8,4 @@
  * - true: Bluetooth activo (build Android con impresora física)
  */
 
-export const BLUETOOTH_ENABLED = false;
+export const BLUETOOTH_ENABLED = true;
