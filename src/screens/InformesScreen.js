@@ -47,8 +47,13 @@ import PrimaryButton from "../componets/common/PrimaryButton";
 const InformesScreen = () => {
   const { userProfile } = useAuth();
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
-  const { loading, fetchWeeksWithVales, exportMaterialCSV, exportRentaCSV } =
-    useValesExport(obras);
+  const {
+    loading,
+    fetchWeeksWithVales,
+    exportMaterialCSV,
+    exportRentaCSV,
+    exportTicketsCSV,
+  } = useValesExport(obras);
 
   // Estados
   const [selectedWeek, setSelectedWeek] = useState(null);
@@ -153,6 +158,9 @@ const InformesScreen = () => {
       const successRenta = await exportRentaCSV(selectedWeek, selectedYear);
       if (successMaterial) successCount++;
       if (successRenta) successCount++;
+    } else if (exportType === "tickets") {
+      const success = await exportTicketsCSV(selectedWeek, selectedYear);
+      if (success) successCount++;
     }
   };
 
@@ -266,6 +274,15 @@ const InformesScreen = () => {
                 iconColor={colors.secondary}
                 selected={exportType === "renta"}
                 onSelect={() => setExportType("renta")}
+                disabled={loading || !selectedWeek}
+              />
+              <ExportRadioButton
+                label="Tickets de Descarga"
+                description="Exportar tickets de descarga vinculados a vales de renta"
+                icon="ticket-confirmation"
+                iconColor={colors.accent}
+                selected={exportType === "tickets"}
+                onSelect={() => setExportType("tickets")}
                 disabled={loading || !selectedWeek}
               />
 

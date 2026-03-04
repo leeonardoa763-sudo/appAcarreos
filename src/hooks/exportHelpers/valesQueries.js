@@ -135,6 +135,7 @@ export const fetchValesRenta = async (weekNumber, year, obrasIds) => {
       id_vale,
       folio,
       fecha_creacion,
+      fecha_completado,
       tipo_vale,
       estado,
       obras!vales_id_obra_fkey(obra),
@@ -164,4 +165,57 @@ export const fetchValesRenta = async (weekNumber, year, obrasIds) => {
 
   if (error) throw error;
   return data;
+};
+
+/**
+ * Obtiene tickets de descarga vinculados a vales de una semana específica
+ * Parte desde vales para poder filtrar correctamente por fecha_creacion
+ */
+export const fetchTicketsDescarga = async (weekNumber, year, obrasIds) => {
+  const { startDate, endDate } = getWeekDateRange(weekNumber, year);
+
+  const { data, error } = await supabase
+    .from("vales")
+    .select(
+      `
+      id_vale,
+      folio,
+      fecha_creacion,
+      estado,
+      id_obra,
+      obras!vales_id_obra_fkey(obra),
+      persona!vales_id_persona_creador_fkey(nombre, primer_apellido, segundo_apellido),
+      operadores!vales_id_operador_fkey(nombre, primer_apellido, segundo_apellido),
+      vehiculos!vales_id_vehiculo_fkey(placas),
+      vale_renta_detalle(
+        material!vale_renta_detalle_id_material_fkey(material)
+      ),
+      tickets_descarga(
+        id_ticket,
+        folio_ticket,
+        numero_ticket,
+        banco_descarga,
+        fecha_impresion,
+        persona_registro:id_persona_registro(nombre, primer_apellido, segundo_apellido)
+      )
+    `,
+    )
+    .eq("tipo_vale", "renta")
+    .in("id_obra", obrasIds)
+    .gte("fecha_creacion", startDate.toISOString())
+    .lte("fecha_creacion", endDate.toISOString())
+    .not("tickets_descarga", "is", null);
+
+  if (error) throw error;
+
+  // Aplanar: un registro por ticket (un vale puede tener varios tickets)
+  const resultado = [];
+  (data || []).forEach((vale) => {
+    if (!vale.tickets_descarga || vale.tickets_descarga.length === 0) return;
+    vale.tickets_descarga.forEach((ticket) => {
+      resultado.push({ ...ticket, vales: vale });
+    });
+  });
+
+  return resultado;
 };
