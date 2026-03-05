@@ -88,11 +88,17 @@ export const isVersionValid = (currentVersion, requiredVersion) => {
  */
 export const getVersionConfig = async () => {
   try {
-    const { data, error } = await supabase
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("TIMEOUT")), 5000),
+    );
+
+    const queryPromise = supabase
       .from("app_config")
       .select("*")
       .eq("activo", true)
       .single();
+
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
     if (error) {
       console.error("[versionChecker] Error obteniendo configuración:", error);
@@ -101,7 +107,13 @@ export const getVersionConfig = async () => {
 
     return data;
   } catch (error) {
-    console.error("[versionChecker] Error en getVersionConfig:", error);
+    if (error.message === "TIMEOUT") {
+      console.warn(
+        "[versionChecker] ⏱️ Timeout al obtener config, permitiendo acceso",
+      );
+    } else {
+      console.error("[versionChecker] Error en getVersionConfig:", error);
+    }
     return null;
   }
 };

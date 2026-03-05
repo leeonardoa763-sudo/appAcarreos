@@ -345,32 +345,12 @@ export const generateAndShareMaterialRecibo = async (
       qrDataUrl,
     );
 
-    // Calcular altura dinámica basada en contenido
-    const detalle = valeData.vale_material_detalles?.[0] || {};
-    const tieneNotas = detalle.notas_adicionales?.trim();
-    const tienePrecio = detalle.precio_m3 && detalle.costo_total;
-    const esCopiaBlanca = colorCopia.toLowerCase() === "blanca";
-    const esTipo3 = detalle.material?.id_tipo_de_material === 3;
-
-    // Altura base reducida: ~240px (64mm)
-    let alturaCalculada = 325;
-
-    // + 20px si tiene notas
-    if (tieneNotas) alturaCalculada += 30;
-
-    // + 40px si tiene precios y tarifas
-    if (tienePrecio) alturaCalculada += 5;
-
-    // + 20px si es copia blanca con datos adicionales
-    if (esCopiaBlanca && !esTipo3) alturaCalculada += 28;
-
     const { uri } = await Print.printToFileAsync({
       html,
       base64: false,
-      width: 189, // 50mm @ 96dpi
-      height: alturaCalculada, // Altura calculada dinámicamente
+      width: 189,
+      height: 1134, // 300mm @ 96dpi — una sola página garantizada
     });
-
     const renamedUri = await renamePDFWithAutoName(
       uri,
       valeData.folio,
