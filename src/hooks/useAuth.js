@@ -47,6 +47,13 @@ export const useAuth = () => {
           error,
         } = await supabase.auth.getSession();
 
+        console.log(
+          "[useAuth] 📡 getSession resultado - session:",
+          session ? "existe" : "null",
+          "| error:",
+          error?.message ?? null,
+        );
+
         if (error) {
           console.error("[useAuth] Error obteniendo sesión:", error);
           if (isMounted.current) {
@@ -66,6 +73,10 @@ export const useAuth = () => {
 
         if (isMounted.current) {
           setLoading(false);
+          console.log(
+            "[useAuth] 🏁 initializeAuth terminando - user:",
+            session?.user?.id ?? "null",
+          );
         }
       } catch (error) {
         console.error("[useAuth] Error en initializeAuth:", error);
@@ -81,7 +92,12 @@ export const useAuth = () => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted.current) return;
-
+      console.log(
+        "[useAuth] 🔔 onAuthStateChange - event:",
+        event,
+        "| session:",
+        session ? "existe" : "null",
+      );
       if (event === "SIGNED_OUT") {
         if (isMounted.current) {
           setUser(null);

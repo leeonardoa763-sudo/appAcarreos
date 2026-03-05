@@ -291,34 +291,30 @@ export const generateAndShareRentaRecibo = async (
   qrDataUrl,
 ) => {
   try {
-    console.log("[pdfRentaGeneratorRecibo] Generando PDF recibo:", {
-      folio: valeData.folio,
-      colorCopia,
-    });
-
     const html = generateValeRentaReciboHTML(valeData, colorCopia, qrDataUrl);
 
-    // Calcular altura dinámica basada en contenido
-    const detalle = valeData.vale_renta_detalle?.[0] || {};
-    const tieneNotas = detalle.notas_adicionales?.trim();
-    const esRentaPorDia = detalle.es_renta_por_dia === true;
-
-    // Altura base reducida: ~260px (69mm)
-    let alturaCalculada = 340;
-
-    // + 20px si tiene notas
-    if (tieneNotas) alturaCalculada += 30;
-
-    // + 15px si es renta por día (tiene más info)
-    if (esRentaPorDia) alturaCalculada += 5;
+    // LOG TEMPORAL - medir altura real del contenido
+    console.log("[pdfRentaGeneratorRecibo] HTML length:", html.length);
+    console.log(
+      "[pdfRentaGeneratorRecibo] Tiene notas:",
+      !!valeData.vale_renta_detalle?.[0]?.notas_adicionales?.trim(),
+    );
+    console.log(
+      "[pdfRentaGeneratorRecibo] Es renta por día:",
+      valeData.vale_renta_detalle?.[0]?.es_renta_por_dia,
+    );
+    console.log(
+      "[pdfRentaGeneratorRecibo] Computador presente:",
+      !!valeData.persona_completador,
+    );
 
     const { uri } = await Print.printToFileAsync({
       html,
       base64: false,
-      width: 189, // 50mm @ 96dpi
-      height: alturaCalculada, // Altura calculada dinámicamente
+      width: 189,
     });
 
+    console.log("[pdfRentaGeneratorRecibo] URI generado:", uri);
     const renamedUri = await renamePDFWithAutoName(
       uri,
       valeData.folio,

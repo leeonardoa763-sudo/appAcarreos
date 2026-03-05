@@ -1,6 +1,6 @@
 // src/screens/EstadisticasScreen.js
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -51,10 +51,17 @@ const EstadisticasScreen = () => {
 
   const residenteId = userProfile?.id_persona ?? null;
 
+  // Preseleccionar primera obra cuando cargan
+  useEffect(() => {
+    if (obras.length > 0 && obraId === null) {
+      setObraId(obras[0].id);
+    }
+  }, [obras]);
+
   // Nombre de la obra seleccionada para mostrar en el boton
   const obraSeleccionadaLabel = obraId
     ? (obras.find((o) => o.id === obraId)?.nombre ?? "Obra")
-    : "Todas las obras";
+    : "Cargando...";
 
   // Cuenta si hay filtro de obra activo (para badge)
   const hayFiltroObra = obraId !== null;
@@ -134,18 +141,6 @@ const EstadisticasScreen = () => {
             >
               {obraSeleccionadaLabel}
             </Text>
-            {hayFiltroObra && (
-              <TouchableOpacity
-                onPress={() => handleSeleccionarObra(null)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <MaterialCommunityIcons
-                  name="close-circle"
-                  size={14}
-                  color={colors.surface}
-                />
-              </TouchableOpacity>
-            )}
           </TouchableOpacity>
         </ScrollView>
 
@@ -253,39 +248,6 @@ const ModalObras = ({
           </View>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Opcion: Todas las obras */}
-            <TouchableOpacity
-              style={[
-                styles.obraItem,
-                obraIdActual === null && styles.obraItemActivo,
-              ]}
-              onPress={() => onSeleccionar(null)}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={
-                  obraIdActual === null ? "radiobox-marked" : "radiobox-blank"
-                }
-                size={22}
-                color={
-                  obraIdActual === null ? colors.primary : colors.textSecondary
-                }
-              />
-              <View style={styles.obraItemTextos}>
-                <Text
-                  style={[
-                    styles.obraItemNombre,
-                    obraIdActual === null && styles.obraItemNombreActivo,
-                  ]}
-                >
-                  Todas las obras
-                </Text>
-                <Text style={styles.obraItemDetalle}>
-                  Ver consolidado de todas tus obras
-                </Text>
-              </View>
-            </TouchableOpacity>
-
             {/* Lista de obras */}
             {obras.map((obra) => (
               <TouchableOpacity

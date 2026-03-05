@@ -10,22 +10,22 @@ import { supabase } from "../config/supabase";
  *
  * 1. tendenciaSemanal (fija)
  *    - Siempre la semana ISO en curso (lunes a domingo)
- *    - No afectada por periodo ni obraId
  *    - Eje X: dias (Lun-Dom), Eje Y: viajes
- *    - Filtro interno por sindicato
+ *    - Una linea por material
+ *    - Filtro interno por material
  *
  * 2. tendenciaPeriodo (filtrable)
  *    - Afectada por periodo y obraId
  *    - Eje X: semanas ISO, Eje Y: viajes
- *    - Una linea por sindicato
- *    - Filtro interno por sindicato
+ *    - Una linea por material
+ *    - Filtro interno por material
  *
  * Retorna:
- * - semanal: { labels, datasets, sindicatos, loading, error }
- * - periodo: { labels, datasets, sindicatos, loading, error }
- * - sindicatosDisponibles: [{ id, nombre }]
- * - sindicatoIdFiltroSemanal / setSindicatoIdFiltroSemanal
- * - sindicatoIdFiltroPeriodo / setSindicatoIdFiltroPeriodo
+ * - semanal: { labels, datasets, materiales, loading, error }
+ * - periodo: { labels, datasets, materiales, loading, error }
+ * - materialesDisponibles: [{ id, nombre }]
+ * - materialIdFiltroSemanal / setMaterialIdFiltroSemanal
+ * - materialIdFiltroPeriodo / setMaterialIdFiltroPeriodo
  * - refetchSemanal / refetchPeriodo
  */
 export const useEstadisticasRentaTendencia = (
@@ -39,10 +39,8 @@ export const useEstadisticasRentaTendencia = (
   const [loadingPeriodo, setLoadingPeriodo] = useState(true);
   const [errorSemanal, setErrorSemanal] = useState(null);
   const [errorPeriodo, setErrorPeriodo] = useState(null);
-  const [sindicatoIdFiltroSemanal, setSindicatoIdFiltroSemanal] =
-    useState(null);
-  const [sindicatoIdFiltroPeriodo, setSindicatoIdFiltroPeriodo] =
-    useState(null);
+  const [materialIdFiltroSemanal, setMaterialIdFiltroSemanal] = useState(null);
+  const [materialIdFiltroPeriodo, setMaterialIdFiltroPeriodo] = useState(null);
 
   // ─── Helpers de fechas ─────────────────────────────────────────────────────
 
@@ -160,9 +158,10 @@ export const useEstadisticasRentaTendencia = (
           fecha_creacion,
           id_obra,
           vale_renta_detalle (
-            sindicatos!vale_renta_detalle_id_sindicato_fkey (
-              id_sindicato,
-              sindicato
+            numero_viajes,
+            material!vale_renta_detalle_id_material_fkey (
+              id_material,
+              material
             )
           )
         `,
@@ -172,8 +171,6 @@ export const useEstadisticasRentaTendencia = (
         .gte("fecha_creacion", fechaInicio)
         .lte("fecha_creacion", fechaFin);
 
-      // Grafica 1: siempre por residente, no afectada por obraId
-      // Grafica 2: respeta obraId
       if (filtrarPorObra && obraId) {
         query = query.eq("id_obra", obraId);
       } else if (residenteId) {
@@ -206,10 +203,8 @@ export const useEstadisticasRentaTendencia = (
       const data = await fetchVales(
         lunes.toISOString(),
         domingo.toISOString(),
-        false,
+        true,
       );
-
-      console.log("[Tendencia Renta Semanal] Vales encontrados:", data.length);
 
       setValesSemanal(data);
     } catch (err) {
@@ -218,7 +213,7 @@ export const useEstadisticasRentaTendencia = (
     } finally {
       setLoadingSemanal(false);
     }
-  }, [residenteId, fetchVales]);
+  }, [residenteId, obraId, fetchVales]);
 
   // ─── Fetch grafica 2: periodo filtrable ────────────────────────────────────
 
@@ -262,58 +257,61 @@ export const useEstadisticasRentaTendencia = (
     "#FDCB6E",
   ];
 
-  const getSindicato = (vale) =>
-    vale.vale_renta_detalle?.[0]?.sindicatos ?? null;
+  const getMaterial = (vale) => vale.vale_renta_detalle?.[0]?.material ?? null;
+
+  const getViajes = (vale) =>
+    Number(vale.vale_renta_detalle?.[0]?.numero_viajes || 1);
 
   /**
-   * Convierte vales en datasets para LineChart agrupados por sindicato
+   * Convierte vales en datasets para LineChart agrupados por material.
+   * Eje Y: numero de viajes (numero_viajes del detalle).
    *
    * @param {Array} vales
    * @param {"dia" | "semana"} agrupacion
-   * @param {number|null} filtroSindicatoId
+   * @param {number|null} filtroMaterialId
    */
   const procesarVales = useCallback(
-    (vales, agrupacion, filtroSindicatoId = null) => {
+    (vales, agrupacion, filtroMaterialId = null) => {
       if (vales.length === 0) {
-        return { labels: [], datasets: [], sindicatos: [] };
+        return { labels: [], datasets: [], materiales: [] };
       }
 
-      // Obtener sindicatos distintos en los vales
-      const mapaSindicatos = {};
+      // Obtener materiales distintos en los vales
+      const mapaMateriales = {};
       vales.forEach((vale) => {
-        const sind = getSindicato(vale);
-        if (sind && !mapaSindicatos[sind.id_sindicato]) {
-          mapaSindicatos[sind.id_sindicato] = sind.sindicato;
+        const mat = getMaterial(vale);
+        if (mat && !mapaMateriales[mat.id_material]) {
+          mapaMateriales[mat.id_material] = mat.material;
         }
       });
 
-      let sindicatosLista = Object.entries(mapaSindicatos).map(
+      let materialesLista = Object.entries(mapaMateriales).map(
         ([id, nombre]) => ({
           id: Number(id),
           nombre,
         }),
       );
 
-      // Aplicar filtro de sindicato si existe
-      if (filtroSindicatoId !== null) {
-        sindicatosLista = sindicatosLista.filter(
-          (s) => s.id === filtroSindicatoId,
+      // Aplicar filtro de material si existe
+      if (filtroMaterialId !== null) {
+        materialesLista = materialesLista.filter(
+          (m) => m.id === filtroMaterialId,
         );
       }
 
       if (agrupacion === "dia") {
         const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-        const datasets = sindicatosLista.map((sind, idx) => {
+        const datasets = materialesLista.map((mat, idx) => {
           const valores = Array(7).fill(0);
 
           vales.forEach((vale) => {
-            const sind2 = getSindicato(vale);
-            if (!sind2 || sind2.id_sindicato !== sind.id) return;
+            const mat2 = getMaterial(vale);
+            if (!mat2 || mat2.id_material !== mat.id) return;
 
             const fecha = new Date(vale.fecha_creacion);
             const diaIdx = (fecha.getDay() + 6) % 7;
-            valores[diaIdx] += 1;
+            valores[diaIdx] += getViajes(vale);
           });
 
           return {
@@ -329,11 +327,10 @@ export const useEstadisticasRentaTendencia = (
           };
         });
 
-        return { labels: DIAS, datasets, sindicatos: sindicatosLista };
+        return { labels: DIAS, datasets, materiales: materialesLista };
       }
 
       if (agrupacion === "semana") {
-        // Semanas ISO unicas ordenadas
         const semanasSet = new Set();
         vales.forEach((vale) => {
           semanasSet.add(getISOWeek(vale.fecha_creacion));
@@ -341,17 +338,17 @@ export const useEstadisticasRentaTendencia = (
         const semanas = Array.from(semanasSet).sort((a, b) => a - b);
         const labels = semanas.map((s) => String(s));
 
-        console.log("[Tendencia Renta Periodo] Semanas ISO:", semanas);
-
-        const datasets = sindicatosLista.map((sind, idx) => {
+        const datasets = materialesLista.map((mat, idx) => {
           const valores = semanas.map((semana) => {
-            return vales.filter((vale) => {
-              const sind2 = getSindicato(vale);
-              return (
-                sind2?.id_sindicato === sind.id &&
-                getISOWeek(vale.fecha_creacion) === semana
-              );
-            }).length;
+            return vales
+              .filter((vale) => {
+                const mat2 = getMaterial(vale);
+                return (
+                  mat2?.id_material === mat.id &&
+                  getISOWeek(vale.fecha_creacion) === semana
+                );
+              })
+              .reduce((acc, vale) => acc + getViajes(vale), 0);
           });
 
           return {
@@ -367,10 +364,10 @@ export const useEstadisticasRentaTendencia = (
           };
         });
 
-        return { labels, datasets, sindicatos: sindicatosLista };
+        return { labels, datasets, materiales: materialesLista };
       }
 
-      return { labels: [], datasets: [], sindicatos: [] };
+      return { labels: [], datasets: [], materiales: [] };
     },
     [],
   );
@@ -378,32 +375,20 @@ export const useEstadisticasRentaTendencia = (
   // ─── Datos procesados ──────────────────────────────────────────────────────
 
   const datosSemanal = useMemo(() => {
-    const resultado = procesarVales(
-      valesSemanal,
-      "dia",
-      sindicatoIdFiltroSemanal,
-    );
-
-    return resultado;
-  }, [valesSemanal, sindicatoIdFiltroSemanal, procesarVales]);
+    return procesarVales(valesSemanal, "dia", materialIdFiltroSemanal);
+  }, [valesSemanal, materialIdFiltroSemanal, procesarVales]);
 
   const datosPeriodo = useMemo(() => {
-    const resultado = procesarVales(
-      valesPeriodo,
-      "semana",
-      sindicatoIdFiltroPeriodo,
-    );
+    return procesarVales(valesPeriodo, "semana", materialIdFiltroPeriodo);
+  }, [valesPeriodo, materialIdFiltroPeriodo, procesarVales]);
 
-    return resultado;
-  }, [valesPeriodo, sindicatoIdFiltroPeriodo, procesarVales]);
+  // ─── Materiales disponibles para el selector ──────────────────────────────
 
-  // ─── Sindicatos disponibles para el selector ───────────────────────────────
-
-  const sindicatosDisponibles = useMemo(() => {
+  const materialesDisponibles = useMemo(() => {
     const mapa = {};
     valesPeriodo.forEach((vale) => {
-      const sind = getSindicato(vale);
-      if (sind) mapa[sind.id_sindicato] = sind.sindicato;
+      const mat = getMaterial(vale);
+      if (mat) mapa[mat.id_material] = mat.material;
     });
     return Object.entries(mapa).map(([id, nombre]) => ({
       id: Number(id),
@@ -424,11 +409,11 @@ export const useEstadisticasRentaTendencia = (
       loading: loadingPeriodo,
       error: errorPeriodo,
     },
-    sindicatosDisponibles,
-    sindicatoIdFiltroSemanal,
-    setSindicatoIdFiltroSemanal,
-    sindicatoIdFiltroPeriodo,
-    setSindicatoIdFiltroPeriodo,
+    materialesDisponibles,
+    materialIdFiltroSemanal,
+    setMaterialIdFiltroSemanal,
+    materialIdFiltroPeriodo,
+    setMaterialIdFiltroPeriodo,
     refetchSemanal: fetchSemanal,
     refetchPeriodo: fetchPeriodo,
   };

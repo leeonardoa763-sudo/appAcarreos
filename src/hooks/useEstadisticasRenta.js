@@ -140,6 +140,8 @@ export const useEstadisticasRenta = (
             total_dias,
             es_renta_por_dia,
             costo_total,
+            capacidad_m3,
+            numero_viajes,
             material!vale_renta_detalle_id_material_fkey (
               id_material,
               material
@@ -262,6 +264,35 @@ export const useEstadisticasRenta = (
     return lista;
   }, [vales]);
 
+  // ─── Materiales movidos (capacidad x viajes) ──────────────────────────────
+
+  const materialesMovidos = useMemo(() => {
+    const mapa = {};
+
+    vales.forEach((vale) => {
+      const detalle = vale.vale_renta_detalle?.[0];
+      if (!detalle) return;
+
+      const nombreMaterial = detalle.material?.material;
+      if (!nombreMaterial) return;
+
+      const capacidad = Number(detalle.capacidad_m3 || 0);
+      const viajes = Number(detalle.numero_viajes || 1);
+      const m3 = capacidad * viajes;
+
+      if (!mapa[nombreMaterial]) {
+        mapa[nombreMaterial] = {
+          nombre: nombreMaterial,
+          m3Total: 0,
+          viajes: 0,
+        };
+      }
+      mapa[nombreMaterial].m3Total += m3;
+      mapa[nombreMaterial].viajes += viajes;
+    });
+
+    return Object.values(mapa).sort((a, b) => b.m3Total - a.m3Total);
+  }, [vales]);
   // ─── Top operadores ────────────────────────────────────────────────────────
 
   const topOperadores = useMemo(() => {
@@ -299,11 +330,32 @@ export const useEstadisticasRenta = (
     ];
 
     // Pie chart: distribucion de vales por sindicato
-    const pieData = sindicatosUsados.map((sindicato, index) => ({
-      name: sindicato.nombre,
-      value: sindicato.vales,
-      color: COLORES[index % COLORES.length],
-    }));
+    const mapaMateriales = {};
+
+    vales.forEach((vale) => {
+      const detalle = vale.vale_renta_detalle?.[0];
+      if (!detalle) return;
+
+      const nombreMaterial = detalle.material?.material;
+      if (!nombreMaterial) return;
+
+      const capacidad = Number(detalle.capacidad_m3 || 0);
+      const viajes = Number(detalle.numero_viajes || 1);
+      const m3 = capacidad * viajes;
+
+      if (!mapaMateriales[nombreMaterial]) {
+        mapaMateriales[nombreMaterial] = 0;
+      }
+      mapaMateriales[nombreMaterial] += m3;
+    });
+
+    const pieData = Object.entries(mapaMateriales)
+      .map(([nombre, m3Total], index) => ({
+        name: nombre,
+        value: Math.round(m3Total * 100) / 100,
+        color: COLORES[index % COLORES.length],
+      }))
+      .sort((a, b) => b.value - a.value);
 
     // Bar chart: vales por dia (ultimos 7 dias)
     const hoy = new Date();
@@ -332,6 +384,7 @@ export const useEstadisticasRenta = (
     vales,
     totales,
     sindicatosUsados,
+    materialesMovidos,
     topOperadores,
     chartData,
     loading,

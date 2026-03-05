@@ -206,7 +206,7 @@ export const useEstadisticasMaterialTendencia = (
       const data = await fetchVales(
         lunes.toISOString(),
         domingo.toISOString(),
-        false,
+        true, // <-- ahora respeta obraId
       );
 
       setValesSemanal(data);
@@ -216,7 +216,7 @@ export const useEstadisticasMaterialTendencia = (
     } finally {
       setLoadingSemanal(false);
     }
-  }, [residenteId, fetchVales]);
+  }, [residenteId, obraId, fetchVales]);
 
   // ─── Fetch grafica 2: periodo filtrable ────────────────────────────────────
 

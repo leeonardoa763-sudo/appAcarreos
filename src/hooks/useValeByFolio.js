@@ -84,7 +84,7 @@ const useValeByFolio = () => {
     ),
     vale_renta_detalle (
       *,
-      material:id_material (material),
+      material:id_material (material, es_material_descarga),
       sindicatos:id_sindicato (sindicato),
       precios_renta (
         costo_hr,
@@ -122,6 +122,24 @@ const useValeByFolio = () => {
       }
 
       console.log("[useValeByFolio] Vale encontrado:", data.folio);
+      console.log("[useValeByFolio] tipo_vale:", data.tipo_vale);
+      console.log(
+        "[useValeByFolio] vale_renta_detalle count:",
+        data.vale_renta_detalle?.length,
+      );
+
+      if (data.vale_renta_detalle?.length > 0) {
+        const det = data.vale_renta_detalle[0];
+        console.log(
+          "[useValeByFolio] detalle[0].material:",
+          JSON.stringify(det.material),
+        );
+        console.log(
+          "[useValeByFolio] es_material_descarga:",
+          det.material?.es_material_descarga,
+        );
+      }
+
       return data;
     } catch (error) {
       console.error("[useValeByFolio] Error completo:", JSON.stringify(error));

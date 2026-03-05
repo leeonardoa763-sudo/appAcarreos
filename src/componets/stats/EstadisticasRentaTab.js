@@ -38,6 +38,7 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
   const {
     totales,
     sindicatosUsados,
+    materialesMovidos,
     topOperadores,
     chartData,
     loading,
@@ -48,11 +49,11 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
   const {
     semanal,
     periodo: tendenciaPeriodo,
-    sindicatosDisponibles,
-    sindicatoIdFiltroSemanal,
-    setSindicatoIdFiltroSemanal,
-    sindicatoIdFiltroPeriodo,
-    setSindicatoIdFiltroPeriodo,
+    materialesDisponibles,
+    materialIdFiltroSemanal,
+    setMaterialIdFiltroSemanal,
+    materialIdFiltroPeriodo,
+    setMaterialIdFiltroPeriodo,
   } = useEstadisticasRentaTendencia(periodo, residenteId, obraId);
 
   // ── Loading ───────────────────────────────────────────────────────────────
@@ -121,10 +122,10 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
         />
       </View>
 
-      {/* ── Lista de sindicatos ─────────────────────────────────────────── */}
-      {sindicatosUsados.length > 0 && (
+      {/* ── Lista de materiales─────────────────────────────────────────── */}
+      {materialesMovidos.length > 0 && (
         <View style={styles.seccion}>
-          <SindicatosUsadosList sindicatos={sindicatosUsados} />
+          <MaterialesRentaList materiales={materialesMovidos} />
         </View>
       )}
 
@@ -132,8 +133,8 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
       {chartData.pieData.length > 0 && (
         <View style={styles.seccion}>
           <PieChartCard
-            title="Distribución por Sindicato"
-            subtitle="Vales por sindicato"
+            title="Distribución por Material"
+            subtitle="M³ por tipo de material (capacidad × viajes)"
             icon="chart-pie"
             iconColor={colors.secondary}
             data={chartData.pieData}
@@ -151,13 +152,13 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
           iconColor={colors.secondary}
           labels={semanal.labels}
           datasets={semanal.datasets}
-          materiales={semanal.sindicatos}
+          materiales={semanal.materiales}
           yAxisSuffix=" v"
           loading={semanal.loading}
           error={semanal.error}
-          materialesDisponibles={semanal.sindicatos}
-          materialIdFiltro={sindicatoIdFiltroSemanal}
-          onMaterialChange={setSindicatoIdFiltroSemanal}
+          materialesDisponibles={semanal.materiales}
+          materialIdFiltro={materialIdFiltroSemanal}
+          onMaterialChange={setMaterialIdFiltroSemanal}
         />
       </View>
 
@@ -170,13 +171,13 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
           iconColor={colors.secondary}
           labels={tendenciaPeriodo.labels}
           datasets={tendenciaPeriodo.datasets}
-          materiales={tendenciaPeriodo.sindicatos}
+          materiales={tendenciaPeriodo.materiales}
           yAxisSuffix=" v"
           loading={tendenciaPeriodo.loading}
           error={tendenciaPeriodo.error}
-          materialesDisponibles={sindicatosDisponibles}
-          materialIdFiltro={sindicatoIdFiltroPeriodo}
-          onMaterialChange={setSindicatoIdFiltroPeriodo}
+          materialesDisponibles={materialesDisponibles}
+          materialIdFiltro={materialIdFiltroPeriodo}
+          onMaterialChange={setMaterialIdFiltroPeriodo}
         />
       </View>
 
@@ -212,20 +213,20 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
 
 // ─── Subcomponente: lista de sindicatos ───────────────────────────────────────
 
-const SindicatosUsadosList = ({ sindicatos }) => {
-  const maxVales = sindicatos[0]?.vales ?? 1;
+const MaterialesRentaList = ({ materiales }) => {
+  const maxM3 = materiales[0]?.m3Total ?? 1;
   const COLORES = statsColors.chartPalette;
 
   return (
     <View style={styles.sindicatosCard}>
-      <Text style={styles.sindicatosTitulo}>Sindicatos</Text>
+      <Text style={styles.sindicatosTitulo}>Materiales Movidos</Text>
 
-      {sindicatos.map((item, index) => {
-        const porcentaje = maxVales > 0 ? (item.vales / maxVales) * 100 : 0;
+      {materiales.map((item, index) => {
+        const porcentaje = maxM3 > 0 ? (item.m3Total / maxM3) * 100 : 0;
         const color = COLORES[index % COLORES.length];
 
         return (
-          <View key={item.id} style={styles.sindicatoFila}>
+          <View key={item.nombre} style={styles.sindicatoFila}>
             <View style={[styles.colorDot, { backgroundColor: color }]} />
 
             <View style={styles.sindicatoCentro}>
@@ -234,7 +235,7 @@ const SindicatosUsadosList = ({ sindicatos }) => {
                   {item.nombre}
                 </Text>
                 <Text style={styles.sindicatoVales}>
-                  {item.vales} {item.vales === 1 ? "vale" : "vales"}
+                  {item.m3Total.toFixed(1)} m³
                 </Text>
               </View>
 
@@ -247,18 +248,10 @@ const SindicatosUsadosList = ({ sindicatos }) => {
                 />
               </View>
 
-              {/* Detalle horas/dias */}
               <View style={styles.sindicatoDetalle}>
-                {item.horas > 0 && (
-                  <Text style={styles.sindicatoDetalleTexto}>
-                    {item.horas.toFixed(1)} hrs
-                  </Text>
-                )}
-                {item.dias > 0 && (
-                  <Text style={styles.sindicatoDetalleTexto}>
-                    {item.dias.toFixed(1)} días
-                  </Text>
-                )}
+                <Text style={styles.sindicatoDetalleTexto}>
+                  {item.viajes} {item.viajes === 1 ? "viaje" : "viajes"}
+                </Text>
               </View>
             </View>
           </View>

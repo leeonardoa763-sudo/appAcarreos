@@ -141,18 +141,27 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
   }, [vale?.id_vale]);
 
   useEffect(() => {
+    console.log("[useTicketsDescarga] useEffect ejecutado");
+    console.log("[useTicketsDescarga] vale?.tipo_vale:", vale?.tipo_vale);
+    console.log("[useTicketsDescarga] vale?.id_vale:", vale?.id_vale);
+    console.log(
+      "[useTicketsDescarga] detalleRenta:",
+      detalleRenta ? "presente" : "null/undefined",
+    );
+    console.log(
+      "[useTicketsDescarga] detalleRenta?.material:",
+      JSON.stringify(detalleRenta?.material),
+    );
+    console.log(
+      "[useTicketsDescarga] es_material_descarga (raw):",
+      detalleRenta?.material?.es_material_descarga,
+    );
+    console.log("[useTicketsDescarga] esValeRenta:", esValeRenta);
+    console.log("[useTicketsDescarga] esMaterialDescarga:", esMaterialDescarga);
+
     if (esMaterialDescarga && vale?.id_vale) {
-      console.log(
-        "[useTicketsDescarga] Material de descarga detectado, cargando tickets...",
-      );
       cargarTickets();
     } else {
-      console.log("[useTicketsDescarga] Omitiendo carga:", {
-        esValeRenta,
-        esMaterialDescarga,
-        material: detalleRenta?.material?.material,
-        es_material_descarga: detalleRenta?.material?.es_material_descarga,
-      });
       setLoading(false);
     }
   }, [esMaterialDescarga, vale?.id_vale]);

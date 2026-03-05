@@ -48,15 +48,15 @@ export const getReceiptBaseCSS = (bgColor) => {
     }
     
     @page {
-      size: 50mm auto;
+      size: 50mm 250mm;
       margin: 0;
       background-color: ${bgColor} !important;
     }
     
-    html {
+    html, body {
       background-color: ${bgColor} !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     
     body {
@@ -68,14 +68,13 @@ export const getReceiptBaseCSS = (bgColor) => {
       color: #000;
       font-size: 7px;
       line-height: 1.2;
-      display: flex;
-      justify-content: center;
+      display: block;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-      overflow: hidden;
     }
 
     .receipt-container {
+      min-height: 400mm;
       width: 100%;
       max-width: 50mm;
       background-color: ${bgColor} !important;

@@ -58,6 +58,12 @@ const AuthGuard = ({ children }) => {
   const verifyAppVersion = async () => {
     try {
       console.log("[AuthGuard] 🔍 Verificando versión de la app...");
+      console.log(
+        "[AuthGuard] 📊 Estado actual - loading:",
+        loading,
+        "| isAuthenticated:",
+        isAuthenticated,
+      );
 
       const versionCheck = await checkAppVersion();
 
@@ -70,9 +76,14 @@ const AuthGuard = ({ children }) => {
       }
     } catch (error) {
       console.error("[AuthGuard] ❌ Error verificando versión:", error);
-      // En caso de error, permitir acceso (fail-safe)
       setVersionInfo(null);
     } finally {
+      console.log(
+        "[AuthGuard] 🏁 verifyAppVersion terminó - loading:",
+        loading,
+        "| isAuthenticated:",
+        isAuthenticated,
+      );
       setCheckingVersion(false);
     }
   };
@@ -136,6 +147,16 @@ const AuthGuard = ({ children }) => {
     ]);
   };
   // PRIORIDAD 1: Auth o versión cargando (agrupar ambos loadings)
+  console.log(
+    "[AuthGuard] 🖥️ RENDER - checkingVersion:",
+    checkingVersion,
+    "| loading:",
+    loading,
+    "| isAuthenticated:",
+    isAuthenticated,
+    "| profileError:",
+    profileError?.code ?? null,
+  );
   if (checkingVersion || loading) {
     return (
       <View style={styles.centerContainer}>
