@@ -38,6 +38,7 @@ import TicketDescargaSection from "./rentaHelpers/TicketDescargaSection";
 
 import { useCancelarVale } from "../../hooks/useCancelarVale";
 import ModalCancelarVale from "../common/ModalCancelarVale";
+import ModalImprimirTicketRenta from "./rentaHelpers/ModalImprimirTicketRenta";
 
 import { Text } from "react-native";
 
@@ -101,6 +102,10 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const [successData, setSuccessData] = useState(null);
   const [updatedVale, setUpdatedVale] = useState(null);
   const [triggerPDF, setTriggerPDF] = useState(false);
+
+  // --- Estado modal impresión obligatorio ---
+  const [showModalImpresion, setShowModalImpresion] = useState(false);
+  const [valeParaImpresion, setValeParaImpresion] = useState(null);
 
   // --- Refs para inicialización ---
   const isInitialized = useRef(false);
@@ -628,12 +633,33 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             colorCopia="blanco"
             autoTrigger={true}
             onSuccess={() => {
+              console.log(
+                "[ValeDetalleRenta] PDF compartido, abriendo modal de impresión",
+              );
               setTriggerPDF(false);
-              handleCloseSuccess();
+              setValeParaImpresion(updatedVale);
+              setShowModalImpresion(true);
             }}
           />
         </View>
       )}
+
+      <ModalImprimirTicketRenta
+        visible={showModalImpresion}
+        valeData={valeParaImpresion}
+        onImpreso={() => {
+          console.log("[ValeDetalleRenta] Ticket impreso, cerrando flujo");
+          setShowModalImpresion(false);
+          setValeParaImpresion(null);
+          handleCloseSuccess();
+        }}
+        onSinImpresora={() => {
+          console.log("[ValeDetalleRenta] Sin impresora, cerrando flujo");
+          setShowModalImpresion(false);
+          setValeParaImpresion(null);
+          handleCloseSuccess();
+        }}
+      />
     </View>
   );
 };
