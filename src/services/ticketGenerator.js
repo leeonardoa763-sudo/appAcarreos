@@ -305,6 +305,12 @@ export const generarTicketRenta = (vale) => {
     });
   }
 
+  lineas.push({
+    tipo: "texto",
+    contenido: `VIAJES: ${detalle.numero_viajes ?? "N/A"}\n`,
+    opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+  });
+
   lineas.push(
     { tipo: "separador" },
     {

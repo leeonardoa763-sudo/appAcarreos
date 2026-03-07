@@ -94,28 +94,16 @@ const ModalImprimirTicketRenta = ({
   const [impresoras, setImpresoras] = useState([]);
   const [errorMensaje, setErrorMensaje] = useState(null);
 
-  console.log("[ModalImprimirTicketRenta] visible:", visible, "| fase:", fase);
-  console.log("[ModalImprimirTicketRenta] valeData?.folio:", valeData?.folio);
-  console.log(
-    "[ModalImprimirTicketRenta] BLUETOOTH_ENABLED:",
-    BLUETOOTH_ENABLED,
-  );
-
   // ─── Escanear impresoras ───────────────────────────────────────────────────
 
   const handleBuscarImpresoras = useCallback(async () => {
-    console.log("[ModalImprimirTicketRenta] Iniciando búsqueda de impresoras");
     setErrorMensaje(null);
 
     try {
       // 1. Verificar Bluetooth activo
       setFase("escaneando");
-      console.log("[ModalImprimirTicketRenta] Verificando Bluetooth...");
+
       const bluetoothActivo = await verificarBluetooth();
-      console.log(
-        "[ModalImprimirTicketRenta] Bluetooth activo:",
-        bluetoothActivo,
-      );
 
       if (!bluetoothActivo) {
         setFase("inicio");
@@ -127,13 +115,9 @@ const ModalImprimirTicketRenta = ({
       }
 
       // 2. Escanear dispositivos vinculados
-      console.log(
-        "[ModalImprimirTicketRenta] Escaneando impresoras vinculadas...",
-      );
+
       const dispositivos = await escanearImpresoras();
-      console.log(
-        `[ModalImprimirTicketRenta] Impresoras encontradas: ${dispositivos.length}`,
-      );
+
       dispositivos.forEach((d) =>
         console.log(`[ModalImprimirTicketRenta]   - ${d.name} | ${d.address}`),
       );
@@ -156,9 +140,6 @@ const ModalImprimirTicketRenta = ({
 
   const handleSeleccionarImpresora = useCallback(
     async (dispositivo) => {
-      console.log(
-        `[ModalImprimirTicketRenta] Impresora seleccionada: ${dispositivo.name} | ${dispositivo.address}`,
-      );
       setFase("imprimiendo");
       setErrorMensaje(null);
 
@@ -169,13 +150,8 @@ const ModalImprimirTicketRenta = ({
         console.log("[ModalImprimirTicketRenta] Conexión exitosa");
 
         // 2. Generar líneas del ticket (mismos datos que copia blanca)
-        console.log(
-          "[ModalImprimirTicketRenta] Generando contenido del ticket...",
-        );
+
         const lineas = generarTicketRenta(valeData);
-        console.log(
-          `[ModalImprimirTicketRenta] Ticket generado con ${lineas.length} líneas`,
-        );
 
         // 3. Imprimir
         console.log("[ModalImprimirTicketRenta] Enviando a impresora...");
@@ -185,9 +161,6 @@ const ModalImprimirTicketRenta = ({
         // 4. Mostrar éxito y notificar
         setFase("exito");
       } catch (error) {
-        console.log(
-          `[ModalImprimirTicketRenta] Error al imprimir: ${error.message}`,
-        );
         setFase("lista");
         setErrorMensaje(`Error al imprimir: ${error.message}`);
       }
@@ -198,9 +171,6 @@ const ModalImprimirTicketRenta = ({
   // ─── Confirmar éxito y cerrar ──────────────────────────────────────────────
 
   const handleConfirmarExito = useCallback(() => {
-    console.log(
-      "[ModalImprimirTicketRenta] Impresión confirmada, cerrando modal",
-    );
     setFase("inicio");
     setImpresoras([]);
     setErrorMensaje(null);
@@ -210,9 +180,6 @@ const ModalImprimirTicketRenta = ({
   // ─── Sin impresora disponible ──────────────────────────────────────────────
 
   const handleSinImpresora = useCallback(() => {
-    console.log(
-      "[ModalImprimirTicketRenta] Usuario confirmó sin impresora disponible",
-    );
     Alert.alert(
       "Continuar sin imprimir",
       "El ticket físico no se imprimirá. ¿Deseas continuar de todas formas?",
@@ -222,9 +189,6 @@ const ModalImprimirTicketRenta = ({
           text: "Continuar",
           style: "destructive",
           onPress: () => {
-            console.log(
-              "[ModalImprimirTicketRenta] Confirmado continuar sin impresora",
-            );
             setFase("inicio");
             setImpresoras([]);
             setErrorMensaje(null);
@@ -238,9 +202,6 @@ const ModalImprimirTicketRenta = ({
   // ─── Reintentar desde lista ────────────────────────────────────────────────
 
   const handleReintentar = useCallback(() => {
-    console.log(
-      "[ModalImprimirTicketRenta] Reintentando búsqueda de impresoras",
-    );
     setFase("inicio");
     setImpresoras([]);
     setErrorMensaje(null);
@@ -481,11 +442,7 @@ const ModalImprimirTicketRenta = ({
       transparent
       animationType="slide"
       // onRequestClose vacío — el modal es obligatorio, no se cierra con botón atrás
-      onRequestClose={() => {
-        console.log(
-          "[ModalImprimirTicketRenta] Intento de cerrar con botón atrás — bloqueado",
-        );
-      }}
+      onRequestClose={() => {}}
     >
       <View style={styles.overlay}>
         <View style={styles.contenedor}>
