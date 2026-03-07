@@ -203,4 +203,26 @@ export const rentaStyles = StyleSheet.create({
     color: "#F4A261",
     fontStyle: "italic",
   },
+  botonCancelar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+  },
+  textoCancelar: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.danger,
+  },
+  motivoCancelacionDivider: {
+    height: 1,
+    backgroundColor: "#FFD0D0",
+    marginVertical: 8,
+  },
 });

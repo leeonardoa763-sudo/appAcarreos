@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, Alert } from "react-native";
+import { View, Text, Alert, TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
@@ -29,6 +29,9 @@ import GenerarPDFButton from "../vale/GenerarPDFButton";
 import { useCatalogos } from "../../hooks/useCatalogos";
 import useEvidenciaVale from "../../hooks/useEvidenciaVale";
 
+import { useCancelarVale } from "../../hooks/useCancelarVale";
+import ModalCancelarVale from "../common/ModalCancelarVale";
+
 import styles from "./helpersMaterial/valeDetalleMaterialStyles";
 import ValeInfoGeneral from "./helpersMaterial/ValeInfoGeneral";
 import ValeInfoDetalles from "./helpersMaterial/ValeInfoDetalles";
@@ -38,6 +41,23 @@ import ValeFormCompletarNormal from "./helpersMaterial/ValeFormCompletarNormal";
 
 const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const { userProfile } = useAuth();
+  const {
+    modalVisible: modalCancelarVisible,
+    motivo,
+    errorMotivo,
+    cancelando,
+    puedeCancel,
+    abrirModal,
+    cerrarModal,
+    handleCambioMotivo,
+    confirmarCancelacion,
+    MOTIVO_MIN_CHARS,
+  } = useCancelarVale(vale, () => {
+    onRefresh();
+    onClose();
+  });
+  // TEMPORAL - borrar después del diagnóstico
+
   const { operadores, vehiculos } = useCatalogos(["operadores", "vehiculos"]);
 
   // Estados para OTROS TIPOS
@@ -665,8 +685,32 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           />
         )}
 
+        {/* Botón cancelar vale — solo RESIDENTE, solo en_proceso */}
+        {puedeCancel && (
+          <TouchableOpacity style={styles.botonCancelar} onPress={abrirModal}>
+            <MaterialCommunityIcons
+              name="cancel"
+              size={18}
+              color={colors.danger}
+            />
+            <Text style={styles.textoCancelar}>Cancelar Vale</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={{ height: 40 }} />
       </KeyboardAvoidingScrollView>
+
+      {/* Modal cancelación */}
+      <ModalCancelarVale
+        visible={modalCancelarVisible}
+        motivo={motivo}
+        errorMotivo={errorMotivo}
+        cancelando={cancelando}
+        onCambioMotivo={handleCambioMotivo}
+        onConfirmar={confirmarCancelacion}
+        onCerrar={cerrarModal}
+        MOTIVO_MIN_CHARS={MOTIVO_MIN_CHARS}
+      />
 
       <SuccessModal
         visible={showSuccessModal}

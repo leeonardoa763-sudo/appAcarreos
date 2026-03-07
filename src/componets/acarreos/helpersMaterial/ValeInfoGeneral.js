@@ -62,6 +62,24 @@ const ValeInfoGeneral = ({
           value={formatDate(vale.fecha_completado)}
         />
       )}
+
+      {vale.estado === "cancelado" && vale.motivo_cancelacion && (
+        <View style={styles.motivoCancelacionContainer}>
+          <View style={styles.motivoCancelacionHeader}>
+            <MaterialCommunityIcons
+              name="cancel"
+              size={16}
+              color={colors.danger}
+            />
+            <Text style={styles.motivoCancelacionLabel}>
+              Motivo de cancelación
+            </Text>
+          </View>
+          <Text style={styles.motivoCancelacionTexto}>
+            {vale.motivo_cancelacion}
+          </Text>
+        </View>
+      )}
     </View>
   );
 };

@@ -186,6 +186,47 @@ const styles = StyleSheet.create({
     color: "#F4A261",
     fontStyle: "italic",
   },
+  botonCancelar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+  },
+  textoCancelar: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.danger,
+  },
+  motivoCancelacionContainer: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: "#FFF5F5",
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.danger,
+  },
+  motivoCancelacionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+  },
+  motivoCancelacionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.danger,
+  },
+  motivoCancelacionTexto: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    lineHeight: 20,
+  },
 });
 
 export default styles;

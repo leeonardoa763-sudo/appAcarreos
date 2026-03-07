@@ -98,6 +98,7 @@ export const useAuth = () => {
         "| session:",
         session ? "existe" : "null",
       );
+
       if (event === "SIGNED_OUT") {
         if (isMounted.current) {
           setUser(null);
@@ -112,13 +113,16 @@ export const useAuth = () => {
       }
 
       if (session?.user) {
-        // 🆕 Usar loadProfile del hook
         await loadProfile(session.user.id);
       } else {
         if (isMounted.current) {
           clearProfile();
-          setLoading(false);
         }
+      }
+
+      // Asegurar que loading termina sin importar el evento
+      if (isMounted.current) {
+        setLoading(false);
       }
     });
 

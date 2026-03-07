@@ -8,23 +8,26 @@
  * - icon: string — nombre del ícono MaterialCommunityIcons
  * - label: string — etiqueta descriptiva
  * - value: string | number — valor a mostrar
+ * - iconColor: string — color del ícono (opcional, default textSecondary)
+ * - labelColor: string — color de la etiqueta (opcional, default textSecondary)
  */
-
 import React from "react";
 import { View, Text } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../../config/colors";
 import { rentaStyles as styles } from "./rentaStyles";
 
-const InfoRow = ({ icon, label, value }) => (
+const InfoRow = ({ icon, label, value, iconColor, labelColor }) => (
   <View style={styles.infoRow}>
     <View style={styles.infoLabel}>
       <MaterialCommunityIcons
         name={icon}
         size={18}
-        color={colors.textSecondary}
+        color={iconColor || colors.textSecondary}
       />
-      <Text style={styles.labelText}>{label}</Text>
+      <Text style={[styles.labelText, labelColor && { color: labelColor }]}>
+        {label}
+      </Text>
     </View>
     <Text style={styles.valueText}>{value}</Text>
   </View>

@@ -14,6 +14,7 @@ import React from "react";
 import { View, Text } from "react-native";
 import { rentaStyles as styles } from "./rentaStyles";
 import InfoRow from "./InfoRow";
+import { colors } from "../../../config/colors";
 
 const SeccionInfoGeneral = ({ vale, detalleRenta, formatDate }) => {
   const nombreCompleto = (persona) => {
@@ -67,6 +68,18 @@ const SeccionInfoGeneral = ({ vale, detalleRenta, formatDate }) => {
           label="Fecha completado"
           value={formatDate(vale.fecha_completado)}
         />
+      )}
+      {vale.estado === "cancelado" && vale.motivo_cancelacion && (
+        <>
+          <View style={styles.motivoCancelacionDivider} />
+          <InfoRow
+            icon="cancel"
+            label="Motivo cancelación"
+            value={vale.motivo_cancelacion}
+            iconColor={colors.danger}
+            labelColor={colors.danger}
+          />
+        </>
       )}
     </View>
   );

@@ -95,7 +95,7 @@ const AuthGuard = ({ children }) => {
         if (loading) {
           setTimeoutDetected(true);
         }
-      }, 15000); // 15 segundos
+      }, 5000); // 15 segundos
 
       return () => clearTimeout(timeoutTimer);
     } else {

@@ -40,6 +40,7 @@ const traducirEstado = (estado) => {
     verificado: "VERIFICADO",
     conciliado: "CONCILIADO",
     archivado: "ARCHIVADO",
+    cancelado: "CANCELADO",
   };
   return estados[estado] || estado?.toUpperCase() || "N/A";
 };

@@ -57,6 +57,13 @@ const StatusBadge = ({ estado = "borrador", size = "medium" }) => {
           textColor: "#FFFFFF",
           label: "Pagado",
         };
+
+      case "cancelado":
+        return {
+          backgroundColor: colors.danger,
+          textColor: "#FFFFFF",
+          label: "Cancelado",
+        };
       default:
         return {
           backgroundColor: "#E0E0E0",

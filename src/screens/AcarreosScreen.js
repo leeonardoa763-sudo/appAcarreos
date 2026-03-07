@@ -298,6 +298,7 @@ const AcarreosScreen = () => {
         emitidos: [],
         verificados: [],
         conciliados: [],
+        cancelados: [],
       };
     }
 
@@ -306,6 +307,7 @@ const AcarreosScreen = () => {
       emitidos: vales.filter((v) => v.estado === "emitido"),
       verificados: vales.filter((v) => v.estado === "verificado"),
       conciliados: vales.filter((v) => v.estado === "conciliado"),
+      cancelados: vales.filter((v) => v.estado === "cancelado"),
     };
   };
 
@@ -508,6 +510,35 @@ const AcarreosScreen = () => {
               />
             </CollapsibleSection>
           )}
+          {/* Material - Cancelados */}
+          {!esChecador && (
+            <CollapsibleSection
+              title="Cancelados"
+              icon="cancel"
+              count={materialSeparado.cancelados.length}
+              defaultCollapsed={true}
+              iconColor={colors.danger}
+              badgeColor={colors.danger}
+            >
+              <FlatList
+                data={materialSeparado.cancelados}
+                renderItem={renderValeItem}
+                keyExtractor={(item) => item.id_vale.toString()}
+                ListEmptyComponent={() => (
+                  <EmptyState
+                    icon="package-variant-closed"
+                    text={
+                      searchQuery
+                        ? "No se encontraron vales cancelados"
+                        : "No hay vales de material cancelados"
+                    }
+                  />
+                )}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+              />
+            </CollapsibleSection>
+          )}
         </View>
 
         {/* ========== SECCIÓN RENTA ========== */}
@@ -620,6 +651,36 @@ const AcarreosScreen = () => {
                       searchQuery
                         ? "No se encontraron vales conciliados"
                         : "No hay vales de renta conciliados"
+                    }
+                  />
+                )}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+              />
+            </CollapsibleSection>
+          )}
+
+          {/* Renta - Cancelados */}
+          {!esChecador && (
+            <CollapsibleSection
+              title="Cancelados"
+              icon="cancel"
+              count={rentaSeparado.cancelados.length}
+              defaultCollapsed={true}
+              iconColor={colors.danger}
+              badgeColor={colors.danger}
+            >
+              <FlatList
+                data={rentaSeparado.cancelados}
+                renderItem={renderValeItem}
+                keyExtractor={(item) => item.id_vale.toString()}
+                ListEmptyComponent={() => (
+                  <EmptyState
+                    icon="truck-outline"
+                    text={
+                      searchQuery
+                        ? "No se encontraron vales cancelados"
+                        : "No hay vales de renta cancelados"
                     }
                   />
                 )}
