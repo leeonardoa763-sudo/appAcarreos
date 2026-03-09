@@ -94,13 +94,6 @@ const ModalImprimirTicketRenta = ({
   const [impresoras, setImpresoras] = useState([]);
   const [errorMensaje, setErrorMensaje] = useState(null);
 
-  console.log("[ModalImprimirTicketRenta] visible:", visible, "| fase:", fase);
-  console.log("[ModalImprimirTicketRenta] valeData?.folio:", valeData?.folio);
-  console.log(
-    "[ModalImprimirTicketRenta] BLUETOOTH_ENABLED:",
-    BLUETOOTH_ENABLED,
-  );
-
   // ─── Escanear impresoras ───────────────────────────────────────────────────
 
   const handleBuscarImpresoras = useCallback(async () => {
