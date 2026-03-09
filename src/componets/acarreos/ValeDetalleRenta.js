@@ -217,7 +217,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     detalleRenta,
     esRentaPorDia,
     esRentaPorMedioDia,
-    vale?.fecha_creacion,
+    detalleRenta?.hora_inicio,
   ]);
 
   // --- Formateadores ---
@@ -304,7 +304,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       return;
     }
 
-    const errorDia = validateMismoDiaCreacion(vale?.fecha_creacion);
+    const errorDia = validateMismoDiaCreacion(detalleRenta?.hora_inicio);
     if (errorDia) {
       Alert.alert("Vale vencido", errorDia);
       return;

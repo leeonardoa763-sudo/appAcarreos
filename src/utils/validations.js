@@ -139,7 +139,7 @@ export const validateDistancia = (distancia) => {
 // VALIDACIONES DE TIEMPO PARA VALES
 // ============================================
 
-const TOLERANCIA_MINUTOS = 10;
+const TOLERANCIA_MINUTOS = 60;
 
 /**
  * Valida la hora de inicio al crear un vale de renta.
@@ -186,7 +186,7 @@ export const validateHoraInicioNoFutura = (hora) => {
   );
 
   if (minutosHora < minutosAhora - TOLERANCIA_MINUTOS) {
-    return "La hora de inicio no puede ser más de 10 minutos en el pasado";
+    return "La hora de inicio no puede ser más de 60 minutos en el pasado";
   }
 
   return null;

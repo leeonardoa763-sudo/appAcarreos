@@ -36,8 +36,12 @@ import { renamePDFWithAutoName } from "./pdfFileHandler";
 const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
   const { bgColor, destinatario } = getCopiaInfo(colorCopia);
 
-  const fechaFormateada = formatearFecha(valeData.fecha_creacion);
-  const horaFormateada = formatearHora(valeData.fecha_creacion);
+  const fechaFormateada = formatearFecha(
+    valeData.fecha_completado || valeData.fecha_creacion,
+  );
+  const horaFormateada = formatearHora(
+    valeData.fecha_completado || valeData.fecha_creacion,
+  );
 
   // Extraer datos del vale de RENTA
   const detalle = valeData.vale_renta_detalle?.[0] || {};

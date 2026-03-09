@@ -128,7 +128,7 @@ const useEvidenciaVale = (obraData = null) => {
 
         const resultado = await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          quality: 0.6,
+          quality: 0.4,
           allowsEditing: false,
           exif: false,
         });
