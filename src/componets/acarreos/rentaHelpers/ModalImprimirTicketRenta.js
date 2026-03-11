@@ -89,10 +89,13 @@ const ModalImprimirTicketRenta = ({
   valeData,
   onImpreso,
   onSinImpresora,
+  generarLineas, // opcional: función personalizada (vale, detalle, ticket) => lineas[]
+  resumenDatos, // opcional: { folio, operador, placas, descripcion } para sobreescribir el resumen
 }) => {
-  const [fase, setFase] = useState("inicio"); // "inicio" | "escaneando" | "lista" | "imprimiendo" | "exito"
+  const [fase, setFase] = useState("inicio");
   const [impresoras, setImpresoras] = useState([]);
   const [errorMensaje, setErrorMensaje] = useState(null);
+  const [ultimaImpresora, setUltimaImpresora] = useState(null);
 
   // ─── Escanear impresoras ───────────────────────────────────────────────────
 
@@ -142,39 +145,78 @@ const ModalImprimirTicketRenta = ({
     async (dispositivo) => {
       setFase("imprimiendo");
       setErrorMensaje(null);
+      setUltimaImpresora(dispositivo);
 
       try {
-        // 1. Conectar
-        console.log("[ModalImprimirTicketRenta] Conectando a impresora...");
         const device = await conectarImpresora(dispositivo.address);
-        console.log("[ModalImprimirTicketRenta] Conexión exitosa");
-
-        // 2. Generar líneas del ticket (mismos datos que copia blanca)
-
-        const lineas = generarTicketRenta(valeData);
-
-        // 3. Imprimir
-        console.log("[ModalImprimirTicketRenta] Enviando a impresora...");
+        const lineas = generarLineas
+          ? generarLineas()
+          : generarTicketRenta(valeData);
         await imprimirTicket(device, lineas);
-        console.log("[ModalImprimirTicketRenta] Impresión exitosa");
 
-        // 4. Mostrar éxito y notificar
+        // Preguntar confirmación antes de cerrar
         setFase("exito");
       } catch (error) {
+        const mensajeError = error.message?.toLowerCase() || "";
+        let mensajeUsuario = "No se pudo completar la impresión.";
+
+        if (
+          mensajeError.includes("connect") ||
+          mensajeError.includes("socket")
+        ) {
+          mensajeUsuario =
+            "No se pudo conectar a la impresora. Verifica que esté encendida y en rango.";
+        } else if (
+          mensajeError.includes("paper") ||
+          mensajeError.includes("papel")
+        ) {
+          mensajeUsuario =
+            "Sin papel en la impresora. Recarga el papel e intenta de nuevo.";
+        } else if (
+          mensajeError.includes("timeout") ||
+          mensajeError.includes("time")
+        ) {
+          mensajeUsuario =
+            "La impresora tardó demasiado en responder. Verifica que esté lista.";
+        } else if (mensajeError.includes("bluetooth")) {
+          mensajeUsuario =
+            "Error de Bluetooth. Verifica que la impresora esté vinculada.";
+        }
+
         setFase("lista");
-        setErrorMensaje(`Error al imprimir: ${error.message}`);
+        setErrorMensaje(mensajeUsuario);
       }
     },
-    [valeData],
+    [valeData, generarLineas],
   );
 
   // ─── Confirmar éxito y cerrar ──────────────────────────────────────────────
 
   const handleConfirmarExito = useCallback(() => {
-    setFase("inicio");
-    setImpresoras([]);
-    setErrorMensaje(null);
-    onImpreso?.();
+    Alert.alert(
+      "Confirmar impresion",
+      "El ticket se envio a la impresora. ¿Se imprimio correctamente?",
+      [
+        {
+          text: "No, reintentar",
+          style: "cancel",
+          onPress: () => {
+            setFase("lista");
+            setErrorMensaje("Reintenta seleccionando la impresora.");
+          },
+        },
+        {
+          text: "Si, continuar",
+          onPress: () => {
+            setFase("inicio");
+            setImpresoras([]);
+            setErrorMensaje(null);
+            setUltimaImpresora(null);
+            onImpreso?.();
+          },
+        },
+      ],
+    );
   }, [onImpreso]);
 
   // ─── Sin impresora disponible ──────────────────────────────────────────────
@@ -206,6 +248,11 @@ const ModalImprimirTicketRenta = ({
     setImpresoras([]);
     setErrorMensaje(null);
   }, []);
+
+  const handleReintentarMismaImpresora = useCallback(() => {
+    if (!ultimaImpresora) return;
+    handleSeleccionarImpresora(ultimaImpresora);
+  }, [ultimaImpresora, handleSeleccionarImpresora]);
 
   // ─── Render por fase ───────────────────────────────────────────────────────
 
@@ -315,6 +362,74 @@ const ModalImprimirTicketRenta = ({
             </View>
           )}
 
+          {ultimaImpresora && errorMensaje && (
+            <TouchableOpacity
+              style={styles.botonReintentarMisma}
+              onPress={handleReintentarMismaImpresora}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="printer-pos"
+                size={18}
+                color={colors.surface}
+              />
+              <Text style={styles.botonReintentarMismaTexto}>
+                Reintentar con {ultimaImpresora.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {ultimaImpresora && errorMensaje && (
+            <TouchableOpacity
+              style={styles.botonReintentarMisma}
+              onPress={handleReintentarMismaImpresora}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="printer-pos"
+                size={18}
+                color={colors.surface}
+              />
+              <Text style={styles.botonReintentarMismaTexto}>
+                Reintentar con {ultimaImpresora.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {ultimaImpresora && errorMensaje && (
+            <TouchableOpacity
+              style={styles.botonReintentarMisma}
+              onPress={handleReintentarMismaImpresora}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="printer-pos"
+                size={18}
+                color={colors.surface}
+              />
+              <Text style={styles.botonReintentarMismaTexto}>
+                Reintentar con {ultimaImpresora.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {ultimaImpresora && errorMensaje && (
+            <TouchableOpacity
+              style={styles.botonReintentarMisma}
+              onPress={handleReintentarMismaImpresora}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="printer-pos"
+                size={18}
+                color={colors.surface}
+              />
+              <Text style={styles.botonReintentarMismaTexto}>
+                Reintentar con {ultimaImpresora.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <View style={styles.botonesLista}>
             <TouchableOpacity
               style={styles.botonSecundario}
@@ -358,28 +473,34 @@ const ModalImprimirTicketRenta = ({
         </Text>
 
         {/* Resumen de datos del vale */}
-        {valeData && (
+        {(valeData || resumenDatos) && (
           <View style={styles.resumenVale}>
             <View style={styles.resumenFila}>
               <Text style={styles.resumenLabel}>Folio:</Text>
-              <Text style={styles.resumenValor}>{valeData.folio || "N/A"}</Text>
+              <Text style={styles.resumenValor}>
+                {resumenDatos?.folio ?? valeData?.folio ?? "N/A"}
+              </Text>
             </View>
             <View style={styles.resumenFila}>
               <Text style={styles.resumenLabel}>Operador:</Text>
               <Text style={styles.resumenValor} numberOfLines={1}>
-                {valeData.operadores?.nombre_completo || "N/A"}
+                {resumenDatos?.operador ??
+                  valeData?.operadores?.nombre_completo ??
+                  "N/A"}
               </Text>
             </View>
             <View style={styles.resumenFila}>
               <Text style={styles.resumenLabel}>Placas:</Text>
               <Text style={styles.resumenValor}>
-                {valeData.vehiculos?.placas || "N/A"}
+                {resumenDatos?.placas ?? valeData?.vehiculos?.placas ?? "N/A"}
               </Text>
             </View>
             <View style={styles.resumenFila}>
-              <Text style={styles.resumenLabel}>Material:</Text>
+              <Text style={styles.resumenLabel}>Detalle:</Text>
               <Text style={styles.resumenValor} numberOfLines={1}>
-                {valeData.vale_renta_detalle?.[0]?.material?.material || "N/A"}
+                {resumenDatos?.descripcion ??
+                  valeData?.vale_renta_detalle?.[0]?.material?.material ??
+                  "N/A"}
               </Text>
             </View>
           </View>
@@ -479,8 +600,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: 32,
-    maxHeight: "85%",
+    paddingBottom: 48,
+    maxHeight: "90%",
   },
   header: {
     flexDirection: "row",
@@ -745,6 +866,22 @@ const styles = StyleSheet.create({
     color: colors.danger || "#E53E3E",
     flex: 1,
     lineHeight: 16,
+  },
+  botonReintentarMisma: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 10,
+  },
+  botonReintentarMismaTexto: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.surface,
   },
 });
 
