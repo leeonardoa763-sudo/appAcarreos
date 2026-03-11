@@ -50,6 +50,7 @@ const EstadisticasScreen = () => {
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
   const residenteId = userProfile?.id_persona ?? null;
+  const obrasIds = obras.map((o) => o.id).filter(Boolean);
 
   // Preseleccionar primera obra cuando cargan
   useEffect(() => {
@@ -187,6 +188,7 @@ const EstadisticasScreen = () => {
             periodo={periodo}
             residenteId={residenteId}
             obraId={obraId}
+            obrasIds={obrasIds}
           />
         )}
 

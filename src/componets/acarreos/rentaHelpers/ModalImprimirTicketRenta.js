@@ -17,7 +17,7 @@
  */
 
 // 1. React
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 
 // 2. React Native
 import {
@@ -96,6 +96,15 @@ const ModalImprimirTicketRenta = ({
   const [impresoras, setImpresoras] = useState([]);
   const [errorMensaje, setErrorMensaje] = useState(null);
   const [ultimaImpresora, setUltimaImpresora] = useState(null);
+
+  useEffect(() => {
+    if (visible) {
+      setFase("inicio");
+      setImpresoras([]);
+      setErrorMensaje(null);
+      setUltimaImpresora(null);
+    }
+  }, [visible]);
 
   // ─── Escanear impresoras ───────────────────────────────────────────────────
 

@@ -22,6 +22,7 @@ export const useEstadisticasMaterial = (
   periodo = "mes",
   residenteId = null,
   obraId = null,
+  obrasIds = [],
 ) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -174,16 +175,10 @@ export const useEstadisticasMaterial = (
 
       // ── Filtro de obra: una sola fuente de verdad ──
       if (obraId) {
-        console.log(
-          "[useEstadisticasMaterial] Filtro aplicado: OBRA ESPECIFICA =>",
-          obraId,
-        );
         query = query.eq("id_obra", obraId);
+      } else if (obrasIds?.length > 0) {
+        query = query.in("id_obra", obrasIds);
       } else {
-        // console.log(
-        //   "[useEstadisticasMaterial] Filtro aplicado: RESIDENTE (todas sus obras) =>",
-        //   residenteId,
-        // );
         query = query.eq("id_persona_creador", residenteId);
       }
 
@@ -243,7 +238,7 @@ export const useEstadisticasMaterial = (
     } finally {
       setLoading(false);
     }
-  }, [periodo, residenteId, obraId, calcularRangoFechas]);
+  }, [periodo, residenteId, obraId, obrasIds, calcularRangoFechas]);
 
   useEffect(() => {
     fetchData();

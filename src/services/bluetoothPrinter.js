@@ -54,6 +54,19 @@ export const verificarBluetooth = async () => {
   }
 };
 
+// ─── Utilidad: timeout para operaciones Bluetooth ─────────────────────────────
+
+const withTimeout = (
+  promesa,
+  ms = 15000,
+  mensajeError = "La operacion tardo demasiado",
+) => {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(mensajeError)), ms),
+  );
+  return Promise.race([promesa, timeout]);
+};
+
 export const escanearImpresoras = async () => {
   try {
     console.log("[SCAN] Obteniendo dispositivos vinculados...");
@@ -82,14 +95,18 @@ export const escanearImpresoras = async () => {
 export const conectarImpresora = async (address) => {
   try {
     console.log(`[CONNECT] Conectando a: ${address}`);
-    const dispositivo = await RNBluetoothClassic.connectToDevice(address);
+    const dispositivo = await withTimeout(
+      RNBluetoothClassic.connectToDevice(address),
+      12000,
+      "La impresora no respondio. Verifica que este encendida y en rango.",
+    );
     console.log("[CONNECT] Conexion exitosa");
     return dispositivo;
   } catch (error) {
     console.log(`[CONNECT] Error completo: ${JSON.stringify(error)}`);
     console.log(`[CONNECT] Error message: ${error.message}`);
     console.log(`[CONNECT] Error code: ${error.code}`);
-    throw new Error("No se pudo conectar a la impresora");
+    throw new Error(error.message || "No se pudo conectar a la impresora");
   }
 };
 
@@ -167,8 +184,13 @@ export const imprimirTicket = async (dispositivo, lineas) => {
 
     console.log(`[PRINT] Enviando ${buffer.length} bytes...`);
     const base64 = btoa(String.fromCharCode(...buffer));
-    await dispositivo.write(base64, "base64");
+    await withTimeout(
+      dispositivo.write(base64, "base64"),
+      10000,
+      "La impresora no respondio al enviar datos. Verifica que tenga papel y este lista.",
+    );
     console.log("[PRINT] Impresion completada");
+
     return true;
   } catch (error) {
     console.log(`[PRINT] Error completo: ${JSON.stringify(error)}`);

@@ -6,6 +6,7 @@ import { Alert } from "react-native";
 
 // 3. Local - Config
 import { supabase } from "../config/supabase";
+import { VALE_SELECT_COMPLETO } from "./queries/valesSelect";
 
 /**
  * useValeByFolio
@@ -33,69 +34,9 @@ const useValeByFolio = () => {
 
       const { data, error } = await supabase
         .from("vales")
-        .select(
-          `
-    *,
-    obras:id_obra (
-      id_obra,
-      obra,
-      cc,
-      empresas:id_empresa (
-        id_empresa,
-        empresa,
-        sufijo,
-        logo
-      )
-    ),
-    persona:id_persona_creador (
-      nombre,
-      primer_apellido,
-      segundo_apellido
-    ),
-    persona_completador:id_persona_completador (
-      nombre,
-      primer_apellido,
-      segundo_apellido
-    ),
-    operadores:id_operador (
-      nombre_completo,
-      id_sindicato,
-      sindicatos:id_sindicato (
-        sindicato
-      )
-    ),
-    vehiculos:id_vehiculo (
-      placas,
-      sindicatos:id_sindicato (
-        sindicato
-      )
-    ),
-    vale_material_detalles (
-      *,
-      material:id_material (
-        id_material,
-        material,
-        id_tipo_de_material
-      ),
-      bancos:id_banco (
-        id_banco,
-        banco
-      )
-    ),
-    vale_renta_detalle (
-      *,
-      material:id_material (material, es_material_descarga),
-      sindicatos:id_sindicato (sindicato),
-      precios_renta (
-        costo_hr,
-        costo_dia
-      )
-    )
-  `,
-        )
+        .select(VALE_SELECT_COMPLETO)
         .eq("folio", folio)
         .maybeSingle();
-
       console.log("[useValeByFolio] Respuesta error:", JSON.stringify(error));
 
       if (error) throw error;

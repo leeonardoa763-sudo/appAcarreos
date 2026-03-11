@@ -248,7 +248,52 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
     [totalTickets, vale?.folio, vale?.id_vale, userProfile],
   );
 
-  // ─── Return ───────────────────────────────────────────────────────────────
+  const reimprimirTicket = useCallback(async (ticket) => {
+    if (ticket.reimprimir_count >= 1) {
+      Alert.alert(
+        "Limite alcanzado",
+        "Este ticket ya fue reimpreso una vez. No se puede reimprimir de nuevo.",
+      );
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("tickets_descarga")
+        .update({ reimprimir_count: 1 })
+        .eq("id_ticket", ticket.id_ticket)
+        .select(
+          `
+            id_ticket,
+            folio_ticket,
+            numero_ticket,
+            banco_descarga,
+            fecha_impresion,
+            reimprimir_count,
+            persona:id_persona_registro (
+              nombre,
+              primer_apellido
+            )
+          `,
+        )
+        .single();
+
+      if (error) throw error;
+
+      // Actualizar lista local
+      setTickets((prev) =>
+        prev.map((t) => (t.id_ticket === data.id_ticket ? data : t)),
+      );
+
+      return data;
+    } catch (error) {
+      Alert.alert(
+        "Error",
+        "No se pudo registrar la reimpresion. Intenta de nuevo.",
+      );
+      return null;
+    }
+  }, []);
 
   return {
     // Estado
@@ -265,6 +310,7 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
 
     // Acciones
     registrarTicket,
+    reimprimirTicket,
     recargarTickets: cargarTickets,
   };
 };

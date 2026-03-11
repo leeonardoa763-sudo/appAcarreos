@@ -20,6 +20,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
+import { VALE_SELECT_COMPLETO } from "../hooks/queries/valesSelect";
 import { useAuth } from "../hooks/useAuth";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { useObras } from "../hooks/useObras";
@@ -136,66 +137,7 @@ const AcarreosScreen = () => {
 
       let queryVales = supabase
         .from("vales")
-        .select(
-          `
-          *,
-          obras (
-            obra,
-            cc,
-            latitud,
-            longitud,
-            radio_validacion_metros,
-            empresas (
-              empresa,
-              sufijo,
-              logo
-            )
-          ),
-          persona:id_persona_creador (
-            nombre,
-            primer_apellido,
-            segundo_apellido
-          ),
-          persona_completador:id_persona_completador (
-            nombre,
-            primer_apellido,
-            segundo_apellido
-          ),
-          operadores:id_operador (
-            nombre_completo
-          ),
-          vehiculos:id_vehiculo (
-            placas,
-            sindicatos:id_sindicato (
-              sindicato
-            )
-          ),
-          vale_material_detalles (
-            *,
-            material:id_material (
-              id_material,
-              material,
-              id_tipo_de_material
-            ),
-            bancos:id_banco (
-              id_banco,
-              banco
-            ),
-            sindicatos:id_sindicato (
-              sindicato
-            )
-          ),
-          vale_renta_detalle (
-            *,
-            material:id_material (material, es_material_descarga),
-            sindicatos:id_sindicato (sindicato),
-            precios_renta (
-              costo_hr,
-              costo_dia
-            )
-          )
-        `,
-        )
+        .select(VALE_SELECT_COMPLETO)
         .in("id_obra", obrasIds)
         .order("fecha_creacion", { ascending: false });
 

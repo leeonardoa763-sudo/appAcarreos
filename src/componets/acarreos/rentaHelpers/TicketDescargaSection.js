@@ -47,7 +47,7 @@ import ModalImprimirTicketRenta from "./ModalImprimirTicketRenta";
 
 // ─── Subcomponente: item de ticket ya generado ────────────────────────────────
 
-const TicketItem = ({ ticket }) => {
+const TicketItem = ({ ticket, onReimprimir }) => {
   const formatFecha = (iso) => {
     if (!iso) return "--";
     return new Date(iso).toLocaleDateString("es-MX", {
@@ -58,6 +58,8 @@ const TicketItem = ({ ticket }) => {
       minute: "2-digit",
     });
   };
+
+  const yaReimpreso = ticket.reimprimir_count >= 1;
 
   return (
     <View style={styles.ticketItem}>
@@ -80,6 +82,21 @@ const TicketItem = ({ ticket }) => {
           {ticket.persona?.nombre} {ticket.persona?.primer_apellido}
         </Text>
       </View>
+      <TouchableOpacity
+        style={[
+          styles.botonReimprimir,
+          yaReimpreso && styles.botonReimprimirAgotado,
+        ]}
+        onPress={() => onReimprimir(ticket)}
+        disabled={yaReimpreso}
+        activeOpacity={0.7}
+      >
+        <MaterialCommunityIcons
+          name={yaReimpreso ? "printer-check" : "printer-pos"}
+          size={18}
+          color={yaReimpreso ? colors.textSecondary : colors.secondary}
+        />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -100,10 +117,13 @@ const TicketDescargaSection = ({
     totalTickets,
     esMaterialDescarga,
     registrarTicket,
+    reimprimirTicket,
   } = useTicketsDescarga({ vale, detalleRenta });
+
   const [modalVisible, setModalVisible] = useState(false);
   const [mostrarModalImpresion, setMostrarModalImpresion] = useState(false);
   const [ticketPendiente, setTicketPendiente] = useState(null);
+  const [modoReimpresion, setModoReimpresion] = useState(false);
 
   if (!esMaterialDescarga) {
     return null;
@@ -157,6 +177,17 @@ const TicketDescargaSection = ({
     setModalVisible(false);
   }, []);
 
+  const handleReimprimirTicket = useCallback(
+    async (ticket) => {
+      const datos = await reimprimirTicket(ticket);
+      if (!datos) return;
+      setTicketPendiente(datos);
+      setModoReimpresion(true);
+      setMostrarModalImpresion(true);
+    },
+    [reimprimirTicket],
+  );
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -193,7 +224,11 @@ const TicketDescargaSection = ({
       ) : (
         <View style={styles.lista}>
           {tickets.map((ticket) => (
-            <TicketItem key={ticket.id_ticket} ticket={ticket} />
+            <TicketItem
+              key={ticket.id_ticket}
+              ticket={ticket}
+              onReimprimir={handleReimprimirTicket}
+            />
           ))}
         </View>
       )}
@@ -262,10 +297,12 @@ const TicketDescargaSection = ({
         onImpreso={() => {
           setMostrarModalImpresion(false);
           setTicketPendiente(null);
+          setModoReimpresion(false);
         }}
         onSinImpresora={() => {
           setMostrarModalImpresion(false);
           setTicketPendiente(null);
+          setModoReimpresion(false);
         }}
       />
     </View>
@@ -515,6 +552,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
     fontStyle: "italic",
+  },
+  botonReimprimir: {
+    padding: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  botonReimprimirAgotado: {
+    borderColor: colors.textSecondary,
+    backgroundColor: colors.background,
   },
 });
 

@@ -37,7 +37,12 @@ import MaterialesPorRequisicionModal from "./MaterialesPorRequisicionModal";
  * - residenteId: number | null
  * - obraId: number | null
  */
-const EstadisticasMaterialTab = ({ periodo, residenteId, obraId }) => {
+const EstadisticasMaterialTab = ({
+  periodo,
+  residenteId,
+  obraId,
+  obrasIds,
+}) => {
   const [modalRequisicionVisible, setModalRequisicionVisible] = useState(false);
 
   // Hook principal de estadísticas (afectado por filtros)
@@ -50,7 +55,7 @@ const EstadisticasMaterialTab = ({ periodo, residenteId, obraId }) => {
     loading,
     error,
     refetch,
-  } = useEstadisticasMaterial(periodo, residenteId, obraId);
+  } = useEstadisticasMaterial(periodo, residenteId, obraId, obrasIds);
 
   // Hook de tendencias (dos graficas de linea)
   const {
