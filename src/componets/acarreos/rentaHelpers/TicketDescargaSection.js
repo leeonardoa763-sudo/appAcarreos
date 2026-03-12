@@ -284,9 +284,14 @@ const TicketDescargaSection = ({
       <ModalImprimirTicketRenta
         visible={mostrarModalImpresion}
         valeData={vale}
-        generarLineas={() =>
-          generarContenidoTicketDescarga(vale, detalleRenta, ticketPendiente)
-        }
+        generarLineas={() => {
+          if (!ticketPendiente) return [];
+          return generarContenidoTicketDescarga(
+            vale,
+            detalleRenta,
+            ticketPendiente,
+          );
+        }}
         resumenDatos={{
           folio: ticketPendiente?.folio_ticket,
           operador:

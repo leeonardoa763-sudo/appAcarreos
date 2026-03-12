@@ -388,57 +388,6 @@ const ModalImprimirTicketRenta = ({
             </TouchableOpacity>
           )}
 
-          {ultimaImpresora && errorMensaje && (
-            <TouchableOpacity
-              style={styles.botonReintentarMisma}
-              onPress={handleReintentarMismaImpresora}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons
-                name="printer-pos"
-                size={18}
-                color={colors.surface}
-              />
-              <Text style={styles.botonReintentarMismaTexto}>
-                Reintentar con {ultimaImpresora.name}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {ultimaImpresora && errorMensaje && (
-            <TouchableOpacity
-              style={styles.botonReintentarMisma}
-              onPress={handleReintentarMismaImpresora}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons
-                name="printer-pos"
-                size={18}
-                color={colors.surface}
-              />
-              <Text style={styles.botonReintentarMismaTexto}>
-                Reintentar con {ultimaImpresora.name}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {ultimaImpresora && errorMensaje && (
-            <TouchableOpacity
-              style={styles.botonReintentarMisma}
-              onPress={handleReintentarMismaImpresora}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons
-                name="printer-pos"
-                size={18}
-                color={colors.surface}
-              />
-              <Text style={styles.botonReintentarMismaTexto}>
-                Reintentar con {ultimaImpresora.name}
-              </Text>
-            </TouchableOpacity>
-          )}
-
           <View style={styles.botonesLista}>
             <TouchableOpacity
               style={styles.botonSecundario}
