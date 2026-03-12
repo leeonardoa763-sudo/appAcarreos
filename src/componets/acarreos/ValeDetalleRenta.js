@@ -98,6 +98,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const [datosPendientesGuardados, setDatosPendientesGuardados] =
     useState(false);
   const [valeLocal, setValeLocal] = useState(vale);
+  const [detalleRentaLocal, setDetalleRentaLocal] = useState(detalleRenta);
   const tieneDatosPendientes =
     !valeLocal?.id_operador || !valeLocal?.id_vehiculo;
 
@@ -207,6 +208,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     if (!vale) return;
 
     setValeLocal(vale);
+    setDetalleRentaLocal(vale?.vale_renta_detalle?.[0] ?? detalleRenta);
     setSelectedOperador(null);
     setSelectedVehiculo(null);
     setDatosPendientesGuardados(false);
@@ -233,9 +235,12 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   useEffect(() => {
     if (!canComplete || !detalleRenta) return;
 
-    const errorDia = validateMismoDiaCreacion(detalleRenta?.hora_inicio);
+    const errorDia = validateMismoDiaCreacion(
+      detalleRenta?.hora_inicio,
+      detalleRenta?.es_turno_nocturno,
+    );
     if (errorDia) {
-      setMensajeBloqueo(errorDia);
+      Alert.alert("Vale vencido", errorDia);
       return;
     }
 
@@ -317,6 +322,10 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           capacidad_m3: selectedVehiculo.capacidad_m3,
         },
       });
+      setDetalleRentaLocal((prev) => ({
+        ...prev,
+        capacidad_m3: selectedVehiculo.capacidad_m3 ?? prev?.capacidad_m3,
+      }));
     } catch (error) {
       Alert.alert("Error", "No se pudo guardar. Intenta de nuevo.");
     } finally {
@@ -342,9 +351,12 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       return;
     }
 
-    const errorDia = validateMismoDiaCreacion(detalleRenta?.hora_inicio);
+    const errorDia = validateMismoDiaCreacion(
+      detalleRenta?.hora_inicio,
+      detalleRenta?.es_turno_nocturno,
+    );
     if (errorDia) {
-      Alert.alert("Vale vencido", errorDia);
+      setMensajeBloqueo(errorDia);
       return;
     }
 
@@ -564,20 +576,20 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
 
         <SeccionInfoGeneral
           vale={valeLocal}
-          detalleRenta={detalleRenta}
+          detalleRenta={detalleRentaLocal}
           formatDate={formatDate}
         />
 
         <SeccionDetallesRenta
           vale={valeLocal}
-          detalleRenta={detalleRenta}
+          detalleRenta={detalleRentaLocal}
           formatTime={formatTime}
           formatDate={formatDate}
         />
 
         <SeccionTarifas
           vale={vale}
-          detalleRenta={detalleRenta}
+          detalleRenta={detalleRentaLocal}
           preciosRenta={preciosRenta}
           userProfile={userProfile}
           formatCurrency={formatCurrency}
@@ -586,7 +598,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         {/* Tickets de descarga — solo para materiales es_material_descarga = true */}
         <TicketDescargaSection
           vale={valeLocal}
-          detalleRenta={detalleRenta}
+          detalleRenta={detalleRentaLocal}
           viajes={viajes}
           totalViajes={totalViajes}
           datosPendientesGuardados={datosPendientesGuardados}

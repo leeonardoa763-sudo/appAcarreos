@@ -12,7 +12,7 @@
  */
 
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../../config/colors";
 import { rentaStyles as styles } from "./rentaStyles";
@@ -26,7 +26,19 @@ const SeccionDetallesRenta = ({
 }) => {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Detalles de Renta</Text>
+      <View style={localStyles.tituloRow}>
+        <Text style={styles.sectionTitle}>Detalles de Renta</Text>
+        {detalleRenta?.es_turno_nocturno && (
+          <View style={localStyles.badgeNocturno}>
+            <MaterialCommunityIcons
+              name="weather-night"
+              size={12}
+              color={colors.surface}
+            />
+            <Text style={localStyles.badgeNocturnoTexto}>Turno nocturno</Text>
+          </View>
+        )}
+      </View>
 
       {detalleRenta.material?.material && (
         <InfoRow
@@ -115,5 +127,28 @@ const SeccionDetallesRenta = ({
     </View>
   );
 };
+
+const localStyles = StyleSheet.create({
+  tituloRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  badgeNocturno: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#1A1A2E",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgeNocturnoTexto: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.surface,
+  },
+});
 
 export default SeccionDetallesRenta;

@@ -100,6 +100,8 @@ const ValeRentaScreen = () => {
   // Estado del checkbox "completar después"
   const [completarDespues, setCompletarDespues] = useState(false);
 
+  const [esTurnoNocturno, setEsTurnoNocturno] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -287,6 +289,7 @@ const ValeRentaScreen = () => {
           hora_fin: null,
           id_precios_renta: precioRenta.id_precios_renta,
           notas_adicionales: formData.notasAdicionales.trim() || null,
+          es_turno_nocturno: esTurnoNocturno,
         });
 
       if (detalleError) throw detalleError;
@@ -531,6 +534,34 @@ const ValeRentaScreen = () => {
 
         {/* SECCIÓN: DATOS DE OPERADOR */}
         <View style={styles.section}>
+          {/* Checkbox: turno nocturno */}
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => setEsTurnoNocturno(!esTurnoNocturno)}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.checkbox,
+                esTurnoNocturno && styles.checkboxActivo,
+              ]}
+            >
+              {esTurnoNocturno && (
+                <MaterialCommunityIcons
+                  name="check"
+                  size={14}
+                  color={colors.surface}
+                />
+              )}
+            </View>
+            <View style={styles.checkboxTextos}>
+              <Text style={styles.checkboxLabel}>Turno nocturno</Text>
+              <Text style={styles.checkboxSubtitle}>
+                El vale podra completarse hasta 12 hrs desde el inicio
+              </Text>
+            </View>
+          </TouchableOpacity>
+
           {/* Checkbox: completar después */}
           <TouchableOpacity
             style={styles.checkboxRow}

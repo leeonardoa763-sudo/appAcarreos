@@ -246,17 +246,46 @@ export const validateTiempoMinimoRenta = (horaInicioISO, tipo) => {
 
 /**
  * Valida que el vale se pueda completar según su fecha de inicio.
+ *
+ * Turno normal:
  * - Si hora_inicio es hoy: puede completarse
- * - Si hora_inicio es futura (mañana o después): no puede completarse aún
- * - Si hora_inicio fue ayer o antes: no puede completarse (contactar admin)
+ * - Si hora_inicio es futura: no puede completarse aún
+ * - Si hora_inicio fue ayer o antes: no puede completarse
+ *
+ * Turno nocturno:
+ * - Se permite completar hasta 12 horas después de hora_inicio,
+ *   aunque haya cruzado medianoche al día siguiente
  */
-export const validateMismoDiaCreacion = (fechaCreacionISO) => {
+export const validateMismoDiaCreacion = (
+  fechaCreacionISO,
+  esTurnoNocturno = false,
+) => {
   if (!fechaCreacionISO) return null;
 
-  // Usar hora_inicio en lugar de fecha_creacion para vales futuros
   const fechaInicio = new Date(fechaCreacionISO);
   const ahora = new Date();
 
+  // --- Lógica turno nocturno ---
+  if (esTurnoNocturno) {
+    const diffHoras = (ahora - fechaInicio) / (1000 * 60 * 60);
+
+    if (diffHoras < 0) {
+      const fechaStr = fechaInicio.toLocaleDateString("es-MX", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+      });
+      return `Este vale está programado para el ${fechaStr} y aún no puede completarse.`;
+    }
+
+    if (diffHoras > 12) {
+      return `Este vale de turno nocturno venció. Solo se permite completar dentro de las 12 horas desde el inicio. Contacta al administrador.`;
+    }
+
+    return null;
+  }
+
+  // --- Lógica turno normal (sin cambios) ---
   const inicioSoloFecha = new Date(
     fechaInicio.getFullYear(),
     fechaInicio.getMonth(),
@@ -266,7 +295,6 @@ export const validateMismoDiaCreacion = (fechaCreacionISO) => {
 
   const diffDias = Math.round((inicioSoloFecha - hoy) / (1000 * 60 * 60 * 24));
 
-  // Fecha futura: aún no se puede completar
   if (diffDias > 0) {
     const fechaStr = fechaInicio.toLocaleDateString("es-MX", {
       weekday: "long",
@@ -276,7 +304,6 @@ export const validateMismoDiaCreacion = (fechaCreacionISO) => {
     return `Este vale está programado para el ${fechaStr} y aún no puede completarse.`;
   }
 
-  // Fecha pasada: ya no se puede completar
   if (diffDias < 0) {
     const fechaStr = fechaInicio.toLocaleDateString("es-MX", {
       weekday: "long",
@@ -286,6 +313,5 @@ export const validateMismoDiaCreacion = (fechaCreacionISO) => {
     return `Este vale fue programado para el ${fechaStr} y ya no puede completarse. Si el trabajo se realizó, contacta al administrador.`;
   }
 
-  // Es hoy: puede completarse
   return null;
 };
