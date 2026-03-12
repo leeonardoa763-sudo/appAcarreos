@@ -281,7 +281,7 @@ const ValeRentaScreen = () => {
           id_vale: valeData.id_vale,
           id_material: formData.materialId,
           id_sindicato: formData.sindicatoId,
-          capacidad_m3: parseFloat(formData.capacidad),
+
           numero_viajes: 1,
           hora_inicio: formData.horaInicio.toISOString(),
           hora_fin: null,
@@ -312,6 +312,7 @@ const ValeRentaScreen = () => {
           : formData.selectedVehiculo
             ? {
                 placas: formData.selectedVehiculo.placas,
+                capacidad_m3: formData.selectedVehiculo.capacidad_m3 ?? null, // <- agregar
                 sindicatos: {
                   sindicato:
                     sindicatos.find(
@@ -337,7 +338,7 @@ const ValeRentaScreen = () => {
                 sindicatos.find((s) => s.id_sindicato === formData.sindicatoId)
                   ?.sindicato || "Pendiente",
             },
-            capacidad_m3: parseFloat(formData.capacidad),
+
             hora_inicio: formData.horaInicio.toISOString(),
             hora_fin: null,
             es_renta_por_dia: false,

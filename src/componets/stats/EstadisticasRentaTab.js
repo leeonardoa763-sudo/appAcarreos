@@ -92,7 +92,8 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
   // ── TopOperadoresList espera { nombre, viajes } — mapeamos vales a viajes ─
   const topOperadoresAdaptado = topOperadores.map((op) => ({
     nombre: op.nombre,
-    viajes: op.vales,
+    viajes: op.viajes,
+    placas: op.placas,
   }));
 
   return (

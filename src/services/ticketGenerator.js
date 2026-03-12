@@ -58,7 +58,8 @@ export const generarTicketMaterial = (vale) => {
   const placas = vale.vehiculos?.placas || "";
   const material = detalle.material?.material || "N/A";
   const banco = detalle.bancos?.banco || "N/A";
-  const capacidad = detalle.capacidad_m3 ? `${detalle.capacidad_m3} m3` : "N/A";
+  const capacidadRaw = vale.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3;
+  const capacidad = capacidadRaw ? `${capacidadRaw} m3` : "N/A";
   const cantidad = detalle.cantidad_pedida_m3
     ? `${detalle.cantidad_pedida_m3} m3`
     : "N/A";

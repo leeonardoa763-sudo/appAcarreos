@@ -71,6 +71,13 @@ const TopOperadoresList = ({
                     {operador.nombre}
                   </Text>
 
+                  {/* Placas */}
+                  {operador.placas && (
+                    <Text style={styles.operadorPlacas} numberOfLines={1}>
+                      {operador.placas}
+                    </Text>
+                  )}
+
                   {/* Barra de progreso */}
                   <View style={styles.progressBarContainer}>
                     <View
@@ -162,5 +169,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  operadorPlacas: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 6,
+    letterSpacing: 0.3,
   },
 });

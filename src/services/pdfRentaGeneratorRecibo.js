@@ -32,7 +32,8 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   // Extraer datos del vale de RENTA
   const detalle = valeData.vale_renta_detalle?.[0] || {};
   const material = detalle.material?.material || "N/A";
-  const capacidad = detalle.capacidad_m3 || "N/A";
+  const capacidadRaw = valeData.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3;
+  const capacidad = capacidadRaw || "N/A";
   const numeroViajes = detalle.numero_viajes || 1;
 
   // Detectar si es renta por día

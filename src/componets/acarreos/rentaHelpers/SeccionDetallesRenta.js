@@ -36,11 +36,11 @@ const SeccionDetallesRenta = ({
         />
       )}
 
-      {detalleRenta.capacidad_m3 && (
+      {(vale.vehiculos?.capacidad_m3 ?? detalleRenta.capacidad_m3) && (
         <InfoRow
           icon="truck-cargo-container"
           label="Capacidad"
-          value={`${detalleRenta.capacidad_m3} m³`}
+          value={`${vale.vehiculos?.capacidad_m3 ?? detalleRenta.capacidad_m3} m³`}
         />
       )}
 
@@ -91,11 +91,11 @@ const SeccionDetallesRenta = ({
         />
       )}
 
-      {vale.estado !== "en_proceso" && (
+      {vale.estado !== "en_proceso" && vale.fecha_completado && (
         <InfoRow
           icon="calendar-check"
           label="Emitido el"
-          value={formatDate(vale.fecha_creacion)}
+          value={`${formatDate(vale.fecha_completado)} · ${formatTime(vale.fecha_completado)}`}
         />
       )}
 

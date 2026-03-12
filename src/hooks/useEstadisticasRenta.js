@@ -135,6 +135,9 @@ export const useEstadisticasRenta = (
           operadores!vales_id_operador_fkey (
             nombre_completo
           ),
+          vehiculos!vales_id_vehiculo_fkey (
+            placas
+          ),
           vale_renta_detalle (
             total_horas,
             total_dias,
@@ -293,6 +296,7 @@ export const useEstadisticasRenta = (
 
     return Object.values(mapa).sort((a, b) => b.m3Total - a.m3Total);
   }, [vales]);
+
   // ─── Top operadores ────────────────────────────────────────────────────────
 
   const topOperadores = useMemo(() => {
@@ -302,17 +306,25 @@ export const useEstadisticasRenta = (
       const nombre = vale.operadores?.nombre_completo;
       if (!nombre) return;
 
+      const detalle = vale.vale_renta_detalle?.[0];
+      const viajes = Number(detalle?.numero_viajes || 1);
+      const placas = vale.vehiculos?.placas;
+
       if (!mapa[nombre]) {
-        mapa[nombre] = { nombre, vales: 0 };
+        mapa[nombre] = { nombre, vales: 0, viajes: 0, placasSet: new Set() };
       }
       mapa[nombre].vales += 1;
+      mapa[nombre].viajes += viajes;
+      if (placas) mapa[nombre].placasSet.add(placas);
     });
 
-    const lista = Object.values(mapa)
-      .sort((a, b) => b.vales - a.vales)
-      .slice(0, 5);
-
-    return lista;
+    return Object.values(mapa)
+      .sort((a, b) => b.viajes - a.viajes)
+      .slice(0, 5)
+      .map(({ placasSet, ...rest }) => ({
+        ...rest,
+        placas: placasSet.size > 0 ? [...placasSet].join(", ") : null,
+      }));
   }, [vales]);
 
   // ─── Chart data ────────────────────────────────────────────────────────────

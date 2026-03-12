@@ -84,11 +84,7 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
       }
 
       const puedeGenerar = viajesRegistrados >= totalTickets;
-      console.log("[useTicketsDescarga] Evaluando ticket siguiente:", {
-        totalTickets,
-        viajesRegistrados,
-        puedeGenerar,
-      });
+
       return puedeGenerar;
     },
     [esMaterialDescarga, estaEnProceso, tieneOperadorYVehiculo, totalTickets],
@@ -101,11 +97,6 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
 
     try {
       setLoading(true);
-      console.log(
-        "[useTicketsDescarga] Cargando tickets para vale:",
-        vale.id_vale,
-        vale.folio,
-      );
 
       const { data, error } = await supabase
         .from("tickets_descarga")
@@ -127,11 +118,6 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
 
       if (error) throw error;
 
-      console.log(
-        "[useTicketsDescarga] Tickets encontrados:",
-        data?.length ?? 0,
-        data,
-      );
       setTickets(data ?? []);
     } catch (error) {
       console.error("[useTicketsDescarga] Error cargando tickets:", error);
@@ -141,24 +127,6 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
   }, [vale?.id_vale]);
 
   useEffect(() => {
-    console.log("[useTicketsDescarga] useEffect ejecutado");
-    console.log("[useTicketsDescarga] vale?.tipo_vale:", vale?.tipo_vale);
-    console.log("[useTicketsDescarga] vale?.id_vale:", vale?.id_vale);
-    console.log(
-      "[useTicketsDescarga] detalleRenta:",
-      detalleRenta ? "presente" : "null/undefined",
-    );
-    console.log(
-      "[useTicketsDescarga] detalleRenta?.material:",
-      JSON.stringify(detalleRenta?.material),
-    );
-    console.log(
-      "[useTicketsDescarga] es_material_descarga (raw):",
-      detalleRenta?.material?.es_material_descarga,
-    );
-    console.log("[useTicketsDescarga] esValeRenta:", esValeRenta);
-    console.log("[useTicketsDescarga] esMaterialDescarga:", esMaterialDescarga);
-
     if (esMaterialDescarga && vale?.id_vale) {
       cargarTickets();
     } else {
@@ -190,15 +158,6 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
         const numeroFormateado = String(numeroTicket).padStart(2, "0");
         const folioTicket = `${vale.folio}-${numeroFormateado}`;
 
-        console.log("[useTicketsDescarga] Registrando nuevo ticket:", {
-          id_vale: vale.id_vale,
-          folio_original: vale.folio,
-          folio_ticket: folioTicket,
-          numero_ticket: numeroTicket,
-          banco_descarga: bancoDescarga.toUpperCase().trim(),
-          id_persona_registro: userProfile?.id_persona,
-        });
-
         const { data, error } = await supabase
           .from("tickets_descarga")
           .insert({
@@ -224,11 +183,6 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
           .single();
 
         if (error) throw error;
-
-        console.log(
-          "[useTicketsDescarga] Ticket registrado exitosamente:",
-          data,
-        );
 
         // Actualizar lista local sin recargar BD
         setTickets((prev) => [...prev, data]);

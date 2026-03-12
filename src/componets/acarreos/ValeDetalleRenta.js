@@ -35,6 +35,8 @@ import SeccionTarifas from "./rentaHelpers/SeccionTarifas";
 import SeccionCompletarVale from "./rentaHelpers/SeccionCompletarVale";
 import { rentaStyles as styles } from "./rentaHelpers/rentaStyles";
 import TicketDescargaSection from "./rentaHelpers/TicketDescargaSection";
+import SeccionViajesCompletado from "./rentaHelpers/SeccionViajesCompletado";
+import { useReimprimirPDF } from "../../hooks/useReimprimirPDF";
 
 import { useCancelarVale } from "../../hooks/useCancelarVale";
 import ModalCancelarVale from "../common/ModalCancelarVale";
@@ -62,6 +64,12 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const { operadores, vehiculos } = useCatalogos(["operadores", "vehiculos"]);
 
   const detalleRenta = vale?.vale_renta_detalle?.[0];
+
+  const {
+    yaReimprimio,
+    loading: loadingReimpresion,
+    marcarReimprimido,
+  } = useReimprimirPDF(vale?.id_vale);
 
   const sindicatoId = detalleRenta?.id_sindicato;
 
@@ -152,6 +160,36 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     detalleRenta?.hora_inicio,
   );
 
+  const handleReimprimirPDF = useCallback(() => {
+    Alert.alert(
+      "Reimprimir PDF",
+      "Solo puedes reimprimir este vale una vez mas. Despues de compartirlo no estara disponible nuevamente.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Continuar",
+          onPress: () => {
+            console.log(
+              "[ReimprimirPDF] Iniciando reimpresion con vale:",
+              vale?.folio,
+            );
+            marcarReimprimido();
+            // Usar vale directo si updatedVale no existe (modal reabierto)
+            if (!updatedVale) {
+              console.log(
+                "[ReimprimirPDF] updatedVale vacio, usando vale prop",
+              );
+              setUpdatedVale(vale);
+            }
+            setTimeout(() => {
+              console.log("[ReimprimirPDF] Activando triggerPDF");
+              setTriggerPDF(true);
+            }, 100);
+          },
+        },
+      ],
+    );
+  }, [marcarReimprimido, updatedVale, vale]);
   // Sincronizar valeLocal cuando se abre un vale diferente
 
   useEffect(() => {
@@ -389,6 +427,11 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           numero_viajes: viajesFinales,
           costo_total: costoTotal,
           notas_adicionales: notasAdicionales.trim() || null,
+          // Evidencia
+          foto_evidencia_url: fotoUrl ?? null,
+          latitud_completado: ubicacion?.latitud ?? null,
+          longitud_completado: ubicacion?.longitud ?? null,
+          distancia_obra_metros: distanciaObra ?? null,
         })
         .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle);
 
@@ -429,6 +472,11 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             numero_viajes: viajesFinales,
             costo_total: costoTotal,
             notas_adicionales: notasAdicionales.trim() || null,
+            // Evidencia
+            foto_evidencia_url: fotoUrl ?? null,
+            latitud_completado: ubicacion?.latitud ?? null,
+            longitud_completado: ubicacion?.longitud ?? null,
+            distancia_obra_metros: distanciaObra ?? null,
           },
         ],
       };
@@ -464,6 +512,9 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     tieneDatosPendientes,
     selectedOperador,
     selectedVehiculo,
+    fotoUrl, // agregar
+    ubicacion, // agregar
+    distanciaObra,
   ]);
 
   const handleCloseSuccess = useCallback(() => {
@@ -541,6 +592,15 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           datosPendientesGuardados={datosPendientesGuardados}
         />
 
+        {/* Viajes desglosados — solo cuando el vale ya está completado */}
+        {!canComplete && (
+          <SeccionViajesCompletado
+            viajes={viajes}
+            loading={loadingViajes}
+            totalViajes={totalViajes}
+          />
+        )}
+
         {canComplete && (
           <SeccionCompletarVale
             vale={valeLocal}
@@ -594,6 +654,37 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         )}
 
         <View style={{ height: 40 }} />
+
+        {/* Boton reimprimir PDF — solo emitido, solo una vez */}
+        {vale?.estado === "emitido" && !loadingReimpresion && (
+          <View style={styles.reimprimirContainer}>
+            {yaReimprimio ? (
+              <View style={styles.reimprimirAgotado}>
+                <MaterialCommunityIcons
+                  name="file-pdf-box"
+                  size={18}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.reimprimirAgotadoTexto}>
+                  PDF ya fue reimprimido
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.botonReimprimir}
+                onPress={handleReimprimirPDF}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name="file-pdf-box"
+                  size={18}
+                  color={colors.secondary}
+                />
+                <Text style={styles.botonReimprimirTexto}>Reimprimir PDF</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </KeyboardAvoidingScrollView>
 
       <ModalCancelarVale

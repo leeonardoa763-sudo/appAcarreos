@@ -47,7 +47,8 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
   const detalle = valeData.vale_renta_detalle?.[0] || {};
   const material = detalle.material?.material || "N/A";
   const sindicato = detalle.sindicatos?.sindicato || "N/A";
-  const capacidad = detalle.capacidad_m3 || "Pendiente";
+  const capacidad =
+    valeData.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3 ?? "Pendiente";
   const numeroViajes = detalle.numero_viajes || 1;
 
   console.log("[pdfRentaGenerator] Generando PDF para vale:", valeData.folio);

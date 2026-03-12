@@ -159,6 +159,7 @@ export const useEstadisticasRentaTendencia = (
           id_obra,
           vale_renta_detalle (
             numero_viajes,
+            hora_inicio,
             material!vale_renta_detalle_id_material_fkey (
               id_material,
               material
@@ -262,6 +263,9 @@ export const useEstadisticasRentaTendencia = (
   const getViajes = (vale) =>
     Number(vale.vale_renta_detalle?.[0]?.numero_viajes || 1);
 
+  const getFechaOperacional = (vale) =>
+    vale.vale_renta_detalle?.[0]?.hora_inicio ?? vale.fecha_creacion;
+
   /**
    * Convierte vales en datasets para LineChart agrupados por material.
    * Eje Y: numero de viajes (numero_viajes del detalle).
@@ -309,7 +313,7 @@ export const useEstadisticasRentaTendencia = (
             const mat2 = getMaterial(vale);
             if (!mat2 || mat2.id_material !== mat.id) return;
 
-            const fecha = new Date(vale.fecha_creacion);
+            const fecha = new Date(getFechaOperacional(vale));
             const diaIdx = (fecha.getDay() + 6) % 7;
             valores[diaIdx] += getViajes(vale);
           });
