@@ -70,7 +70,7 @@ const formatCosto = (costo) => {
 
 // ─── ViajeItem ────────────────────────────────────────────────────────────────
 
-const ViajeItem = ({ viaje, esTipo3 }) => (
+const ViajeItem = ({ viaje, esTipo3, esChecador }) => (
   <View style={styles.viajeItem}>
     <View style={styles.viajeIcono}>
       <MaterialCommunityIcons
@@ -83,6 +83,9 @@ const ViajeItem = ({ viaje, esTipo3 }) => (
     <View style={styles.viajeInfo}>
       <Text style={styles.viajeNumero}>Viaje {viaje.numero_viaje}</Text>
       <Text style={styles.viajeHora}>{formatHora(viaje.hora_registro)}</Text>
+      {viaje.folio_vale_fisico ? (
+        <Text style={styles.viajeFolio}>Rem. {viaje.folio_vale_fisico}</Text>
+      ) : null}
     </View>
 
     <View style={styles.viajeMetrics}>
@@ -96,7 +99,7 @@ const ViajeItem = ({ viaje, esTipo3 }) => (
           {parseFloat(viaje.peso_ton).toFixed(2)} ton
         </Text>
       )}
-      {viaje.costo_viaje != null && (
+      {!esChecador && viaje.costo_viaje != null && (
         <Text style={styles.viajeCosto}>{formatCosto(viaje.costo_viaje)}</Text>
       )}
     </View>
@@ -168,6 +171,8 @@ const ViajesMaterialSection = ({
   registrando,
   totalViajes,
   onRegistrarViaje,
+  puedeRegistrar,
+  minutosRestantes,
   tipoMaterial,
   onCompletar,
   saving,
@@ -192,7 +197,6 @@ const ViajesMaterialSection = ({
 
   const [valores, setValores] = useState(valorInicialForm);
   const [viajeParaImprimir, setViajeParaImprimir] = useState(null);
-  const [mostrarModalImpresion, setMostrarModalImpresion] = useState(false);
 
   // ─── Validar formulario antes de registrar ────────────────────────────────
 
@@ -209,6 +213,13 @@ const ViajesMaterialSection = ({
         Alert.alert(
           "Campo requerido",
           "Ingresa el peso del viaje en toneladas.",
+        );
+        return false;
+      }
+      if (peso > 200) {
+        Alert.alert(
+          "Peso inválido",
+          "El peso no puede ser superior a 200 toneladas.",
         );
         return false;
       }
@@ -233,8 +244,6 @@ const ViajesMaterialSection = ({
 
     if (resultado) {
       setValores(valorInicialForm);
-      setViajeParaImprimir(resultado);
-      setMostrarModalImpresion(true);
     }
   }, [validarFormulario, onRegistrarViaje, esTipo3, valores]);
 
@@ -296,7 +305,12 @@ const ViajesMaterialSection = ({
 
           <View style={styles.lista}>
             {viajes.map((viaje) => (
-              <ViajeItem key={viaje.id_viaje} viaje={viaje} esTipo3={esTipo3} />
+              <ViajeItem
+                key={viaje.id_viaje}
+                viaje={viaje}
+                esTipo3={esTipo3}
+                esChecador={esChecador}
+              />
             ))}
           </View>
         </>
@@ -314,14 +328,27 @@ const ViajesMaterialSection = ({
       <TouchableOpacity
         style={[
           styles.botonRegistrar,
-          registrando && styles.botonDeshabilitado,
+          (!puedeRegistrar || registrando) && styles.botonDeshabilitado,
         ]}
         onPress={handleRegistrar}
-        disabled={registrando}
+        disabled={!puedeRegistrar || registrando}
         activeOpacity={0.8}
       >
         {registrando ? (
           <ActivityIndicator size="small" color={colors.surface} />
+        ) : !puedeRegistrar ? (
+          <>
+            <MaterialCommunityIcons
+              name="plus-circle"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text style={[styles.botonTexto, { color: colors.textSecondary }]}>
+              {totalViajes === 0
+                ? "Registrar Primer Viaje"
+                : `Registrar Viaje ${totalViajes + 1}`}
+            </Text>
+          </>
         ) : (
           <>
             <MaterialCommunityIcons
@@ -391,30 +418,6 @@ const ViajesMaterialSection = ({
           folioVale={vale?.folio}
         />
       )}
-      {/* Modal impresión — reutilizando ModalImprimirTicketRenta */}
-      <ModalImprimirTicketRenta
-        visible={mostrarModalImpresion}
-        valeData={vale}
-        generarLineas={generarLineasTicketViaje}
-        resumenDatos={{
-          folio: vale?.folio,
-          operador: vale?.operadores?.nombre_completo,
-          placas: vale?.vehiculos?.placas,
-          descripcion: viajeParaImprimir
-            ? `Viaje ${viajeParaImprimir.numero_viaje} · ${parseFloat(
-                viajeParaImprimir.volumen_m3 || 0,
-              ).toFixed(2)} m³`
-            : null,
-        }}
-        onImpreso={() => {
-          setMostrarModalImpresion(false);
-          setViajeParaImprimir(null);
-        }}
-        onSinImpresora={() => {
-          setMostrarModalImpresion(false);
-          setViajeParaImprimir(null);
-        }}
-      />
     </View>
   );
 };
@@ -513,6 +516,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 1,
   },
+  viajeFolio: {
+    fontSize: 11,
+    color: colors.secondary,
+    marginTop: 2,
+  },
   viajeMetrics: {
     alignItems: "flex-end",
     gap: 2,
@@ -539,7 +547,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.primary,
     borderRadius: 10,
     paddingVertical: 12,
     gap: 8,

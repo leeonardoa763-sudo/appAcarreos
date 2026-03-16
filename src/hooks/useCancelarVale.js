@@ -61,14 +61,6 @@ export const useCancelarVale = (vale, onExito) => {
       return;
     }
 
-    // TEMPORAL - diagnóstico
-    console.log("[CANCELAR] id_vale:", vale?.id_vale);
-    console.log("[CANCELAR] estado actual:", vale?.estado);
-    console.log("[CANCELAR] auth_user_id:", userProfile?.auth_user_id);
-    console.log("[CANCELAR] id_persona:", userProfile?.id_persona);
-    console.log("[CANCELAR] userRole:", userRole);
-    console.log("[CANCELAR] motivo length:", motivo.trim().length);
-
     try {
       setCancelando(true);
 
@@ -83,10 +75,6 @@ export const useCancelarVale = (vale, onExito) => {
         .eq("id_vale", vale.id_vale)
         .eq("estado", "en_proceso")
         .select(); // 🆕 agregar .select() para ver qué devuelve
-
-      // TEMPORAL - diagnóstico
-      console.log("[CANCELAR] data:", JSON.stringify(data));
-      console.log("[CANCELAR] error:", JSON.stringify(errorSupabase));
 
       if (errorSupabase) throw errorSupabase;
 

@@ -26,7 +26,6 @@ import { useAuth } from "../../hooks/useAuth";
 
 import ValeDetalleMaterial from "./ValeDetalleMaterial";
 import ValeDetalleRenta from "./ValeDetalleRenta";
-import ImprimirTicketButton from "./ImprimirTicketButton";
 
 const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
   const { userProfile } = useAuth();
@@ -79,15 +78,6 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                   Vale de {isMaterial ? "Material" : "Renta"}
                 </Text>
                 <Text style={styles.modalFolio}>{vale.folio}</Text>
-                {isMaterial && (
-                  <ImprimirTicketButton
-                    valeId={vale.id_vale}
-                    valeData={vale}
-                    impresiones={vale.impresiones_ticket}
-                    estado={vale.estado}
-                    onImpreso={onRefresh}
-                  />
-                )}
               </View>
             </View>
             <TouchableOpacity

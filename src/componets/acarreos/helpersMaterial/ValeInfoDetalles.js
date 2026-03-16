@@ -58,12 +58,6 @@ const ValeInfoDetalles = ({
           value={`${detalleMaterial.distancia_km} km`}
         />
 
-        <InfoRow
-          icon="package-variant"
-          label="Cantidad Pedida"
-          value={`${detalleMaterial.cantidad_pedida_m3} m³`}
-        />
-
         {vale.estado !== "en_proceso" && (
           <>
             {!esTipo3 && (

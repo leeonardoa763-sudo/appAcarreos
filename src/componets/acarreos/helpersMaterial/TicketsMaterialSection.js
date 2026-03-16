@@ -19,7 +19,7 @@
  */
 
 // 1. React
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 
 // 2. React Native
 import {
@@ -239,6 +239,7 @@ const TicketsMaterialSection = ({
   detalle,
   totalViajes,
   operadorYVehiculoGuardados = false,
+  onTotalTicketsChange,
 }) => {
   const {
     tickets,
@@ -249,6 +250,10 @@ const TicketsMaterialSection = ({
     registrarTicket,
     reimprimirTicket,
   } = useTicketsMaterial(vale);
+
+  useEffect(() => {
+    onTotalTicketsChange?.(totalTickets);
+  }, [totalTickets]);
 
   const [ticketPendiente, setTicketPendiente] = useState(null);
   const [mostrarModalImpresion, setMostrarModalImpresion] = useState(false);

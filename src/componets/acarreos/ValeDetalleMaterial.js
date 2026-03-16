@@ -38,7 +38,8 @@ import TicketsMaterialSection from "./helpersMaterial/TicketsMaterialSection";
 import useEvidenciaVale from "../../hooks/useEvidenciaVale";
 
 const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
-  const { userProfile } = useAuth();
+  const { userProfile, userRole } = useAuth();
+  const esChecador = userRole === "CHECADOR";
 
   const {
     modalVisible: modalCancelarVisible,
@@ -68,6 +69,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const [successData, setSuccessData] = useState(null);
   const [updatedVale, setUpdatedVale] = useState(null);
   const [triggerPDF, setTriggerPDF] = useState(false);
+
+  const [valeLocal, setValeLocal] = useState(vale);
 
   const isInitialized = useRef(false);
   const lastValeId = useRef(null);
@@ -116,13 +119,18 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     registrando,
     saving,
     totalViajes,
+    puedeRegistrar,
+    minutosRestantes,
     registrarViaje,
     completarVale,
   } = useViajesMaterial(
     detalleMaterial?.id_detalle_material,
     vale?.id_vale,
     detalleMaterial,
+    vale?.id_obra,
   );
+
+  const [totalTickets, setTotalTickets] = useState(0);
 
   const obraData = vale?.obras ?? null;
 
@@ -207,16 +215,54 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           .eq("id_detalle_material", detalleMaterial.id_detalle_material);
       }
 
+      console.log("[ValeDetalleMaterial] Guardado en Supabase OK");
+      console.log(
+        "[ValeDetalleMaterial] Operador guardado:",
+        selectedOperador?.nombre_completo,
+      );
+      console.log(
+        "[ValeDetalleMaterial] Placas guardadas:",
+        selectedVehiculo?.placas,
+      );
+
+      setValeLocal({
+        ...vale,
+        id_operador: selectedOperador.id_operador,
+        id_vehiculo: selectedVehiculo.id_vehiculo,
+        operadores: { nombre_completo: selectedOperador.nombre_completo },
+        vehiculos: {
+          placas: selectedVehiculo.placas,
+          capacidad_m3: selectedVehiculo.capacidad_m3,
+          sindicatos: selectedVehiculo.sindicatos ?? null,
+        },
+      });
+
+      console.log(
+        "[ValeDetalleMaterial] valeLocal actualizado con operador y placas",
+      );
       setDatosPendientesGuardados(true);
     } catch (error) {
+      console.error(
+        "[ValeDetalleMaterial] Error guardando datos pendientes:",
+        error,
+      );
       Alert.alert("Error", "No se pudo guardar. Intenta de nuevo.");
     } finally {
       setSavingDatos(false);
     }
-  }, [selectedOperador, selectedVehiculo, vale.id_vale, detalleMaterial]);
+  }, [selectedOperador, selectedVehiculo, vale, detalleMaterial]);
 
   // ─── Completar vale ───────────────────────────────────────────────────────
   const handleCompletar = useCallback(async () => {
+    if (totalTickets > 0 && totalViajes !== totalTickets) {
+      Alert.alert(
+        "Viajes incompletos",
+        `Tienes ${totalTickets} ticket${totalTickets > 1 ? "s" : ""} impresos pero solo ${totalViajes} viaje${totalViajes !== 1 ? "s" : ""} registrado${totalViajes !== 1 ? "s" : ""}. Debes registrar el viaje pendiente antes de completar.`,
+        [{ text: "Entendido" }],
+      );
+      return;
+    }
+
     const valeCompletado = await completarVale({
       fotoUrl,
       ubicacion,
@@ -237,7 +283,15 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
     setSuccessData({ totalViajes: totalViajesNum, totalVolumen, totalCosto });
     setShowSuccessModal(true);
-  }, [completarVale, fotoUrl, ubicacion, distanciaObra, userProfile]);
+  }, [
+    completarVale,
+    fotoUrl,
+    ubicacion,
+    distanciaObra,
+    userProfile,
+    totalTickets,
+    totalViajes,
+  ]);
 
   // ─── Cerrar modal de éxito ────────────────────────────────────────────────
   const handleCloseSuccess = useCallback(() => {
@@ -307,7 +361,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
         {/* Info general del vale */}
         <ValeInfoGeneral
-          vale={vale}
+          vale={valeLocal}
           detalleMaterial={detalleMaterial}
           formatDate={formatDate}
           userProfile={userProfile}
@@ -315,7 +369,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
         {/* Detalles de material y precios */}
         <ValeInfoDetalles
-          vale={vale}
+          vale={valeLocal}
           detalleMaterial={detalleMaterial}
           esTipo3={esTipo3}
           formatDate={formatDate}
@@ -338,30 +392,33 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             />
           )}
         {/* Tickets de material — visible en_proceso con operador asignado */}
-        {vale?.estado === "en_proceso" && detalleMaterial && (
+        {valeLocal?.estado === "en_proceso" && detalleMaterial && (
           <TicketsMaterialSection
-            vale={vale}
+            vale={valeLocal}
             detalle={detalleMaterial}
             totalViajes={totalViajes}
             operadorYVehiculoGuardados={datosPendientesGuardados}
+            onTotalTicketsChange={setTotalTickets}
           />
         )}
 
         {/* Sección de viajes — visible solo en_proceso y con canComplete */}
         {canComplete && (
           <ViajesMaterialSection
-            vale={vale}
+            vale={valeLocal}
             detalle={detalleMaterial}
             viajes={viajes}
             loading={loadingViajes}
             registrando={registrando}
             totalViajes={totalViajes}
             onRegistrarViaje={registrarViaje}
+            puedeRegistrar={puedeRegistrar}
+            minutosRestantes={minutosRestantes}
             tipoMaterial={tipoMaterial}
             onCompletar={handleCompletar}
             saving={saving}
             evidenciaProps={evidenciaProps}
-            esChecador={false}
+            esChecador={esChecador}
           />
         )}
 

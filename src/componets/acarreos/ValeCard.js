@@ -52,13 +52,15 @@ const ValeCard = ({ vale, onPress }) => {
     });
   };
 
+  const formatPlacas = (placas) => {
+    if (!placas) return "Pendiente";
+    return placas.replace(/([A-Za-z]+)(\d+)([A-Za-z]*)/, "$1 $2 $3").trim();
+  };
+
   const getMaterialInfo = () => {
     if (isMaterial && vale.vale_material_detalles?.length > 0) {
       const detalle = vale.vale_material_detalles[0];
       return {
-        cantidad: detalle.cantidad_pedida_m3
-          ? `${detalle.cantidad_pedida_m3} m³`
-          : "Sin cantidad",
         requisicion: detalle.requisicion || null,
         material: detalle.material?.material || "N/A",
         folioValeFisico: detalle.folio_vale_fisico || null,
@@ -66,7 +68,6 @@ const ValeCard = ({ vale, onPress }) => {
     }
     return null;
   };
-
   const getRentaInfo = () => {
     if (isRenta && vale.vale_renta_detalle?.length > 0) {
       const detalle = vale.vale_renta_detalle[0];
@@ -121,7 +122,7 @@ const ValeCard = ({ vale, onPress }) => {
           size={16}
           color={colors.textSecondary}
         />
-        <Text>{vale.vehiculos?.placas || "Pendiente"}</Text>
+        <Text>{formatPlacas(vale.vehiculos?.placas)}</Text>
       </View>
       {/* Mostrar persona que completó (solo si NO está en proceso) */}
       {vale.estado !== "en_proceso" && vale.persona_completador?.nombre && (
@@ -146,16 +147,6 @@ const ValeCard = ({ vale, onPress }) => {
               color={colors.textSecondary}
             />
             <Text style={styles.infoText}>{materialInfo.material}</Text>
-          </View>
-          <View style={styles.row}>
-            <MaterialCommunityIcons
-              name="cube-outline"
-              size={16}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.infoText}>
-              Cantidad: {materialInfo.cantidad}
-            </Text>
           </View>
 
           {/* Folio Vale Físico (solo si existe) */}

@@ -47,7 +47,7 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   // En generateValeMaterialReciboHTML, justo después de extraer folioValeFisico
   console.log("[PDF] folioValeFisico:", folioValeFisico);
   console.log("[PDF] esTipo3:", esTipo3);
-  console.log("[PDF] detalle completo:", JSON.stringify(detalle));
+
   // Datos después de completar el vale
   const folioBanco = detalle.folio_banco || null;
   const peso = detalle.peso_ton

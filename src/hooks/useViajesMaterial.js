@@ -7,20 +7,52 @@
  * - Conversión ton → m³ usando peso_especifico
  * - Cálculo de costo por viaje al momento de registrar
  * - Folio vale físico (solo tipo 3 / tepetate)
+ * - Tiempo mínimo entre viajes (min_minutos_entre_viajes de obras)
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Alert } from "react-native";
 import { supabase } from "../config/supabase";
 import { useAuth } from "./useAuth";
 import { calcularCostoValeMaterial } from "../utils/preciosMaterial";
 
-export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
+const MINUTOS_DEFAULT = 20;
+
+export const useViajesMaterial = (
+  idDetalleMaterial,
+  idVale,
+  detalle,
+  idObra,
+) => {
   const { userProfile } = useAuth();
   const [viajes, setViajes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [registrando, setRegistrando] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [minutosRestantes, setMinutosRestantes] = useState(0);
+  const [minMinutosEntreViajes, setMinMinutosEntreViajes] =
+    useState(MINUTOS_DEFAULT);
+  const intervaloRef = useRef(null);
+
+  // ─── Cargar configuración de tiempo mínimo ────────────────────────────────
+
+  const cargarConfiguracion = useCallback(async () => {
+    if (!idObra) return;
+    try {
+      const { data, error } = await supabase
+        .from("obras")
+        .select("min_minutos_entre_viajes")
+        .eq("id_obra", idObra)
+        .single();
+
+      if (error) throw error;
+
+      const valor = data?.min_minutos_entre_viajes ?? MINUTOS_DEFAULT;
+      setMinMinutosEntreViajes(valor);
+    } catch (error) {
+      console.error("[useViajesMaterial] Error cargando configuracion:", error);
+    }
+  }, [idObra]);
 
   // ─── Cargar viajes existentes ─────────────────────────────────────────────
 
@@ -58,9 +90,48 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
     }
   }, [idDetalleMaterial]);
 
-  useEffect(() => {
-    cargarViajes();
-  }, [cargarViajes]);
+  // ─── Calcular minutos restantes ───────────────────────────────────────────
+
+  const calcularMinutosRestantes = useCallback(
+    (viajesActuales) => {
+      const ahora = new Date();
+
+      if (viajesActuales.length === 0) return 0;
+
+      const ultimoViaje = viajesActuales[viajesActuales.length - 1];
+      const horaUltimo = new Date(ultimoViaje.hora_registro);
+      const diffMinutos = (ahora - horaUltimo) / (1000 * 60);
+      const restantes = minMinutosEntreViajes - diffMinutos;
+      return restantes > 0 ? Math.ceil(restantes) : 0;
+    },
+    [minMinutosEntreViajes],
+  );
+
+  // ─── Iniciar cuenta regresiva ─────────────────────────────────────────────
+
+  const iniciarCuentaRegresiva = useCallback(
+    (viajesActuales) => {
+      if (intervaloRef.current) clearInterval(intervaloRef.current);
+      const restantes = calcularMinutosRestantes(viajesActuales);
+      setMinutosRestantes(restantes);
+
+      if (restantes > 0) {
+        intervaloRef.current = setInterval(() => {
+          const nuevosRestantes = calcularMinutosRestantes(viajesActuales);
+          setMinutosRestantes(nuevosRestantes);
+          if (nuevosRestantes <= 0) {
+            clearInterval(intervaloRef.current);
+            intervaloRef.current = null;
+          }
+        }, 30000);
+      }
+    },
+    [calcularMinutosRestantes],
+  );
+
+  const puedeRegistrar = useCallback(() => {
+    return minutosRestantes <= 0;
+  }, [minutosRestantes]);
 
   // ─── Calcular m³ desde toneladas ──────────────────────────────────────────
 
@@ -105,6 +176,15 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
 
   const registrarViaje = useCallback(
     async ({ pesoTon, volumenDirecto, folioValeFisico } = {}) => {
+      if (!puedeRegistrar()) {
+        Alert.alert(
+          "No disponible",
+          `Debes esperar ${minutosRestantes} min antes de registrar el siguiente viaje.`,
+          [{ text: "OK" }],
+        );
+        return false;
+      }
+
       if (!userProfile?.id_persona) {
         Alert.alert("Error", "No se pudo obtener la información del usuario.");
         return false;
@@ -135,10 +215,8 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
                   // PASO 1: Calcular volumen m³
                   let volumenM3;
                   if (volumenDirecto != null) {
-                    // Tipo 3 (tepetate): se captura directo en m³
                     volumenM3 = parseFloat(volumenDirecto);
                   } else if (pesoTon != null) {
-                    // Tipo 1 y 2: convertir toneladas → m³
                     volumenM3 = await calcularVolumenDesdeTomeladas(
                       parseFloat(pesoTon),
                     );
@@ -203,7 +281,6 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
                         tarifa_subsecuente: costos.tarifaSubsecuente,
                         folio_vale_fisico: folioValeFisico || null,
                       })
-
                       .select(
                         `
                         id_viaje,
@@ -256,6 +333,7 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
 
                   const viajesActualizados = [...viajes, viajeNuevo];
                   setViajes(viajesActualizados);
+                  iniciarCuentaRegresiva(viajesActualizados);
                   resolve(viajeNuevo);
                 } catch (error) {
                   console.error(
@@ -278,6 +356,8 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
       });
     },
     [
+      puedeRegistrar,
+      minutosRestantes,
       viajes,
       idDetalleMaterial,
       idVale,
@@ -285,6 +365,7 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
       userProfile,
       calcularVolumenDesdeTomeladas,
       obtenerSindicatoVehiculo,
+      iniciarCuentaRegresiva,
     ],
   );
 
@@ -295,7 +376,6 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
       try {
         setSaving(true);
 
-        // Actualizar estado del vale
         const { error } = await supabase
           .from("vales")
           .update({
@@ -307,7 +387,6 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
 
         if (error) throw error;
 
-        // Guardar evidencia en vale_material_detalles
         const { error: errorEvidencia } = await supabase
           .from("vale_material_detalles")
           .update({
@@ -351,8 +430,30 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
         setSaving(false);
       }
     },
-    [idVale],
+    [idVale, idDetalleMaterial],
   );
+
+  // ─── Effects ──────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    cargarConfiguracion();
+  }, [cargarConfiguracion]);
+
+  useEffect(() => {
+    cargarViajes();
+  }, [cargarViajes]);
+
+  useEffect(() => {
+    if (!loading) {
+      iniciarCuentaRegresiva(viajes);
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    return () => {
+      if (intervaloRef.current) clearInterval(intervaloRef.current);
+    };
+  }, []);
 
   return {
     viajes,
@@ -360,6 +461,8 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
     registrando,
     saving,
     totalViajes: viajes.length,
+    puedeRegistrar: puedeRegistrar(),
+    minutosRestantes,
     registrarViaje,
     completarVale,
     recargarViajes: cargarViajes,
