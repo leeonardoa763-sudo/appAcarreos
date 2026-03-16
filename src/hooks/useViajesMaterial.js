@@ -20,6 +20,7 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
   const [viajes, setViajes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [registrando, setRegistrando] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // ─── Cargar viajes existentes ─────────────────────────────────────────────
 
@@ -200,9 +201,7 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
                         id_precios_material: costos.idPreciosMaterial,
                         tarifa_primer_km: costos.tarifaPrimerKm,
                         tarifa_subsecuente: costos.tarifaSubsecuente,
-                        folio_vale_fisico: folioValeFisico
-                          ? parseInt(folioValeFisico, 10)
-                          : null,
+                        folio_vale_fisico: folioValeFisico || null,
                       })
 
                       .select(
@@ -289,12 +288,80 @@ export const useViajesMaterial = (idDetalleMaterial, idVale, detalle) => {
     ],
   );
 
+  // ─── Completar vale ───────────────────────────────────────────────────────
+
+  const completarVale = useCallback(
+    async ({ fotoUrl, ubicacion, distanciaObra, idPersona } = {}) => {
+      try {
+        setSaving(true);
+
+        // Actualizar estado del vale
+        const { error } = await supabase
+          .from("vales")
+          .update({
+            estado: "emitido",
+            id_persona_completador: idPersona,
+            fecha_completado: new Date().toISOString(),
+          })
+          .eq("id_vale", idVale);
+
+        if (error) throw error;
+
+        // Guardar evidencia en vale_material_detalles
+        const { error: errorEvidencia } = await supabase
+          .from("vale_material_detalles")
+          .update({
+            foto_evidencia_url: fotoUrl ?? null,
+            latitud_completado: ubicacion?.latitud ?? null,
+            longitud_completado: ubicacion?.longitud ?? null,
+            distancia_obra_metros: distanciaObra ?? null,
+          })
+          .eq("id_detalle_material", idDetalleMaterial);
+
+        if (errorEvidencia) throw errorEvidencia;
+
+        const { data: valeCompleto, error: errorConsulta } = await supabase
+          .from("vales")
+          .select(
+            `
+            *,
+            obras:id_obra (obra, cc, empresas:id_empresa (empresa, sufijo, logo)),
+            persona:id_persona_creador (nombre, primer_apellido, segundo_apellido),
+            operadores:id_operador (nombre_completo),
+            vehiculos:id_vehiculo (placas, capacidad_m3, sindicatos:id_sindicato (sindicato)),
+            vale_material_detalles (
+              *,
+              material:id_material (id_material, material, id_tipo_de_material),
+              bancos:id_banco (id_banco, banco),
+              sindicatos:id_sindicato (sindicato),
+              vale_material_viajes (*)
+            )
+          `,
+          )
+          .eq("id_vale", idVale)
+          .single();
+
+        if (errorConsulta) throw errorConsulta;
+        return valeCompleto;
+      } catch (error) {
+        console.error("[useViajesMaterial] Error completando vale:", error);
+        Alert.alert("Error", `No se pudo completar el vale: ${error.message}`);
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [idVale],
+  );
+
   return {
     viajes,
     loading,
     registrando,
+    saving,
     totalViajes: viajes.length,
     registrarViaje,
+    completarVale,
     recargarViajes: cargarViajes,
   };
 };

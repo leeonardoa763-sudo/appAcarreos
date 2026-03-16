@@ -33,18 +33,15 @@ import {
 
 // 3. Third party
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-
 // 4. Local - Config
 import { colors } from "../../../config/colors";
 import { BLUETOOTH_ENABLED } from "../../../config/features";
-// AGREGAR después de import FormInput
-import FormInput from "../../forms/FormInput";
-import EvidenciaCaptura from "../../vale/EvidenciaCaptura";
 
 // 5. Local - Componentes
 import FormInput from "../../forms/FormInput";
 import ModalImprimirTicketRenta from "../rentaHelpers/ModalImprimirTicketRenta";
-
+import ValeFormCompletarNormal from "./ValeFormCompletarNormal";
+import ValeFormCompletarTipo3 from "./ValeFormCompletarTipo3";
 // 6. Imports condicionales Bluetooth
 let generarTicketMaterialViaje;
 if (BLUETOOTH_ENABLED) {
@@ -172,6 +169,18 @@ const ViajesMaterialSection = ({
   totalViajes,
   onRegistrarViaje,
   tipoMaterial,
+  onCompletar,
+  saving,
+  evidenciaProps,
+  pesoToneladas,
+  setPesoToneladas,
+  folioBanco,
+  setFolioBanco,
+  notasAdicionales,
+  setNotasAdicionales,
+  cantidadConfirmada,
+  setCantidadConfirmada,
+  esChecador,
 }) => {
   const esTipo3 = tipoMaterial === 3;
 
@@ -328,7 +337,60 @@ const ViajesMaterialSection = ({
           </>
         )}
       </TouchableOpacity>
-
+      {/* Formulario de completar — según tipo de material */}
+      {esTipo3 ? (
+        <ValeFormCompletarTipo3
+          detalleMaterial={detalle}
+          cantidadConfirmada={cantidadConfirmada}
+          setCantidadConfirmada={setCantidadConfirmada}
+          notasAdicionales={notasAdicionales}
+          setNotasAdicionales={setNotasAdicionales}
+          esChecador={esChecador}
+          savingToneladas={saving}
+          onCompletar={onCompletar}
+          evidenciaLista={evidenciaProps?.evidenciaLista}
+          obraTieneCoordenadas={evidenciaProps?.obraTieneCoordenadas}
+          dentroDelRadio={evidenciaProps?.dentroDelRadio}
+          foto={evidenciaProps?.foto}
+          fotoUrl={evidenciaProps?.fotoUrl}
+          ubicacion={evidenciaProps?.ubicacion}
+          distanciaObra={evidenciaProps?.distanciaObra}
+          radioConfigurado={evidenciaProps?.radioConfigurado}
+          loadingFoto={evidenciaProps?.loadingFoto}
+          loadingUbicacion={evidenciaProps?.loadingUbicacion}
+          errorFoto={evidenciaProps?.errorFoto}
+          errorUbicacion={evidenciaProps?.errorUbicacion}
+          onTomarFoto={evidenciaProps?.onTomarFoto}
+          onCapturarUbicacion={evidenciaProps?.onCapturarUbicacion}
+          folioVale={vale?.folio}
+        />
+      ) : (
+        <ValeFormCompletarNormal
+          pesoToneladas={pesoToneladas}
+          setPesoToneladas={setPesoToneladas}
+          folioBanco={folioBanco}
+          setFolioBanco={setFolioBanco}
+          notasAdicionales={notasAdicionales}
+          setNotasAdicionales={setNotasAdicionales}
+          savingToneladas={saving}
+          onCompletar={onCompletar}
+          evidenciaLista={evidenciaProps?.evidenciaLista}
+          obraTieneCoordenadas={evidenciaProps?.obraTieneCoordenadas}
+          dentroDelRadio={evidenciaProps?.dentroDelRadio}
+          foto={evidenciaProps?.foto}
+          fotoUrl={evidenciaProps?.fotoUrl}
+          ubicacion={evidenciaProps?.ubicacion}
+          distanciaObra={evidenciaProps?.distanciaObra}
+          radioConfigurado={evidenciaProps?.radioConfigurado}
+          loadingFoto={evidenciaProps?.loadingFoto}
+          loadingUbicacion={evidenciaProps?.loadingUbicacion}
+          errorFoto={evidenciaProps?.errorFoto}
+          errorUbicacion={evidenciaProps?.errorUbicacion}
+          onTomarFoto={evidenciaProps?.onTomarFoto}
+          onCapturarUbicacion={evidenciaProps?.onCapturarUbicacion}
+          folioVale={vale?.folio}
+        />
+      )}
       {/* Modal impresión — reutilizando ModalImprimirTicketRenta */}
       <ModalImprimirTicketRenta
         visible={mostrarModalImpresion}

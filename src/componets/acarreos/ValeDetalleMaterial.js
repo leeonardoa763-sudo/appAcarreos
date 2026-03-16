@@ -35,6 +35,7 @@ import ValeInfoGeneral from "./helpersMaterial/ValeInfoGeneral";
 import ValeInfoDetalles from "./helpersMaterial/ValeInfoDetalles";
 import ValeDatosPendientes from "./helpersMaterial/ValeDatosPendientes";
 import TicketsMaterialSection from "./helpersMaterial/TicketsMaterialSection";
+import useEvidenciaVale from "../../hooks/useEvidenciaVale";
 
 const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const { userProfile } = useAuth();
@@ -88,7 +89,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   // ─── Lógica de fecha operacional ──────────────────────────────────────────
   const hoy = new Date();
   const fechaOperacional = vale?.fecha_programada
-    ? new Date(vale.fecha_programada)
+    ? (() => {
+        const [y, m, d] = vale.fecha_programada.split("-").map(Number);
+        return new Date(y, m - 1, d);
+      })()
     : vale?.fecha_creacion
       ? new Date(vale.fecha_creacion)
       : null;
@@ -119,6 +123,43 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     vale?.id_vale,
     detalleMaterial,
   );
+
+  const obraData = vale?.obras ?? null;
+
+  const {
+    foto,
+    fotoUrl,
+    ubicacion,
+    distanciaObra,
+    evidenciaLista,
+    dentroDelRadio,
+    obraTieneCoordenadas,
+    radioConfigurado,
+    loadingFoto,
+    loadingUbicacion,
+    errorFoto,
+    errorUbicacion,
+    tomarFoto,
+    capturarUbicacion,
+    resetEvidencia,
+  } = useEvidenciaVale(obraData);
+
+  const evidenciaProps = {
+    foto,
+    fotoUrl,
+    ubicacion,
+    distanciaObra,
+    evidenciaLista,
+    dentroDelRadio,
+    obraTieneCoordenadas,
+    radioConfigurado,
+    loadingFoto,
+    loadingUbicacion,
+    errorFoto,
+    errorUbicacion,
+    onTomarFoto: tomarFoto,
+    onCapturarUbicacion: capturarUbicacion,
+  };
 
   // ─── Cleanup al desmontar ─────────────────────────────────────────────────
   useEffect(() => {
@@ -176,25 +217,27 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
   // ─── Completar vale ───────────────────────────────────────────────────────
   const handleCompletar = useCallback(async () => {
-    const valeCompletado = await completarVale();
+    const valeCompletado = await completarVale({
+      fotoUrl,
+      ubicacion,
+      distanciaObra,
+      idPersona: userProfile?.id_persona,
+    });
     if (!valeCompletado) return;
 
     setUpdatedVale(valeCompletado);
-
     const detalle = valeCompletado.vale_material_detalles?.[0];
-    const totalViajesNum = valeCompletado.vale_material_viajes?.length ?? 0;
+    const totalViajesNum =
+      valeCompletado.vale_material_detalles?.[0]?.vale_material_viajes
+        ?.length ?? 0;
     const totalVolumen = parseFloat(detalle?.volumen_real_m3 || 0).toFixed(2);
     const totalCosto = detalle?.costo_total
       ? `$${parseFloat(detalle.costo_total).toFixed(2)}`
       : null;
 
-    setSuccessData({
-      totalViajes: totalViajesNum,
-      totalVolumen,
-      totalCosto,
-    });
+    setSuccessData({ totalViajes: totalViajesNum, totalVolumen, totalCosto });
     setShowSuccessModal(true);
-  }, [completarVale]);
+  }, [completarVale, fotoUrl, ubicacion, distanciaObra, userProfile]);
 
   // ─── Cerrar modal de éxito ────────────────────────────────────────────────
   const handleCloseSuccess = useCallback(() => {
@@ -317,6 +360,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             tipoMaterial={tipoMaterial}
             onCompletar={handleCompletar}
             saving={saving}
+            evidenciaProps={evidenciaProps}
+            esChecador={false}
           />
         )}
 
