@@ -358,3 +358,169 @@ export const generarTicketRenta = (vale) => {
 
   return lineas;
 };
+/**
+ * Genera líneas del ticket por VIAJE de vale de MATERIAL
+ * Se imprime después de registrar cada viaje individual
+ *
+ * @param {object} vale - Datos completos del vale
+ * @param {object} detalle - vale_material_detalles[0]
+ * @param {object} viaje - Viaje recién registrado (de vale_material_viajes)
+ */
+export const generarTicketMaterialViaje = (vale, detalle, viaje) => {
+  const cc = vale.obras?.cc || "";
+  const nombreObra = vale.obras?.obra || "N/A";
+  const obra = cc ? `${cc}-${nombreObra}` : nombreObra;
+  const empresa = vale.obras?.empresas?.empresa || "CONSTRUCCION";
+  const operador = vale.operadores?.nombre_completo || "N/A";
+  const placas = vale.vehiculos?.placas || "N/A";
+  const material = detalle.material?.material || "N/A";
+  const banco = detalle.bancos?.banco || "N/A";
+  const distancia = detalle.distancia_km ? `${detalle.distancia_km} km` : "N/A";
+  const folio = vale.folio || "N/A";
+  const qrUrl =
+    vale.qr_verification_url || `https://web-acarreos.vercel.app/vale/${folio}`;
+
+  const numeroViaje = viaje.numero_viaje || "N/A";
+  const horaViaje = formatearHora(viaje.hora_registro);
+  const fechaViaje = formatearFecha(viaje.hora_registro);
+  const volumen = viaje.volumen_m3
+    ? `${parseFloat(viaje.volumen_m3).toFixed(2)} m3`
+    : "N/A";
+  const peso = viaje.peso_ton
+    ? `${parseFloat(viaje.peso_ton).toFixed(2)} ton`
+    : null;
+  const costoViaje = viaje.costo_viaje
+    ? `$${parseFloat(viaje.costo_viaje).toLocaleString("es-MX", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`
+    : null;
+  const folioFisico = viaje.folio_vale_fisico
+    ? String(viaje.folio_vale_fisico)
+    : null;
+
+  const lineas = [
+    {
+      tipo: "texto",
+      contenido: `${empresa}\n`,
+      opciones: { align: ALINEACION.CENTRO, bold: true },
+    },
+    {
+      tipo: "texto",
+      contenido: "TICKET DE VIAJE\n",
+      opciones: { align: ALINEACION.CENTRO, bold: true },
+    },
+    {
+      tipo: "texto",
+      contenido: "VALE DE MATERIAL\n",
+      opciones: { align: ALINEACION.CENTRO },
+    },
+    {
+      tipo: "texto",
+      contenido: `${fechaViaje} ${horaViaje}\n`,
+      opciones: { align: ALINEACION.CENTRO },
+    },
+    { tipo: "separador" },
+    {
+      tipo: "texto",
+      contenido: `FOLIO VALE: ${folio}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+    },
+    {
+      tipo: "texto",
+      contenido: `VIAJE #: ${numeroViaje}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+    },
+    { tipo: "separador" },
+    {
+      tipo: "texto",
+      contenido: "OBRA:\n",
+      opciones: { align: ALINEACION.IZQUIERDA },
+    },
+    {
+      tipo: "texto",
+      contenido: `${obra}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+    },
+    {
+      tipo: "texto",
+      contenido: `MATERIAL: ${material}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+    },
+    {
+      tipo: "texto",
+      contenido: `BANCO: ${banco}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA },
+    },
+    {
+      tipo: "texto",
+      contenido: `DISTANCIA: ${distancia}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA },
+    },
+    { tipo: "separador" },
+    {
+      tipo: "texto",
+      contenido: `VOLUMEN: ${volumen}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+    },
+  ];
+
+  // Peso solo para tipo 1 y 2
+  if (peso) {
+    lineas.push({
+      tipo: "texto",
+      contenido: `PESO: ${peso}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA },
+    });
+  }
+
+  // Folio físico solo para tipo 3
+  if (folioFisico) {
+    lineas.push({
+      tipo: "texto",
+      contenido: `VALE FISICO: ${folioFisico}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+    });
+  }
+
+  // Costo si está disponible
+  if (costoViaje) {
+    lineas.push({
+      tipo: "texto",
+      contenido: `COSTO VIAJE: ${costoViaje}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+    });
+  }
+
+  lineas.push(
+    { tipo: "separador" },
+    {
+      tipo: "texto",
+      contenido: `OPERADOR:\n${operador}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+    },
+    {
+      tipo: "texto",
+      contenido: `PLACAS: ${placas}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA },
+    },
+    { tipo: "separador" },
+    {
+      tipo: "texto",
+      contenido: "Escanear para verificar vale\n",
+      opciones: { align: ALINEACION.CENTRO },
+    },
+    {
+      tipo: "texto",
+      contenido: `IMPRESO: ${formatearFecha(new Date())} ${formatearHora(new Date())}\n`,
+      opciones: { align: ALINEACION.CENTRO },
+    },
+    {
+      tipo: "qr",
+      contenido: qrUrl,
+      tamano: 120,
+    },
+  );
+
+  return lineas;
+};

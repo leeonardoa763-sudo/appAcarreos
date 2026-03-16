@@ -36,31 +36,34 @@ const SeccionTarifas = ({
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Tarifas y Costo</Text>
 
-      {preciosRenta.costo_hr && (
-        <InfoRow
-          icon="cash"
-          label="Tarifa por Hora"
-          value={formatCurrency(preciosRenta.costo_hr)}
-        />
-      )}
-
-      {preciosRenta.costo_dia && (
-        <InfoRow
-          icon="cash-multiple"
-          label="Tarifa por Día"
-          value={formatCurrency(preciosRenta.costo_dia)}
-        />
-      )}
-
-      {detalleRenta.costo_total && (
-        <View style={styles.totalContainer}>
+      {preciosRenta.costo_hr !== null &&
+        preciosRenta.costo_hr !== undefined && (
           <InfoRow
-            icon="currency-usd"
-            label="Costo Total"
-            value={formatCurrency(detalleRenta.costo_total)}
+            icon="cash"
+            label="Tarifa por Hora"
+            value={formatCurrency(preciosRenta.costo_hr)}
           />
-        </View>
-      )}
+        )}
+
+      {preciosRenta.costo_dia !== null &&
+        preciosRenta.costo_dia !== undefined && (
+          <InfoRow
+            icon="cash-multiple"
+            label="Tarifa por Día"
+            value={formatCurrency(preciosRenta.costo_dia)}
+          />
+        )}
+
+      {detalleRenta.costo_total !== null &&
+        detalleRenta.costo_total !== undefined && (
+          <View style={styles.totalContainer}>
+            <InfoRow
+              icon="currency-usd"
+              label="Costo Total"
+              value={formatCurrency(detalleRenta.costo_total)}
+            />
+          </View>
+        )}
     </View>
   );
 };

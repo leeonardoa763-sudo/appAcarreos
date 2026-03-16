@@ -245,12 +245,15 @@ export const validateTiempoMinimoRenta = (horaInicioISO, tipo) => {
 };
 
 /**
- * Valida que el vale se pueda completar según su fecha de inicio.
+ * Valida que el vale se pueda completar según su fecha operacional.
+ *
+ * Para RENTA: fechaCreacionISO = hora_inicio del detalle
+ * Para MATERIAL: fechaCreacionISO = fecha_programada ?? fecha_creacion
  *
  * Turno normal:
- * - Si hora_inicio es hoy: puede completarse
- * - Si hora_inicio es futura: no puede completarse aún
- * - Si hora_inicio fue ayer o antes: no puede completarse
+ * - Si la fecha operacional es hoy: puede completarse
+ * - Si es futura: no puede completarse aún
+ * - Si fue ayer o antes: no puede completarse
  *
  * Turno nocturno:
  * - Se permite completar hasta 12 horas después de hora_inicio,
@@ -265,7 +268,7 @@ export const validateMismoDiaCreacion = (
   const fechaInicio = new Date(fechaCreacionISO);
   const ahora = new Date();
 
-  // --- Lógica turno nocturno ---
+  // --- Lógica turno nocturno (solo renta) ---
   if (esTurnoNocturno) {
     const diffHoras = (ahora - fechaInicio) / (1000 * 60 * 60);
 
@@ -285,7 +288,9 @@ export const validateMismoDiaCreacion = (
     return null;
   }
 
-  // --- Lógica turno normal (sin cambios) ---
+  // --- Lógica turno normal ---
+  // Para material: fechaCreacionISO puede ser un DATE (solo fecha, sin hora).
+  // Construimos la fecha de referencia ignorando la hora para comparación por día.
   const inicioSoloFecha = new Date(
     fechaInicio.getFullYear(),
     fechaInicio.getMonth(),

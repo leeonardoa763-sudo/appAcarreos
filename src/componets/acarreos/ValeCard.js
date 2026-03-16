@@ -124,7 +124,7 @@ const ValeCard = ({ vale, onPress }) => {
         <Text>{vale.vehiculos?.placas || "Pendiente"}</Text>
       </View>
       {/* Mostrar persona que completó (solo si NO está en proceso) */}
-      {vale.estado !== "en_proceso" && vale.persona_completador && (
+      {vale.estado !== "en_proceso" && vale.persona_completador?.nombre && (
         <View style={styles.row}>
           <MaterialCommunityIcons
             name="account-check"

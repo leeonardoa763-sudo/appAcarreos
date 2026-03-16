@@ -12,8 +12,6 @@ import {
   validateMaterialId,
   validateBancoId,
   validateSindicatoId,
-  validateCantidadSolicitada,
-  validateCapacidadVsCantidad,
   validateDistancia,
 } from "../utils/validations";
 
@@ -23,7 +21,6 @@ export const useValeMaterialForm = (materiales = []) => {
     bancoId: null,
     sindicatoId: null,
     capacidad: "",
-    cantidadSolicitada: "",
     distancia: "",
     selectedOperador: null,
     selectedVehiculo: null,
@@ -46,11 +43,6 @@ export const useValeMaterialForm = (materiales = []) => {
     const errorBanco = validateBancoId(formData.bancoId);
     if (errorBanco) newErrors.bancoId = errorBanco;
 
-    const errorCantidad = validateCantidadSolicitada(
-      formData.cantidadSolicitada,
-    );
-    if (errorCantidad) newErrors.cantidadSolicitada = errorCantidad;
-
     const errorDistancia = validateDistancia(formData.distancia);
     if (errorDistancia) newErrors.distancia = errorDistancia;
 
@@ -61,13 +53,6 @@ export const useValeMaterialForm = (materiales = []) => {
     if (!completarDespues) {
       const errorCapacidad = validateCapacidad(formData.capacidad);
       if (errorCapacidad) newErrors.capacidad = errorCapacidad;
-
-      const errorCapacidadVsCantidad = validateCapacidadVsCantidad(
-        formData.capacidad,
-        formData.cantidadSolicitada,
-      );
-      if (errorCapacidadVsCantidad)
-        newErrors.cantidadSolicitada = errorCapacidadVsCantidad;
 
       const errorOperador = validateOperadorId(
         formData.selectedOperador?.id_operador,

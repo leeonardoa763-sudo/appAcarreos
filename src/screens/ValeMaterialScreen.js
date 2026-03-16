@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
+  Switch,
   Alert,
   ActivityIndicator,
   TouchableOpacity,
@@ -73,7 +74,7 @@ const ValeMaterialScreen = () => {
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
   const [completarDespues, setCompletarDespues] = useState(false);
-
+  const [programarManana, setProgramarManana] = useState(false);
   // Hooks de formulario y lógica
   const {
     formData,
@@ -279,7 +280,7 @@ const ValeMaterialScreen = () => {
 
     try {
       const { valeCompleto, folio } = await crearVale(
-        { ...formData, completarDespues },
+        { ...formData, completarDespues, programarManana },
         obraDataParaFolio,
         userProfile,
         generateFolio,
@@ -440,18 +441,6 @@ const ValeMaterialScreen = () => {
           />
 
           <FormInput
-            label="Cantidad Solicitada"
-            value={formData.cantidadSolicitada}
-            onChangeText={(value) =>
-              setFormData({ ...formData, cantidadSolicitada: value })
-            }
-            placeholder="Ej: 9.5"
-            keyboardType="numeric"
-            suffix="m³"
-            error={errors.cantidadSolicitada}
-          />
-
-          <FormInput
             label="Distancia"
             value={formData.distancia}
             onChangeText={() => {}}
@@ -528,6 +517,31 @@ const ValeMaterialScreen = () => {
               </Text>
             </View>
           </TouchableOpacity>
+
+          {/* Toggle: Programar para mañana */}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <MaterialCommunityIcons
+                name="calendar-arrow-right"
+                size={20}
+                color={
+                  programarManana ? colors.secondary : colors.textSecondary
+                }
+              />
+              <View style={styles.toggleTexts}>
+                <Text style={styles.toggleLabel}>Programar para mañana</Text>
+                <Text style={styles.toggleSubLabel}>
+                  El vale se podrá completar el día de mañana
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={programarManana}
+              onValueChange={(val) => setProgramarManana(val)}
+              trackColor={{ false: colors.border, true: colors.secondary }}
+              thumbColor={colors.surface}
+            />
+          </View>
 
           <DatosOperadorSection
             selectedOperador={formData.selectedOperador}
@@ -687,6 +701,35 @@ const styles = {
     color: colors.textPrimary,
   },
   checkboxSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 8,
+  },
+  toggleInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 10,
+  },
+  toggleTexts: {
+    flex: 1,
+  },
+  toggleLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  toggleSubLabel: {
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,

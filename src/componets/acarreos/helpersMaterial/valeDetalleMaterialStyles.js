@@ -227,6 +227,24 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     lineHeight: 20,
   },
+  programadoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#E8F0FB",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.secondary,
+  },
+  programadoTexto: {
+    fontSize: 13,
+    color: colors.secondary,
+    fontWeight: "500",
+    flex: 1,
+    textTransform: "capitalize",
+  },
 });
 
 export default styles;

@@ -119,7 +119,14 @@ export const useValeMaterialLogic = (materiales) => {
               : formData.selectedVehiculo?.id_vehiculo,
             estado: estadoInicial,
             qr_verification_url: verificationUrl,
-            // Tepetate flujo directo: la misma persona es computadora y emisora
+            // fecha_programada: solo si el Residente activó "Programar para mañana"
+            fecha_programada: formData.programarManana
+              ? (() => {
+                  const manana = new Date();
+                  manana.setDate(manana.getDate() + 1);
+                  return manana.toISOString().split("T")[0]; // formato DATE: "YYYY-MM-DD"
+                })()
+              : null,
             ...(esTipo3DirectFlow && {
               id_persona_completador: userProfile.id_persona,
               fecha_completado: new Date().toISOString(),
@@ -128,7 +135,6 @@ export const useValeMaterialLogic = (materiales) => {
         ])
         .select()
         .single();
-
       if (errorVale) {
         console.error(
           "[useValeMaterialLogic] Error insertando vale:",
@@ -155,7 +161,7 @@ export const useValeMaterialLogic = (materiales) => {
         id_sindicato: formData.sindicatoId,
         capacidad_m3: parseFloat(formData.capacidad),
         distancia_km: parseFloat(formData.distancia),
-        cantidad_pedida_m3: parseFloat(formData.cantidadSolicitada),
+        cantidad_pedida_m3: null,
         peso_ton: null,
         notas_adicionales: formData.notasAdicionales || null,
         requisicion: formData.requisicion || null,
@@ -178,44 +184,6 @@ export const useValeMaterialLogic = (materiales) => {
       }
 
       console.log("[useValeMaterialLogic] Detalles insertados correctamente");
-
-      // PASO 6.5: Si es Tepetate flujo directo, calcular y guardar precio inmediatamente
-      if (esTipo3DirectFlow) {
-        try {
-          const { data: vehiculoData } = await supabase
-            .from("vehiculos")
-            .select("id_sindicato")
-            .eq("id_vehiculo", formData.selectedVehiculo?.id_vehiculo)
-            .single();
-
-          if (vehiculoData) {
-            const costos = await calcularCostoValeMaterial(
-              tipoDeMaterial,
-              vehiculoData.id_sindicato,
-              parseFloat(formData.distancia),
-              parseFloat(formData.cantidadSolicitada),
-            );
-
-            await supabase
-              .from("vale_material_detalles")
-              .update({
-                volumen_real_m3: parseFloat(formData.cantidadSolicitada),
-                precio_m3: costos.precioM3,
-                costo_total: costos.costoTotal,
-                id_precios_material: costos.idPreciosMaterial,
-                tarifa_primer_km: costos.tarifaPrimerKm,
-                tarifa_subsecuente: costos.tarifaSubsecuente,
-              })
-              .eq("id_vale", valeNuevo.id_vale);
-          }
-        } catch (errorPrecio) {
-          // No bloqueamos el flujo si falla el precio, el vale ya quedó emitido
-          console.error(
-            "[useValeMaterialLogic] Error calculando precio tipo3:",
-            errorPrecio,
-          );
-        }
-      }
 
       // PASO 7: Consultar vale completo
       const { data: valeCompleto, error: errorConsulta } = await supabase

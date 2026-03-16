@@ -92,11 +92,11 @@ export const useAcarreosFilters = (
       if (!vales || !Array.isArray(vales)) return [];
 
       return vales.filter((vale) => {
-        // ── Filtro: solo hoy ────────────────────────────────────────────────
+        // ── Filtro: solo hoy ──────────────────────────────────────────────────
         if (filters.soloHoy) {
           const hoy = new Date();
 
-          const esMismodia = (fechaISO) => {
+          const esMismoDia = (fechaISO) => {
             if (!fechaISO) return false;
             const fecha = new Date(fechaISO);
             return (
@@ -106,22 +106,24 @@ export const useAcarreosFilters = (
             );
           };
 
-          // Vales de renta: comparar contra hora_inicio del detalle
-          // Vales de material: comparar contra fecha_creacion (no tienen fecha futura)
-          const fechaReferencia =
-            vale.tipo_vale === "renta"
-              ? vale.vale_renta_detalle?.[0]?.hora_inicio
-              : vale.fecha_creacion;
+          // Renta: usa hora_inicio del detalle
+          // Material: usa fecha_programada si existe, sino fecha_creacion
+          let fechaReferencia;
+          if (vale.tipo_vale === "renta") {
+            fechaReferencia = vale.vale_renta_detalle?.[0]?.hora_inicio;
+          } else {
+            fechaReferencia = vale.fecha_programada ?? vale.fecha_creacion;
+          }
 
-          if (!esMismodia(fechaReferencia)) return false;
+          if (!esMismoDia(fechaReferencia)) return false;
         }
 
-        // ── Filtro: obra ────────────────────────────────────────────────────
+        // ── Filtro: obra ──────────────────────────────────────────────────────
         if (filters.obraId !== null) {
           if (vale.id_obra !== filters.obraId) return false;
         }
 
-        // ── Filtro: material ────────────────────────────────────────────────
+        // ── Filtro: material ──────────────────────────────────────────────────
         // Solo aplica a vales de tipo material; los de renta los deja pasar
         if (filters.materialId !== null) {
           if (vale.tipo_vale === "material") {
@@ -130,12 +132,9 @@ export const useAcarreosFilters = (
             );
             if (!tieneMaterial) return false;
           }
-          // Los vales de renta no se filtran por material, pasan siempre
         }
 
-        // ── Filtro: sindicato ───────────────────────────────────────────────
-        // BD: operadores.id_sindicato y vehiculos.id_sindicato
-        // El vale trae id_operador → cruzamos con catálogo para obtener id_sindicato
+        // ── Filtro: sindicato ─────────────────────────────────────────────────
         if (filters.sindicatoId !== null) {
           const operadorDelVale = operadores.find(
             (op) => op.id_operador === vale.id_operador,
@@ -144,13 +143,12 @@ export const useAcarreosFilters = (
           if (sindicatoOperador !== filters.sindicatoId) return false;
         }
 
-        // ── Filtro: operador ────────────────────────────────────────────────
+        // ── Filtro: operador ──────────────────────────────────────────────────
         if (filters.operadorId !== null) {
           if (vale.id_operador !== filters.operadorId) return false;
         }
 
-        // ── Filtro: placas ──────────────────────────────────────────────────
-        // Búsqueda parcial sobre el campo placas del vehículo relacionado
+        // ── Filtro: placas ────────────────────────────────────────────────────
         if (filters.placas !== null && filters.placas.trim() !== "") {
           const placasVale = vale.vehiculos?.placas?.toLowerCase() || "";
           if (!placasVale.includes(filters.placas.toLowerCase().trim())) {

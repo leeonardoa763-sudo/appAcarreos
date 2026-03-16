@@ -5,42 +5,40 @@
  * Contiene toda la lógica y delega el render a subcomponentes.
  *
  * SUBCOMPONENTES (helpersMaterial/):
- * - ValeInfoGeneral        → Sección info general
- * - ValeInfoDetalles       → Sección detalles material + precios
- * - ValeDatosPendientes    → Formulario operador/vehículo
- * - ValeFormCompletarTipo3 → Formulario completar tipo 3
- * - ValeFormCompletarNormal→ Formulario completar normal
+ * - ValeInfoGeneral      → Sección info general
+ * - ValeInfoDetalles     → Sección detalles material + precios
+ * - ValeDatosPendientes  → Formulario operador/vehículo
+ * - ViajesMaterialSection → Registro de viajes + completar vale
  */
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { View, Text, Alert, TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
 import { useAuth } from "../../hooks/useAuth";
 
-import { calcularCostoValeMaterial } from "../../utils/preciosMaterial";
 import KeyboardAvoidingScrollView from "../common/KeyboardAvoidingScrollView";
-
 import StatusBadge from "../common/StatusBadge";
 import SuccessModal from "../common/SuccessModal";
 import GenerarPDFButton from "../vale/GenerarPDFButton";
 
 import { useCatalogos } from "../../hooks/useCatalogos";
-import useEvidenciaVale from "../../hooks/useEvidenciaVale";
-
 import { useCancelarVale } from "../../hooks/useCancelarVale";
+import { useViajesMaterial } from "../../hooks/useViajesMaterial";
+
 import ModalCancelarVale from "../common/ModalCancelarVale";
+import ViajesMaterialSection from "./helpersMaterial/ViajesMaterialSection";
 
 import styles from "./helpersMaterial/valeDetalleMaterialStyles";
 import ValeInfoGeneral from "./helpersMaterial/ValeInfoGeneral";
 import ValeInfoDetalles from "./helpersMaterial/ValeInfoDetalles";
 import ValeDatosPendientes from "./helpersMaterial/ValeDatosPendientes";
-import ValeFormCompletarTipo3 from "./helpersMaterial/ValeFormCompletarTipo3";
-import ValeFormCompletarNormal from "./helpersMaterial/ValeFormCompletarNormal";
+import TicketsMaterialSection from "./helpersMaterial/TicketsMaterialSection";
 
 const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const { userProfile } = useAuth();
+
   const {
     modalVisible: modalCancelarVisible,
     motivo,
@@ -56,42 +54,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     onRefresh();
     onClose();
   });
-  // TEMPORAL - borrar después del diagnóstico
 
   const { operadores, vehiculos } = useCatalogos(["operadores", "vehiculos"]);
 
-  // Estados para OTROS TIPOS
-  const [pesoToneladas, setPesoToneladas] = useState(null);
-  const [folioBanco, setFolioBanco] = useState("");
-
-  // Estados para TIPO 3
-  const [cantidadConfirmada, setCantidadConfirmada] = useState(null);
-
-  const esChecador = userProfile?.roles?.role === "CHECADOR";
-  const obraData = vale?.obras || null;
-
-  const {
-    foto,
-    fotoUrl,
-    ubicacion,
-    distanciaObra,
-    evidenciaLista,
-    dentroDelRadio,
-    obraTieneCoordenadas,
-    radioConfigurado,
-    loadingFoto,
-    loadingUbicacion,
-    errorFoto,
-    errorUbicacion,
-    tomarFoto,
-    capturarUbicacion,
-    resetEvidencia,
-  } = useEvidenciaVale(obraData);
-
-  const [notasAdicionales, setNotasAdicionales] = useState("");
-
-  // Estados comunes
-  const [savingToneladas, setSavingToneladas] = useState(false);
+  // ─── Estados ──────────────────────────────────────────────────────────────
   const [selectedOperador, setSelectedOperador] = useState(null);
   const [selectedVehiculo, setSelectedVehiculo] = useState(null);
   const [savingDatos, setSavingDatos] = useState(false);
@@ -105,8 +71,11 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const isInitialized = useRef(false);
   const lastValeId = useRef(null);
 
+  // ─── Datos derivados del vale ─────────────────────────────────────────────
   const detalleMaterial = vale?.vale_material_detalles?.[0];
   const tieneDatosPendientes = !vale?.id_operador || !vale?.id_vehiculo;
+  const esTipo3 = detalleMaterial?.material?.id_tipo_de_material === 3;
+  const tipoMaterial = detalleMaterial?.material?.id_tipo_de_material ?? null;
 
   const sindicatoId = detalleMaterial?.id_sindicato;
   const operadoresFiltrados = operadores.filter(
@@ -116,14 +85,19 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     (v) => !sindicatoId || v.id_sindicato === sindicatoId,
   );
 
+  // ─── Lógica de fecha operacional ──────────────────────────────────────────
   const hoy = new Date();
-  const fechaCreacion = vale?.fecha_creacion
-    ? new Date(vale.fecha_creacion)
-    : null;
-  const diferenciaDias = fechaCreacion
-    ? Math.floor((hoy - fechaCreacion) / (1000 * 60 * 60 * 24))
-    : null;
-  const esMismoDia = diferenciaDias !== null && diferenciaDias <= 1;
+  const fechaOperacional = vale?.fecha_programada
+    ? new Date(vale.fecha_programada)
+    : vale?.fecha_creacion
+      ? new Date(vale.fecha_creacion)
+      : null;
+
+  const esMismoDia = fechaOperacional
+    ? fechaOperacional.getFullYear() === hoy.getFullYear() &&
+      fechaOperacional.getMonth() === hoy.getMonth() &&
+      fechaOperacional.getDate() === hoy.getDate()
+    : false;
 
   const canComplete =
     vale?.estado === "en_proceso" &&
@@ -131,30 +105,22 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     esMismoDia &&
     (!tieneDatosPendientes || datosPendientesGuardados);
 
-  const esTipo3 = detalleMaterial?.material?.id_tipo_de_material === 3;
+  // ─── Hook de viajes ───────────────────────────────────────────────────────
+  const {
+    viajes,
+    loading: loadingViajes,
+    registrando,
+    saving,
+    totalViajes,
+    registrarViaje,
+    completarVale,
+  } = useViajesMaterial(
+    detalleMaterial?.id_detalle_material,
+    vale?.id_vale,
+    detalleMaterial,
+  );
 
-  // Inicializar valores cuando cambia el vale
-  useEffect(() => {
-    if (
-      !vale ||
-      (lastValeId.current === vale.id_vale && isInitialized.current)
-    ) {
-      return;
-    }
-
-    lastValeId.current = vale.id_vale;
-    isInitialized.current = true;
-
-    if (detalleMaterial) {
-      setNotasAdicionales(detalleMaterial.notas_adicionales || "");
-      setPesoToneladas(detalleMaterial.peso_ton || null);
-      setFolioBanco(
-        detalleMaterial.folio_banco ? String(detalleMaterial.folio_banco) : "",
-      );
-      setCantidadConfirmada(detalleMaterial.cantidad_pedida_m3 || null);
-    }
-  }, [vale?.id_vale, detalleMaterial]);
-
+  // ─── Cleanup al desmontar ─────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       isInitialized.current = false;
@@ -162,6 +128,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     };
   }, []);
 
+  // ─── Helpers ──────────────────────────────────────────────────────────────
   const formatDate = useCallback((dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -172,354 +139,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     });
   }, []);
 
-  const handleCompletarValeTipo3 = useCallback(async () => {
-    if (!canComplete || !esTipo3) return;
-
-    if (!userProfile?.id_persona) {
-      Alert.alert(
-        "Error",
-        "No se pudo obtener la información del usuario. Por favor cierra sesión e inicia sesión nuevamente.",
-      );
-      return;
-    }
-
-    if (!cantidadConfirmada || cantidadConfirmada <= 0) {
-      Alert.alert("Error", "Por favor ingresa una cantidad válida");
-      return;
-    }
-
-    try {
-      setSavingToneladas(true);
-
-      const detalleId = detalleMaterial?.id_detalle_material;
-      if (!detalleId) throw new Error("No se encontró el detalle del vale");
-
-      const { data: materialData, error: errorMaterial } = await supabase
-        .from("material")
-        .select("id_tipo_de_material")
-        .eq("id_material", detalleMaterial.id_material)
-        .single();
-
-      if (errorMaterial || !materialData)
-        throw new Error("No se pudo obtener el tipo de material");
-
-      const { data: vehiculoData, error: errorVehiculo } = await supabase
-        .from("vehiculos")
-        .select("id_sindicato")
-        .eq("id_vehiculo", vale.id_vehiculo)
-        .single();
-
-      if (errorVehiculo || !vehiculoData)
-        throw new Error("No se pudo obtener el sindicato del vehículo");
-
-      const costos = await calcularCostoValeMaterial(
-        materialData.id_tipo_de_material,
-        vehiculoData.id_sindicato,
-        detalleMaterial.distancia_km,
-        cantidadConfirmada,
-      );
-
-      const { error: errorUpdate } = await supabase
-        .from("vale_material_detalles")
-        .update({
-          cantidad_pedida_m3: cantidadConfirmada,
-          volumen_real_m3: cantidadConfirmada,
-          precio_m3: costos.precioM3,
-          costo_total: costos.costoTotal,
-          id_precios_material: costos.idPreciosMaterial,
-          tarifa_primer_km: costos.tarifaPrimerKm,
-          tarifa_subsecuente: costos.tarifaSubsecuente,
-          notas_adicionales: notasAdicionales.trim() || null,
-          foto_evidencia_url: fotoUrl,
-          latitud_completado: ubicacion?.latitud ?? null,
-          longitud_completado: ubicacion?.longitud ?? null,
-          distancia_obra_metros: distanciaObra ?? null,
-        })
-        .eq("id_detalle_material", detalleId);
-
-      if (errorUpdate) throw errorUpdate;
-
-      const { error: errorEstado } = await supabase
-        .from("vales")
-        .update({
-          estado: "emitido",
-          id_persona_completador: userProfile.id_persona,
-          fecha_completado: new Date().toISOString(),
-        })
-        .eq("id_vale", vale.id_vale);
-
-      if (errorEstado) throw errorEstado;
-
-      const { data: valeConsultado, error: errorConsulta } = await supabase
-        .from("vales")
-        .select(
-          `
-          *,
-          obras:id_obra (
-            id_obra, obra, cc,
-            empresas:id_empresa ( id_empresa, empresa, sufijo, logo )
-          ),
-          persona:id_persona_creador ( nombre, primer_apellido, segundo_apellido ),
-          persona_completador:id_persona_completador ( nombre, primer_apellido, segundo_apellido ),
-          operadores:id_operador ( nombre_completo ),
-          vehiculos:id_vehiculo (
-            placas,
-            sindicatos:id_sindicato ( sindicato )
-          ),
-          vale_material_detalles (
-            *,
-            material:id_material ( id_material, material, id_tipo_de_material ),
-            bancos:id_banco ( id_banco, banco ),
-            sindicatos:id_sindicato ( sindicato )
-          )
-        `,
-        )
-        .eq("id_vale", vale.id_vale)
-        .single();
-
-      if (errorConsulta) throw errorConsulta;
-
-      setUpdatedVale(valeConsultado);
-      setSuccessData({
-        cantidadConfirmada: cantidadConfirmada.toFixed(2),
-        tipo: "tipo3",
-      });
-      setShowSuccessModal(true);
-      setTriggerPDF(false);
-    } catch (error) {
-      Alert.alert("Error", "No se pudo completar el vale. Intenta de nuevo.");
-    } finally {
-      setSavingToneladas(false);
-    }
-  }, [
-    canComplete,
-    esTipo3,
-    cantidadConfirmada,
-    detalleMaterial,
-    vale?.id_vale,
-    userProfile,
-    notasAdicionales,
-    fotoUrl,
-    ubicacion,
-    distanciaObra,
-  ]);
-
-  const handleCompletarVale = useCallback(async () => {
-    if (!canComplete || esTipo3) return;
-
-    if (!userProfile?.id_persona) {
-      Alert.alert(
-        "Error",
-        "No se pudo obtener la información del usuario. Por favor cierra sesión e inicia sesión nuevamente.",
-      );
-      return;
-    }
-
-    if (!pesoToneladas || pesoToneladas <= 0) {
-      Alert.alert("Error", "Por favor ingresa un peso válido");
-      return;
-    }
-
-    if (!folioBanco || folioBanco.trim() === "") {
-      Alert.alert("Error", "Por favor ingresa el folio del banco");
-      return;
-    }
-
-    const folioLimpio = folioBanco.trim();
-    if (!/^[0-9-]+$/.test(folioLimpio)) {
-      Alert.alert("Error", "El folio solo puede contener números y guiones");
-      return;
-    }
-
-    try {
-      const { data: pesoEspecificoValidacion, error: errorValidacion } =
-        await supabase
-          .from("peso_especifico")
-          .select("peso_especifico")
-          .eq("id_material", detalleMaterial.id_material)
-          .eq("id_banco", detalleMaterial.id_banco)
-          .maybeSingle();
-
-      if (errorValidacion) {
-        Alert.alert(
-          "Error",
-          "No se pudo verificar el peso específico del material",
-        );
-        return;
-      }
-
-      if (!pesoEspecificoValidacion) {
-        Alert.alert(
-          "Material sin peso específico",
-          "El material de este vale no tiene configurado un peso específico para el banco seleccionado. Por favor, contacte al administrador para que lo configure antes de completar el vale.",
-          [{ text: "Entendido" }],
-        );
-        return;
-      }
-    } catch (error) {
-      Alert.alert("Error", "Ocurrió un error al validar el material");
-      return;
-    }
-
-    try {
-      setSavingToneladas(true);
-
-      const detalleId = detalleMaterial?.id_detalle_material;
-      if (!detalleId) throw new Error("No se encontró el detalle del vale");
-
-      const { data: valeActualizado, error } = await supabase.rpc(
-        "completar_vale_material",
-        {
-          p_id_vale: vale.id_vale,
-          p_id_detalle: detalleId,
-          p_peso_ton: pesoToneladas,
-          p_folio_banco: folioLimpio,
-          p_id_material: detalleMaterial.id_material,
-          p_id_banco: detalleMaterial.id_banco,
-        },
-      );
-
-      if (error) {
-        const { data: pesoEspecificoData, error: errorPeso } = await supabase
-          .from("peso_especifico")
-          .select("peso_especifico")
-          .eq("id_material", detalleMaterial.id_material)
-          .eq("id_banco", detalleMaterial.id_banco)
-          .single();
-
-        if (errorPeso)
-          throw new Error("No se encontró el peso específico del material");
-
-        const pesoEspecifico = pesoEspecificoData?.peso_especifico || 1;
-        const volumenReal = parseFloat(
-          (pesoToneladas / pesoEspecifico).toFixed(2),
-        );
-
-        const { data: materialData, error: errorMaterial } = await supabase
-          .from("material")
-          .select("id_tipo_de_material")
-          .eq("id_material", detalleMaterial.id_material)
-          .single();
-
-        if (errorMaterial || !materialData)
-          throw new Error("No se pudo obtener el tipo de material");
-
-        const { data: vehiculoData, error: errorVehiculo } = await supabase
-          .from("vehiculos")
-          .select("id_sindicato")
-          .eq("id_vehiculo", vale.id_vehiculo)
-          .single();
-
-        if (errorVehiculo || !vehiculoData)
-          throw new Error("No se pudo obtener el sindicato del vehículo");
-
-        const costos = await calcularCostoValeMaterial(
-          materialData.id_tipo_de_material,
-          vehiculoData.id_sindicato,
-          detalleMaterial.distancia_km,
-          volumenReal,
-        );
-
-        const { error: errorUpdate } = await supabase
-          .from("vale_material_detalles")
-          .update({
-            peso_ton: pesoToneladas,
-            volumen_real_m3: volumenReal,
-            folio_banco: folioLimpio,
-            precio_m3: costos.precioM3,
-            costo_total: costos.costoTotal,
-            id_precios_material: costos.idPreciosMaterial,
-            tarifa_primer_km: costos.tarifaPrimerKm,
-            tarifa_subsecuente: costos.tarifaSubsecuente,
-            notas_adicionales: notasAdicionales.trim() || null,
-            foto_evidencia_url: fotoUrl,
-            latitud_completado: ubicacion?.latitud ?? null,
-            longitud_completado: ubicacion?.longitud ?? null,
-            distancia_obra_metros: distanciaObra ?? null,
-          })
-          .eq("id_detalle_material", detalleId);
-
-        if (errorUpdate) throw errorUpdate;
-
-        const { error: errorEstado } = await supabase
-          .from("vales")
-          .update({
-            estado: "emitido",
-            id_persona_completador: userProfile.id_persona,
-            fecha_completado: new Date().toISOString(),
-          })
-          .eq("id_vale", vale.id_vale);
-
-        if (errorEstado) throw errorEstado;
-
-        const { data: valeConsultado, error: errorConsulta } = await supabase
-          .from("vales")
-          .select(
-            `
-            *,
-            obras:id_obra (
-              id_obra, obra, cc,
-              empresas:id_empresa ( id_empresa, empresa, sufijo, logo )
-            ),
-            persona:id_persona_creador ( nombre, primer_apellido, segundo_apellido ),
-            persona_completador:id_persona_completador ( nombre, primer_apellido, segundo_apellido ),
-            operadores:id_operador ( nombre_completo ),
-            vehiculos:id_vehiculo (
-              placas,
-              sindicatos:id_sindicato ( sindicato )
-            ),
-            vale_material_detalles (
-              *,
-              material:id_material ( id_material, material, id_tipo_de_material ),
-              bancos:id_banco ( id_banco, banco ),
-              sindicatos:id_sindicato ( sindicato )
-            )
-          `,
-          )
-          .eq("id_vale", vale.id_vale)
-          .single();
-
-        if (errorConsulta) throw errorConsulta;
-
-        setUpdatedVale(valeConsultado);
-        setSuccessData({
-          pesoToneladas,
-          volumenReal: volumenReal.toFixed(2),
-          folioBanco: folioLimpio,
-          tipo: "normal",
-        });
-      } else {
-        setUpdatedVale(valeActualizado);
-        const detalleActualizado = valeActualizado?.vale_material_detalles?.[0];
-        setSuccessData({
-          pesoToneladas,
-          volumenReal:
-            detalleActualizado?.volumen_real_m3?.toFixed(2) || "0.00",
-          folioBanco: folioLimpio,
-          tipo: "normal",
-        });
-      }
-
-      setShowSuccessModal(true);
-    } catch (error) {
-      Alert.alert("Error", "No se pudo completar el vale. Intenta de nuevo.");
-    } finally {
-      setSavingToneladas(false);
-    }
-  }, [
-    canComplete,
-    esTipo3,
-    pesoToneladas,
-    folioBanco,
-    detalleMaterial,
-    vale?.id_vale,
-    userProfile,
-    notasAdicionales,
-    fotoUrl,
-    ubicacion,
-    distanciaObra,
-  ]);
-
+  // ─── Guardar datos pendientes (operador/vehículo) ─────────────────────────
   const handleGuardarDatosPendientes = useCallback(async () => {
     if (!selectedOperador || !selectedVehiculo) {
       Alert.alert("Campos requeridos", "Selecciona operador y vehículo");
@@ -552,26 +172,48 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     } finally {
       setSavingDatos(false);
     }
-  }, [selectedOperador, selectedVehiculo, vale.id_vale]);
+  }, [selectedOperador, selectedVehiculo, vale.id_vale, detalleMaterial]);
 
+  // ─── Completar vale ───────────────────────────────────────────────────────
+  const handleCompletar = useCallback(async () => {
+    const valeCompletado = await completarVale();
+    if (!valeCompletado) return;
+
+    setUpdatedVale(valeCompletado);
+
+    const detalle = valeCompletado.vale_material_detalles?.[0];
+    const totalViajesNum = valeCompletado.vale_material_viajes?.length ?? 0;
+    const totalVolumen = parseFloat(detalle?.volumen_real_m3 || 0).toFixed(2);
+    const totalCosto = detalle?.costo_total
+      ? `$${parseFloat(detalle.costo_total).toFixed(2)}`
+      : null;
+
+    setSuccessData({
+      totalViajes: totalViajesNum,
+      totalVolumen,
+      totalCosto,
+    });
+    setShowSuccessModal(true);
+  }, [completarVale]);
+
+  // ─── Cerrar modal de éxito ────────────────────────────────────────────────
   const handleCloseSuccess = useCallback(() => {
     setShowSuccessModal(false);
-    resetEvidencia();
     onRefresh();
     onClose();
-  }, [onRefresh, onClose, resetEvidencia]);
+  }, [onRefresh, onClose]);
 
+  // ─── Disparar generación de PDF ───────────────────────────────────────────
   const handleGenerarPDFAhora = useCallback(() => {
     if (!updatedVale) {
       Alert.alert("Error", "No hay datos del vale actualizado");
       return;
     }
     setShowSuccessModal(false);
-    setTimeout(() => {
-      setTriggerPDF(true);
-    }, 100);
+    setTimeout(() => setTriggerPDF(true), 100);
   }, [updatedVale]);
 
+  // ─── Guard ────────────────────────────────────────────────────────────────
   if (!vale || !detalleMaterial) return null;
 
   return (
@@ -583,22 +225,44 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           <StatusBadge estado={vale.estado} />
         </View>
 
-        {/* Mensaje de bloqueo por fecha */}
-        {vale?.estado === "en_proceso" && !esMismoDia && (
-          <View style={styles.bloqueadoContainer}>
+        {/* Vale programado */}
+        {vale?.estado === "en_proceso" && vale?.fecha_programada && (
+          <View style={styles.programadoContainer}>
             <MaterialCommunityIcons
-              name="lock-clock"
+              name="calendar-arrow-right"
               size={18}
-              color={colors.primary}
+              color={colors.secondary}
             />
-            <Text style={styles.bloqueadoTexto}>
-              Este vale no puede completarse porque fue creado el{" "}
-              {formatDate(vale.fecha_creacion)}. Solo se puede completar el
-              mismo día.
+            <Text style={styles.programadoTexto}>
+              Vale programado para el{" "}
+              {new Date(vale.fecha_programada).toLocaleDateString("es-MX", {
+                weekday: "long",
+                day: "2-digit",
+                month: "long",
+              })}
             </Text>
           </View>
         )}
 
+        {/* Bloqueo por fecha */}
+        {vale?.estado === "en_proceso" &&
+          !esMismoDia &&
+          !vale?.fecha_programada && (
+            <View style={styles.bloqueadoContainer}>
+              <MaterialCommunityIcons
+                name="lock-clock"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={styles.bloqueadoTexto}>
+                Este vale no puede completarse porque fue creado el{" "}
+                {formatDate(vale.fecha_creacion)}. Solo se puede completar el
+                mismo día.
+              </Text>
+            </View>
+          )}
+
+        {/* Info general del vale */}
         <ValeInfoGeneral
           vale={vale}
           detalleMaterial={detalleMaterial}
@@ -606,6 +270,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           userProfile={userProfile}
         />
 
+        {/* Detalles de material y precios */}
         <ValeInfoDetalles
           vale={vale}
           detalleMaterial={detalleMaterial}
@@ -614,6 +279,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           userProfile={userProfile}
         />
 
+        {/* Asignar operador/vehículo si faltan */}
         {tieneDatosPendientes &&
           !datosPendientesGuardados &&
           vale?.estado === "en_proceso" && (
@@ -628,64 +294,33 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               onGuardar={handleGuardarDatosPendientes}
             />
           )}
-
-        {canComplete && esTipo3 && (
-          <ValeFormCompletarTipo3
-            detalleMaterial={detalleMaterial}
-            cantidadConfirmada={cantidadConfirmada}
-            setCantidadConfirmada={setCantidadConfirmada}
-            notasAdicionales={notasAdicionales}
-            setNotasAdicionales={setNotasAdicionales}
-            esChecador={esChecador}
-            savingToneladas={savingToneladas}
-            onCompletar={handleCompletarValeTipo3}
-            evidenciaLista={evidenciaLista}
-            obraTieneCoordenadas={obraTieneCoordenadas}
-            dentroDelRadio={dentroDelRadio}
-            foto={foto}
-            fotoUrl={fotoUrl}
-            ubicacion={ubicacion}
-            distanciaObra={distanciaObra}
-            radioConfigurado={radioConfigurado}
-            loadingFoto={loadingFoto}
-            loadingUbicacion={loadingUbicacion}
-            errorFoto={errorFoto}
-            errorUbicacion={errorUbicacion}
-            onTomarFoto={tomarFoto}
-            onCapturarUbicacion={capturarUbicacion}
-            folioVale={vale?.folio}
+        {/* Tickets de material — visible en_proceso con operador asignado */}
+        {vale?.estado === "en_proceso" && detalleMaterial && (
+          <TicketsMaterialSection
+            vale={vale}
+            detalle={detalleMaterial}
+            totalViajes={totalViajes}
+            operadorYVehiculoGuardados={datosPendientesGuardados}
           />
         )}
 
-        {canComplete && !esTipo3 && (
-          <ValeFormCompletarNormal
-            pesoToneladas={pesoToneladas}
-            setPesoToneladas={setPesoToneladas}
-            folioBanco={folioBanco}
-            setFolioBanco={setFolioBanco}
-            notasAdicionales={notasAdicionales}
-            setNotasAdicionales={setNotasAdicionales}
-            savingToneladas={savingToneladas}
-            onCompletar={handleCompletarVale}
-            evidenciaLista={evidenciaLista}
-            obraTieneCoordenadas={obraTieneCoordenadas}
-            dentroDelRadio={dentroDelRadio}
-            foto={foto}
-            fotoUrl={fotoUrl}
-            ubicacion={ubicacion}
-            distanciaObra={distanciaObra}
-            radioConfigurado={radioConfigurado}
-            loadingFoto={loadingFoto}
-            loadingUbicacion={loadingUbicacion}
-            errorFoto={errorFoto}
-            errorUbicacion={errorUbicacion}
-            onTomarFoto={tomarFoto}
-            onCapturarUbicacion={capturarUbicacion}
-            folioVale={vale?.folio}
+        {/* Sección de viajes — visible solo en_proceso y con canComplete */}
+        {canComplete && (
+          <ViajesMaterialSection
+            vale={vale}
+            detalle={detalleMaterial}
+            viajes={viajes}
+            loading={loadingViajes}
+            registrando={registrando}
+            totalViajes={totalViajes}
+            onRegistrarViaje={registrarViaje}
+            tipoMaterial={tipoMaterial}
+            onCompletar={handleCompletar}
+            saving={saving}
           />
         )}
 
-        {/* Botón cancelar vale — solo RESIDENTE, solo en_proceso */}
+        {/* Botón cancelar vale — solo en_proceso */}
         {puedeCancel && (
           <TouchableOpacity style={styles.botonCancelar} onPress={abrirModal}>
             <MaterialCommunityIcons
@@ -712,14 +347,11 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         MOTIVO_MIN_CHARS={MOTIVO_MIN_CHARS}
       />
 
+      {/* Modal éxito al completar */}
       <SuccessModal
         visible={showSuccessModal}
         title="Vale Completado"
-        message={
-          successData?.tipo === "tipo3"
-            ? `Cantidad confirmada: ${successData?.cantidadConfirmada} m³\n\n¿Deseas generar el PDF ahora?`
-            : `Peso: ${successData?.pesoToneladas} ton\nVolumen Real: ${successData?.volumenReal} m³\nFolio Banco: ${successData?.folioBanco}\n\n¿Deseas generar el PDF ahora?`
-        }
+        message={`Viajes: ${successData?.totalViajes}\nVolumen total: ${successData?.totalVolumen} m³${successData?.totalCosto ? `\nCosto total: ${successData?.totalCosto}` : ""}\n\n¿Deseas generar el PDF ahora?`}
         primaryAction={{
           text: "Generar PDF",
           icon: "file-pdf-box",
@@ -728,6 +360,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         onClose={handleCloseSuccess}
       />
 
+      {/* Generador de PDF invisible */}
       {updatedVale && triggerPDF && (
         <View style={{ position: "absolute", left: -9999 }}>
           <GenerarPDFButton
