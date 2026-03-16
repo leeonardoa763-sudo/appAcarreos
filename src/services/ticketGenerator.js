@@ -376,30 +376,17 @@ export const generarTicketMaterialViaje = (vale, detalle, viaje) => {
   const material = detalle.material?.material || "N/A";
   const banco = detalle.bancos?.banco || "N/A";
   const distancia = detalle.distancia_km ? `${detalle.distancia_km} km` : "N/A";
+  const capacidadRaw = vale.vehiculos?.capacidad_m3 ?? detalle?.capacidad_m3;
+  const capacidad = capacidadRaw ? `${capacidadRaw} m3` : "N/A";
+  const requisicion = detalle.requisicion ? String(detalle.requisicion) : null;
   const folio = vale.folio || "N/A";
-  const qrUrl =
-    vale.qr_verification_url || `https://web-acarreos.vercel.app/vale/${folio}`;
-
   const numeroViaje = viaje.numero_viaje || "N/A";
   const horaViaje = formatearHora(viaje.hora_registro);
   const fechaViaje = formatearFecha(viaje.hora_registro);
-  const volumen = viaje.volumen_m3
-    ? `${parseFloat(viaje.volumen_m3).toFixed(2)} m3`
-    : "N/A";
-  const peso = viaje.peso_ton
-    ? `${parseFloat(viaje.peso_ton).toFixed(2)} ton`
-    : null;
-  const costoViaje = viaje.costo_viaje
-    ? `$${parseFloat(viaje.costo_viaje).toLocaleString("es-MX", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`
-    : null;
-  const folioFisico = viaje.folio_vale_fisico
-    ? String(viaje.folio_vale_fisico)
-    : null;
+  const qrUrl =
+    vale.qr_verification_url || `https://web-acarreos.vercel.app/vale/${folio}`;
 
-  const lineas = [
+  return [
     {
       tipo: "texto",
       contenido: `${empresa}\n`,
@@ -407,7 +394,7 @@ export const generarTicketMaterialViaje = (vale, detalle, viaje) => {
     },
     {
       tipo: "texto",
-      contenido: "TICKET DE VIAJE\n",
+      contenido: "TICKET DE SALIDA\n",
       opciones: { align: ALINEACION.CENTRO, bold: true },
     },
     {
@@ -460,39 +447,18 @@ export const generarTicketMaterialViaje = (vale, detalle, viaje) => {
     { tipo: "separador" },
     {
       tipo: "texto",
-      contenido: `VOLUMEN: ${volumen}\n`,
+      contenido: `CAPACIDAD: ${capacidad}\n`,
       opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
-  ];
-
-  // Peso solo para tipo 1 y 2
-  if (peso) {
-    lineas.push({
-      tipo: "texto",
-      contenido: `PESO: ${peso}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA },
-    });
-  }
-
-  // Folio físico solo para tipo 3
-  if (folioFisico) {
-    lineas.push({
-      tipo: "texto",
-      contenido: `VALE FISICO: ${folioFisico}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
-    });
-  }
-
-  // Costo si está disponible
-  if (costoViaje) {
-    lineas.push({
-      tipo: "texto",
-      contenido: `COSTO VIAJE: ${costoViaje}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
-    });
-  }
-
-  lineas.push(
+    ...(requisicion
+      ? [
+          {
+            tipo: "texto",
+            contenido: `REQUISICION: ${requisicion}\n`,
+            opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+          },
+        ]
+      : []),
     { tipo: "separador" },
     {
       tipo: "texto",
@@ -520,7 +486,5 @@ export const generarTicketMaterialViaje = (vale, detalle, viaje) => {
       contenido: qrUrl,
       tamano: 120,
     },
-  );
-
-  return lineas;
+  ];
 };

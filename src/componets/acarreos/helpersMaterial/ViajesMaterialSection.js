@@ -67,6 +67,65 @@ const formatCosto = (costo) => {
     maximumFractionDigits: 2,
   })}`;
 };
+// ─── DEBUG temporal: visualiza el ticket en consola ───────────────────────────
+
+const debugTicketEnConsola = (vale, detalle, viaje) => {
+  if (!generarTicketMaterialViaje) {
+    console.log("[TICKET DEBUG] Bluetooth deshabilitado, no se puede generar");
+    return;
+  }
+  const lineas = generarTicketMaterialViaje(vale, detalle, viaje);
+  const SEP_DOBLE = "══════════════════════════════════";
+  const SEP_SIMPLE = "──────────────────────────────────";
+
+  console.log("\n" + SEP_DOBLE);
+  lineas.forEach((linea) => {
+    if (linea.tipo === "separador") {
+      console.log(SEP_SIMPLE);
+    } else if (linea.tipo === "texto") {
+      const contenido = linea.contenido.trimEnd();
+      const bold = linea.opciones?.bold ? "★ " : "  ";
+      const align = linea.opciones?.align;
+      if (align === "center") {
+        console.log(`       ${bold}${contenido}`);
+      } else {
+        console.log(`  ${bold}${contenido}`);
+      }
+    } else if (linea.tipo === "qr") {
+      console.log(`  [QR] ${linea.contenido}`);
+    }
+  });
+  console.log(SEP_DOBLE + "\n");
+
+  // Resumen de campos para detectar N/A
+  const detalleCampos = {
+    empresa: vale?.obras?.empresas?.empresa,
+    obra: vale?.obras?.obra,
+    cc: vale?.obras?.cc,
+    operador: vale?.operadores?.nombre_completo,
+    placas: vale?.vehiculos?.placas,
+    material: detalle?.material?.material,
+    banco: detalle?.bancos?.banco,
+    distancia_km: detalle?.distancia_km,
+    capacidad_m3: vale?.vehiculos?.capacidad_m3 ?? detalle?.capacidad_m3,
+    volumen_m3: viaje?.volumen_m3,
+    peso_ton: viaje?.peso_ton,
+    folio_vale_fisico: viaje?.folio_vale_fisico,
+    costo_viaje: viaje?.costo_viaje,
+    folio: vale?.folio,
+    qr_url: vale?.qr_verification_url,
+  };
+
+  const faltantes = Object.entries(detalleCampos)
+    .filter(([, v]) => v == null || v === "")
+    .map(([k]) => k);
+
+  if (faltantes.length > 0) {
+    console.warn("[TICKET DEBUG] Campos vacios/null:", faltantes.join(", "));
+  } else {
+    console.log("[TICKET DEBUG] Todos los campos tienen valor");
+  }
+};
 
 // ─── ViajeItem ────────────────────────────────────────────────────────────────
 
@@ -244,6 +303,7 @@ const ViajesMaterialSection = ({
 
     if (resultado) {
       setValores(valorInicialForm);
+      debugTicketEnConsola(vale, detalle, resultado);
     }
   }, [validarFormulario, onRegistrarViaje, esTipo3, valores]);
 

@@ -29,6 +29,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  ScrollView,
 } from "react-native";
 
 // 3. Third party
@@ -96,6 +97,7 @@ const ModalImprimirTicketRenta = ({
   const [impresoras, setImpresoras] = useState([]);
   const [errorMensaje, setErrorMensaje] = useState(null);
   const [ultimaImpresora, setUltimaImpresora] = useState(null);
+  const [lineasPreview, setLineasPreview] = useState([]);
 
   useEffect(() => {
     if (visible) {
@@ -258,6 +260,14 @@ const ModalImprimirTicketRenta = ({
     setErrorMensaje(null);
   }, []);
 
+  const handleVerPreview = useCallback(() => {
+    const lineas = generarLineas
+      ? generarLineas()
+      : (generarTicketRenta?.(valeData) ?? []);
+    setLineasPreview(lineas);
+    setFase("preview");
+  }, [generarLineas, valeData]);
+
   const handleReintentarMismaImpresora = useCallback(() => {
     if (!ultimaImpresora) return;
     handleSeleccionarImpresora(ultimaImpresora);
@@ -413,6 +423,76 @@ const ModalImprimirTicketRenta = ({
       );
     }
 
+    // Fase: preview — simulación visual del ticket
+    if (fase === "preview") {
+      const SEP = "--------------------------------";
+      return (
+        <View style={styles.previewContainer}>
+          <Text style={styles.previewTitulo}>Vista previa del ticket</Text>
+          <Text style={styles.previewSubtitulo}>
+            Asi se vera en la impresora termica
+          </Text>
+          <ScrollView
+            style={styles.previewRollo}
+            showsVerticalScrollIndicator={true}
+          >
+            {lineasPreview.map((linea, index) => {
+              if (linea.tipo === "separador") {
+                return (
+                  <Text key={index} style={styles.previewSeparador}>
+                    {SEP}
+                  </Text>
+                );
+              }
+              if (linea.tipo === "qr") {
+                return (
+                  <View key={index} style={styles.previewQrContainer}>
+                    <MaterialCommunityIcons
+                      name="qrcode"
+                      size={72}
+                      color={colors.textPrimary}
+                    />
+                    <Text style={styles.previewQrUrl} numberOfLines={2}>
+                      {linea.contenido}
+                    </Text>
+                  </View>
+                );
+              }
+              if (linea.tipo === "texto") {
+                const esCentro = linea.opciones?.align === "center";
+                const esBold = linea.opciones?.bold === true;
+                return (
+                  <Text
+                    key={index}
+                    style={[
+                      styles.previewLinea,
+                      esCentro && styles.previewLineaCentro,
+                      esBold && styles.previewLineaBold,
+                    ]}
+                  >
+                    {linea.contenido.trimEnd()}
+                  </Text>
+                );
+              }
+              return null;
+            })}
+          </ScrollView>
+          <TouchableOpacity
+            style={styles.botonPrimario}
+            onPress={() => setFase("inicio")}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={20}
+              color={colors.surface}
+            />
+            <Text style={styles.botonPrimarioTexto}>Volver</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     // Fase: inicio (pantalla principal)
     return (
       <View style={styles.inicioContainer}>
@@ -501,6 +581,22 @@ const ModalImprimirTicketRenta = ({
             </Text>
           </View>
         )}
+
+        {/* Botón preview — visible siempre para verificar datos antes de imprimir */}
+        <TouchableOpacity
+          style={styles.botonPreview}
+          onPress={handleVerPreview}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons
+            name="eye-outline"
+            size={18}
+            color={colors.secondary}
+          />
+          <Text style={styles.botonPreviewTexto}>
+            Ver ticket antes de imprimir
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.botonSinImpresora}
@@ -840,6 +936,81 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: colors.surface,
+  },
+
+  // ─── Preview ticket ────────────────────────────────────────────────────────
+  previewContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    alignItems: "center",
+  },
+  previewTitulo: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  previewSubtitulo: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  previewRollo: {
+    backgroundColor: "#FFFEF0",
+    borderWidth: 1,
+    borderColor: "#DDD",
+    borderRadius: 4,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    width: "100%",
+    maxHeight: 420,
+    marginBottom: 16,
+  },
+  previewLinea: {
+    fontFamily: "monospace",
+    fontSize: 11,
+    color: colors.textPrimary,
+    lineHeight: 16,
+  },
+  previewLineaCentro: {
+    textAlign: "center",
+  },
+  previewLineaBold: {
+    fontWeight: "700",
+  },
+  previewSeparador: {
+    fontFamily: "monospace",
+    fontSize: 11,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  previewQrContainer: {
+    alignItems: "center",
+    paddingVertical: 8,
+    gap: 4,
+  },
+  previewQrUrl: {
+    fontSize: 9,
+    color: colors.textSecondary,
+    textAlign: "center",
+  },
+  botonPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.secondary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    gap: 8,
+    width: "100%",
+    marginBottom: 10,
+  },
+  botonPreviewTexto: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.secondary,
   },
 });
 
