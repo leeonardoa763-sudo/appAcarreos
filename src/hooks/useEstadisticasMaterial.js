@@ -147,6 +147,7 @@ export const useEstadisticasMaterial = (
           id_vale,
           folio,
           fecha_creacion,
+          fecha_completado,
           estado,
           id_obra,
           obras!vales_id_obra_fkey (
@@ -170,8 +171,8 @@ export const useEstadisticasMaterial = (
         )
         .eq("tipo_vale", "material")
         .in("estado", ["emitido", "verificado", "conciliado"])
-        .gte("fecha_creacion", fechaInicio)
-        .lte("fecha_creacion", fechaFin);
+        .gte("fecha_completado", fechaInicio)
+        .lte("fecha_completado", fechaFin);
 
       // ── Filtro de obra: una sola fuente de verdad ──
       if (obraId) {

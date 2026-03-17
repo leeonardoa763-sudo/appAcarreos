@@ -219,3 +219,120 @@ export const fetchTicketsDescarga = async (weekNumber, year, obrasIds) => {
 
   return resultado;
 };
+
+/**
+ * Obtiene viajes de material (vale_material_viajes) por semana
+ * Un registro por viaje — aplanado desde vales > vale_material_detalles > vale_material_viajes
+ */
+export const fetchViajesMaterial = async (weekNumber, year, obrasIds) => {
+  const { startDate, endDate } = getWeekDateRange(weekNumber, year);
+
+  const { data, error } = await supabase
+    .from("vales")
+    .select(
+      `
+      id_vale,
+      folio,
+      fecha_creacion,
+      estado,
+      obras!vales_id_obra_fkey(obra),
+      persona!vales_id_persona_creador_fkey(nombre, primer_apellido, segundo_apellido),
+      operadores!vales_id_operador_fkey(nombre, primer_apellido, segundo_apellido),
+      vehiculos!vales_id_vehiculo_fkey(placas),
+      vale_material_detalles(
+        id_detalle_material,
+        material!vale_material_detalles_id_material_fkey(material),
+        bancos!vale_material_detalles_id_banco_fkey(banco),
+        distancia_km,
+        capacidad_m3,
+        requisicion,
+        vale_material_viajes(
+          id_viaje,
+          numero_viaje,
+          hora_registro,
+          peso_ton,
+          volumen_m3,
+          precio_m3,
+          costo_viaje,
+          folio_vale_fisico,
+          persona:id_persona_registro(nombre, primer_apellido, segundo_apellido)
+        )
+      )
+    `,
+    )
+    .eq("tipo_vale", "material")
+    .in("estado", ["emitido", "verificado", "conciliado"])
+    .in("id_obra", obrasIds)
+    .gte("fecha_creacion", startDate.toISOString())
+    .lte("fecha_creacion", endDate.toISOString())
+    .order("fecha_creacion", { ascending: false });
+
+  if (error) throw error;
+
+  // Aplanar: un registro por viaje
+  const resultado = [];
+  (data || []).forEach((vale) => {
+    const detalle = vale.vale_material_detalles?.[0];
+    if (!detalle?.vale_material_viajes?.length) return;
+    detalle.vale_material_viajes.forEach((viaje) => {
+      resultado.push({ ...viaje, vale, detalle });
+    });
+  });
+
+  return resultado;
+};
+
+/**
+ * Obtiene viajes de renta (vale_renta_viajes) por semana
+ * Un registro por viaje — aplanado desde vales > vale_renta_detalle > vale_renta_viajes
+ */
+export const fetchViajesRenta = async (weekNumber, year, obrasIds) => {
+  const { startDate, endDate } = getWeekDateRange(weekNumber, year);
+
+  const { data, error } = await supabase
+    .from("vales")
+    .select(
+      `
+      id_vale,
+      folio,
+      fecha_creacion,
+      estado,
+      obras!vales_id_obra_fkey(obra),
+      persona!vales_id_persona_creador_fkey(nombre, primer_apellido, segundo_apellido),
+      operadores!vales_id_operador_fkey(nombre, primer_apellido, segundo_apellido),
+      vehiculos!vales_id_vehiculo_fkey(placas),
+      vale_renta_detalle(
+        id_vale_renta_detalle,
+        material!vale_renta_detalle_id_material_fkey(material),
+        hora_inicio,
+        es_renta_por_dia,
+        vale_renta_viajes(
+          id_viaje,
+          numero_viaje,
+          hora_registro,
+          persona:id_persona_registro(nombre, primer_apellido, segundo_apellido)
+        )
+      )
+    `,
+    )
+    .eq("tipo_vale", "renta")
+    .in("estado", ["emitido", "verificado", "conciliado"])
+    .in("id_obra", obrasIds)
+    .gte("fecha_creacion", startDate.toISOString())
+    .lte("fecha_creacion", endDate.toISOString())
+    .order("fecha_creacion", { ascending: false });
+
+  if (error) throw error;
+
+  // Aplanar: un registro por viaje
+  const resultado = [];
+  (data || []).forEach((vale) => {
+    const detalle = vale.vale_renta_detalle?.[0];
+    if (!detalle?.vale_renta_viajes?.length) return;
+    detalle.vale_renta_viajes.forEach((viaje) => {
+      resultado.push({ ...viaje, vale, detalle });
+    });
+  });
+
+  return resultado;
+};

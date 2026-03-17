@@ -88,14 +88,19 @@ const SeccionCompletarVale = ({
   mensajeBloqueo,
   saving,
   onCompletar,
+  totalTickets = 0,
 }) => {
+  const ticketsViajesDesbalanceados =
+    totalTickets > 0 && totalViajes !== totalTickets;
+
   const botonDeshabilitado =
     saving ||
     !!mensajeBloqueo ||
     (!esRentaPorDia && !esRentaPorMedioDia && !horaFin) ||
     !evidenciaProps.evidenciaLista ||
     (evidenciaProps.obraTieneCoordenadas &&
-      evidenciaProps.dentroDelRadio === false);
+      evidenciaProps.dentroDelRadio === false) ||
+    ticketsViajesDesbalanceados;
 
   const helperText = esRentaPorDia
     ? "Renta por día completo — mínimo 8 hrs desde inicio"
@@ -188,6 +193,18 @@ const SeccionCompletarVale = ({
         </View>
       )}
 
+      {ticketsViajesDesbalanceados && (
+        <View style={styles.bloqueoContainer}>
+          <MaterialCommunityIcons
+            name="alert-circle"
+            size={18}
+            color={colors.danger}
+          />
+          <Text style={styles.bloqueoText}>
+            {`Tickets y viajes no coinciden: ${totalTickets} ticket(s), ${totalViajes} viaje(s). Deben ser iguales para completar.`}
+          </Text>
+        </View>
+      )}
       <PrimaryButton
         title="Completar Vale"
         onPress={onCompletar}

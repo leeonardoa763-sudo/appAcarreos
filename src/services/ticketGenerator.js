@@ -49,7 +49,6 @@ const traducirEstado = (estado) => {
  * Genera líneas del ticket de vale de MATERIAL
  */
 export const generarTicketMaterial = (vale) => {
-  console.log("[TICKET] vale completo:", JSON.stringify(vale, null, 2));
   const detalle = vale?.vale_material_detalles?.[0] || {};
   const cc = vale.obras?.cc || "";
   const nombreObra = vale.obras?.obra || "N/A";
@@ -60,9 +59,7 @@ export const generarTicketMaterial = (vale) => {
   const banco = detalle.bancos?.banco || "N/A";
   const capacidadRaw = vale.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3;
   const capacidad = capacidadRaw ? `${capacidadRaw} m3` : "N/A";
-  const cantidad = detalle.cantidad_pedida_m3
-    ? `${detalle.cantidad_pedida_m3} m3`
-    : "N/A";
+
   const distancia = detalle.distancia_km ? `${detalle.distancia_km} km` : "N/A";
   const requisicion = detalle.requisicion || null;
   const fecha = formatearFecha(vale.fecha_creacion);
@@ -138,11 +135,7 @@ export const generarTicketMaterial = (vale) => {
       contenido: `DISTANCIA: ${distancia}\n`,
       opciones: { align: ALINEACION.IZQUIERDA },
     },
-    {
-      tipo: "texto",
-      contenido: `CANTIDAD: ${cantidad}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA },
-    },
+
     { tipo: "separador" },
     {
       tipo: "texto",

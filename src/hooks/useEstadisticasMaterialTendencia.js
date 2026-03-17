@@ -153,33 +153,32 @@ export const useEstadisticasMaterialTendencia = (
         .from("vales")
         .select(
           `
-          id_vale,
-          fecha_creacion,
-          id_obra,
-          vale_material_detalles (
-            volumen_real_m3,
-            cantidad_pedida_m3,
-            material!vale_material_detalles_id_material_fkey (
-              id_material,
-              material
-            )
+        id_vale,
+        fecha_creacion,
+        fecha_completado,
+        id_obra,
+        vale_material_detalles (
+          volumen_real_m3,
+          cantidad_pedida_m3,
+          material!vale_material_detalles_id_material_fkey (
+            id_material,
+            material
           )
-        `,
+        )
+      `,
         )
         .eq("tipo_vale", "material")
         .in("estado", ["emitido", "verificado", "conciliado"])
-        .gte("fecha_creacion", fechaInicio)
-        .lte("fecha_creacion", fechaFin);
+        .gte("fecha_completado", fechaInicio)
+        .lte("fecha_completado", fechaFin);
 
-      // Grafica 1: siempre por residente (todas sus obras, no afectada por obraId)
-      // Grafica 2: respeta obraId
       if (filtrarPorObra && obraId) {
         query = query.eq("id_obra", obraId);
       } else if (residenteId) {
         query = query.eq("id_persona_creador", residenteId);
       }
 
-      query = query.order("fecha_creacion", { ascending: true });
+      query = query.order("fecha_completado", { ascending: true });
 
       const { data, error } = await query;
       if (error) throw error;
@@ -285,7 +284,6 @@ export const useEstadisticasMaterialTendencia = (
         return { labels: [], datasets: [], materiales: [] };
       }
 
-      // Obtener todos los materiales distintos en los vales
       const mapaMaterieles = {};
       vales.forEach((vale) => {
         const mat = getMaterial(vale);
@@ -301,19 +299,15 @@ export const useEstadisticasMaterialTendencia = (
         }),
       );
 
-      // Aplicar filtro de material si existe
       if (filtroMaterialId !== null) {
         materialesLista = materialesLista.filter(
           (m) => m.id === filtroMaterialId,
         );
       }
 
-      // Obtener etiquetas del eje X segun agrupacion
       let labels = [];
 
       if (agrupacion === "dia") {
-        // Lunes a domingo de la semana actual
-        const lunes = getLunesActual();
         const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
         labels = DIAS;
 
@@ -324,8 +318,11 @@ export const useEstadisticasMaterialTendencia = (
             const mat2 = getMaterial(vale);
             if (!mat2 || mat2.id_material !== mat.id) return;
 
-            const fecha = new Date(vale.fecha_creacion);
-            const diaIdx = (fecha.getDay() + 6) % 7; // Lunes = 0
+            // CORREGIDO: usar fecha_completado
+            const fecha = new Date(
+              vale.fecha_completado ?? vale.fecha_creacion,
+            );
+            const diaIdx = (fecha.getDay() + 6) % 7;
             valores[diaIdx] += getM3(vale);
           });
 
@@ -346,15 +343,14 @@ export const useEstadisticasMaterialTendencia = (
       }
 
       if (agrupacion === "semana") {
-        // Obtener semanas ISO unicas en los vales, ordenadas
         const semanasSet = new Set();
         vales.forEach((vale) => {
-          semanasSet.add(getISOWeek(vale.fecha_creacion));
+          // CORREGIDO: usar fecha_completado
+          const fechaRef = vale.fecha_completado ?? vale.fecha_creacion;
+          semanasSet.add(getISOWeek(fechaRef));
         });
         const semanas = Array.from(semanasSet).sort((a, b) => a - b);
         labels = semanas.map((s) => String(s));
-
-        console.log("[Tendencia Periodo] Semanas ISO encontradas:", semanas);
 
         const datasets = materialesLista.map((mat, idx) => {
           const valores = semanas.map((semana) => {
@@ -362,7 +358,9 @@ export const useEstadisticasMaterialTendencia = (
             vales.forEach((vale) => {
               const mat2 = getMaterial(vale);
               if (!mat2 || mat2.id_material !== mat.id) return;
-              if (getISOWeek(vale.fecha_creacion) !== semana) return;
+              // CORREGIDO: usar fecha_completado
+              const fechaRef = vale.fecha_completado ?? vale.fecha_creacion;
+              if (getISOWeek(fechaRef) !== semana) return;
               m3semana += getM3(vale);
             });
             return parseFloat(m3semana.toFixed(2));
@@ -388,7 +386,6 @@ export const useEstadisticasMaterialTendencia = (
     },
     [],
   );
-
   // ─── Datos procesados para cada grafica ────────────────────────────────────
 
   const datosSemanal = useMemo(() => {

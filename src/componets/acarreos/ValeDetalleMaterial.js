@@ -17,6 +17,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
 import { useAuth } from "../../hooks/useAuth";
+import { BLUETOOTH_ENABLED } from "../../config/features";
 
 import KeyboardAvoidingScrollView from "../common/KeyboardAvoidingScrollView";
 import StatusBadge from "../common/StatusBadge";
@@ -35,11 +36,26 @@ import ValeInfoGeneral from "./helpersMaterial/ValeInfoGeneral";
 import ValeInfoDetalles from "./helpersMaterial/ValeInfoDetalles";
 import ValeDatosPendientes from "./helpersMaterial/ValeDatosPendientes";
 import TicketsMaterialSection from "./helpersMaterial/TicketsMaterialSection";
+import SeccionViajesMaterialCompletado from "./helpersMaterial/SeccionViajesMaterialCompletado";
 import useEvidenciaVale from "../../hooks/useEvidenciaVale";
+import { useReimprimirPDF } from "../../hooks/useReimprimirPDF";
+import ModalImprimirTicketRenta from "./rentaHelpers/ModalImprimirTicketRenta";
+
+let generarTicketMaterial;
+if (BLUETOOTH_ENABLED) {
+  const tg = require("../../services/ticketGenerator");
+  generarTicketMaterial = tg.generarTicketMaterial;
+}
 
 const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const { userProfile, userRole } = useAuth();
   const esChecador = userRole === "CHECADOR";
+
+  const {
+    yaReimprimio,
+    loading: loadingReimpresion,
+    marcarReimprimido,
+  } = useReimprimirPDF(vale?.id_vale);
 
   const {
     modalVisible: modalCancelarVisible,
@@ -69,6 +85,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const [successData, setSuccessData] = useState(null);
   const [updatedVale, setUpdatedVale] = useState(null);
   const [triggerPDF, setTriggerPDF] = useState(false);
+  const [showModalImpresion, setShowModalImpresion] = useState(false);
+  const [valeParaImpresion, setValeParaImpresion] = useState(null);
 
   const [valeLocal, setValeLocal] = useState(vale);
 
@@ -76,7 +94,9 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const lastValeId = useRef(null);
 
   // ─── Datos derivados del vale ─────────────────────────────────────────────
-  const detalleMaterial = vale?.vale_material_detalles?.[0];
+  const detalleMaterial =
+    valeLocal?.vale_material_detalles?.[0] ?? vale?.vale_material_detalles?.[0];
+
   const tieneDatosPendientes = !vale?.id_operador || !vale?.id_vehiculo;
   const esTipo3 = detalleMaterial?.material?.id_tipo_de_material === 3;
   const tipoMaterial = detalleMaterial?.material?.id_tipo_de_material ?? null;
@@ -293,6 +313,24 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     totalViajes,
   ]);
 
+  const handleReimprimirPDF = useCallback(() => {
+    Alert.alert(
+      "Reimprimir PDF",
+      "Solo puedes reimprimir este vale una vez mas. Despues de compartirlo no estara disponible.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Continuar",
+          onPress: () => {
+            marcarReimprimido();
+            if (!updatedVale) setUpdatedVale(vale);
+            setTimeout(() => setTriggerPDF(true), 100);
+          },
+        },
+      ],
+    );
+  }, [marcarReimprimido, updatedVale, vale]);
+
   // ─── Cerrar modal de éxito ────────────────────────────────────────────────
   const handleCloseSuccess = useCallback(() => {
     setShowSuccessModal(false);
@@ -375,6 +413,15 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           formatDate={formatDate}
           userProfile={userProfile}
         />
+        {/* Viajes registrados — solo cuando el vale ya está completado */}
+        {vale?.estado !== "en_proceso" && (
+          <SeccionViajesMaterialCompletado
+            viajes={detalleMaterial?.vale_material_viajes || []}
+            loading={false}
+            totalViajes={detalleMaterial?.vale_material_viajes?.length || 0}
+            esTipo3={esTipo3}
+          />
+        )}
 
         {/* Asignar operador/vehículo si faltan */}
         {tieneDatosPendientes &&
@@ -421,7 +468,34 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             esChecador={esChecador}
           />
         )}
-
+        {/* Botón reimprimir PDF — solo en emitido, una sola vez */}
+        {vale?.estado === "emitido" &&
+          !loadingReimpresion &&
+          (yaReimprimio ? (
+            <View style={styles.reimprimirAgotado}>
+              <MaterialCommunityIcons
+                name="file-pdf-box"
+                size={18}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.reimprimirAgotadoTexto}>
+                PDF ya fue reimprimido
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.botonReimprimir}
+              onPress={handleReimprimirPDF}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="file-pdf-box"
+                size={18}
+                color={colors.secondary}
+              />
+              <Text style={styles.botonReimprimirTexto}>Reimprimir PDF</Text>
+            </TouchableOpacity>
+          ))}
         {/* Botón cancelar vale — solo en_proceso */}
         {puedeCancel && (
           <TouchableOpacity style={styles.botonCancelar} onPress={abrirModal}>
@@ -472,11 +546,43 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             autoTrigger={true}
             onSuccess={() => {
               setTriggerPDF(false);
-              handleCloseSuccess();
+              setValeParaImpresion(updatedVale);
+              setShowModalImpresion(true);
             }}
           />
         </View>
       )}
+
+      {/* Modal impresión ticket físico — aparece después de compartir PDF */}
+      <ModalImprimirTicketRenta
+        visible={showModalImpresion}
+        valeData={valeParaImpresion}
+        generarLineas={
+          BLUETOOTH_ENABLED && generarTicketMaterial && valeParaImpresion
+            ? () => generarTicketMaterial(valeParaImpresion)
+            : undefined
+        }
+        resumenDatos={
+          valeParaImpresion
+            ? {
+                folio: valeParaImpresion.folio,
+                operador: valeParaImpresion.operadores?.nombre_completo,
+                placas: valeParaImpresion.vehiculos?.placas,
+                descripcion: `${valeParaImpresion.vale_material_detalles?.[0]?.material?.material ?? "Material"} — ${valeParaImpresion.vale_material_detalles?.[0]?.bancos?.banco ?? "Banco"}`,
+              }
+            : undefined
+        }
+        onImpreso={() => {
+          setShowModalImpresion(false);
+          setValeParaImpresion(null);
+          handleCloseSuccess();
+        }}
+        onSinImpresora={() => {
+          setShowModalImpresion(false);
+          setValeParaImpresion(null);
+          handleCloseSuccess();
+        }}
+      />
     </View>
   );
 };

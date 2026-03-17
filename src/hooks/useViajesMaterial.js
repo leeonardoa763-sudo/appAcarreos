@@ -406,16 +406,24 @@ export const useViajesMaterial = (
             *,
             obras:id_obra (obra, cc, empresas:id_empresa (empresa, sufijo, logo)),
             persona:id_persona_creador (nombre, primer_apellido, segundo_apellido),
+            persona_completador:id_persona_completador (nombre, primer_apellido, segundo_apellido),
             operadores:id_operador (nombre_completo),
             vehiculos:id_vehiculo (placas, capacidad_m3, sindicatos:id_sindicato (sindicato)),
             vale_material_detalles (
-              *,
-              material:id_material (id_material, material, id_tipo_de_material),
-              bancos:id_banco (id_banco, banco),
-              sindicatos:id_sindicato (sindicato),
-              vale_material_viajes (*)
+            *,
+            material:id_material (id_material, material, id_tipo_de_material),
+            bancos:id_banco (id_banco, banco),
+            sindicatos:id_sindicato (sindicato),
+            vale_material_viajes (
+                id_viaje,
+                numero_viaje,
+                hora_registro,
+                peso_ton,
+                volumen_m3,
+                folio_vale_fisico
             )
-          `,
+            )
+            `,
           )
           .eq("id_vale", idVale)
           .single();

@@ -72,11 +72,6 @@ const ValeInfoDetalles = ({
                   label="Volumen Real"
                   value={`${detalleMaterial.volumen_real_m3?.toFixed(2) || "N/A"} m³`}
                 />
-                <InfoRow
-                  icon="file-document"
-                  label="Folio Banco"
-                  value={detalleMaterial.folio_banco || "N/A"}
-                />
               </>
             )}
 

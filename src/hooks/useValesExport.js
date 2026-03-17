@@ -18,13 +18,15 @@ import { useState } from "react";
 import { Alert } from "react-native";
 
 // Queries
+// Queries
 import {
   fetchWeeksWithVales as fetchWeeksQuery,
   fetchValesMaterial,
   fetchValesRenta,
   fetchTicketsDescarga,
+  fetchViajesMaterial,
+  fetchViajesRenta,
 } from "./exportHelpers/valesQueries";
-
 // Transformación CSV
 import {
   convertToCSV,
@@ -34,6 +36,10 @@ import {
   RENTA_HEADERS,
   transformTicketsData,
   TICKETS_HEADERS,
+  transformViajesMaterialData,
+  VIAJES_MATERIAL_HEADERS,
+  transformViajesRentaData,
+  VIAJES_RENTA_HEADERS,
 } from "./exportHelpers/csvConverter";
 
 // File System
@@ -311,6 +317,130 @@ export const useValesExport = (obrasAsignadas = []) => {
     }
   };
 
+  /**
+   * Exporta viajes de material a CSV
+   * Un registro por viaje individual registrado
+   */
+  const exportViajesMaterialCSV = async (weekNumber, year) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const obrasIds = getObrasIds();
+
+      if (obrasIds.length === 0) {
+        Alert.alert("Sin Obras", "No tienes obras asignadas para exportar.", [
+          { text: "OK" },
+        ]);
+        setLoading(false);
+        return false;
+      }
+
+      const viajes = await fetchViajesMaterial(weekNumber, year, obrasIds);
+
+      if (!viajes || viajes.length === 0) {
+        Alert.alert(
+          "Sin Datos",
+          `No se encontraron viajes de material para la Semana ${weekNumber} del ${year}`,
+          [{ text: "OK" }],
+        );
+        setLoading(false);
+        return false;
+      }
+
+      const transformedData = transformViajesMaterialData(viajes);
+      const csvContent = convertToCSV(transformedData, VIAJES_MATERIAL_HEADERS);
+      const filename = `viajes_material_semana${weekNumber}_${year}.csv`;
+      await saveAndShareCSV(csvContent, filename);
+
+      const obrasNombres = obrasAsignadas.map((o) => o.nombre).join(", ");
+      const mensajeObras =
+        obrasAsignadas.length > 1
+          ? `de ${obrasAsignadas.length} obras (${obrasNombres})`
+          : `de ${obrasNombres}`;
+
+      Alert.alert(
+        "Exportacion Exitosa",
+        `Se exportaron ${viajes.length} viajes de material ${mensajeObras}`,
+        [{ text: "OK" }],
+      );
+
+      setLoading(false);
+      return true;
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+      Alert.alert(
+        "Error",
+        `No se pudo exportar los viajes de material.\n\nDetalle: ${err.message}`,
+        [{ text: "OK" }],
+      );
+      return false;
+    }
+  };
+
+  /**
+   * Exporta viajes de renta a CSV
+   * Un registro por viaje registrado en vale de renta
+   */
+  const exportViajesRentaCSV = async (weekNumber, year) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const obrasIds = getObrasIds();
+
+      if (obrasIds.length === 0) {
+        Alert.alert("Sin Obras", "No tienes obras asignadas para exportar.", [
+          { text: "OK" },
+        ]);
+        setLoading(false);
+        return false;
+      }
+
+      const viajes = await fetchViajesRenta(weekNumber, year, obrasIds);
+
+      if (!viajes || viajes.length === 0) {
+        Alert.alert(
+          "Sin Datos",
+          `No se encontraron viajes de renta para la Semana ${weekNumber} del ${year}`,
+          [{ text: "OK" }],
+        );
+        setLoading(false);
+        return false;
+      }
+
+      const transformedData = transformViajesRentaData(viajes);
+      const csvContent = convertToCSV(transformedData, VIAJES_RENTA_HEADERS);
+      const filename = `viajes_renta_semana${weekNumber}_${year}.csv`;
+      await saveAndShareCSV(csvContent, filename);
+
+      const obrasNombres = obrasAsignadas.map((o) => o.nombre).join(", ");
+      const mensajeObras =
+        obrasAsignadas.length > 1
+          ? `de ${obrasAsignadas.length} obras (${obrasNombres})`
+          : `de ${obrasNombres}`;
+
+      Alert.alert(
+        "Exportacion Exitosa",
+        `Se exportaron ${viajes.length} viajes de renta ${mensajeObras}`,
+        [{ text: "OK" }],
+      );
+
+      setLoading(false);
+      return true;
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+      Alert.alert(
+        "Error",
+        `No se pudo exportar los viajes de renta.\n\nDetalle: ${err.message}`,
+        [{ text: "OK" }],
+      );
+      return false;
+    }
+  };
+
   return {
     loading,
     error,
@@ -318,5 +448,7 @@ export const useValesExport = (obrasAsignadas = []) => {
     exportMaterialCSV,
     exportRentaCSV,
     exportTicketsCSV,
+    exportViajesMaterialCSV,
+    exportViajesRentaCSV,
   };
 };

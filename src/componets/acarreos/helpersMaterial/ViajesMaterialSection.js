@@ -310,9 +310,20 @@ const ViajesMaterialSection = ({
   // ─── Generar líneas del ticket por viaje ─────────────────────────────────
 
   const generarLineasTicketViaje = useCallback(() => {
+    console.log(
+      "[PREVIEW] vale:",
+      !!vale,
+      "detalle:",
+      !!detalle,
+      "viajeParaImprimir:",
+      !!viajeParaImprimir,
+      "generarFn:",
+      !!generarTicketMaterialViaje,
+    );
     if (!vale || !detalle || !viajeParaImprimir) return [];
     if (!generarTicketMaterialViaje) return [];
-    return generarTicketMaterialViaje(vale, detalle, viajeParaImprimir);
+    console.log("[PREVIEW] detalle.requisicion:", detalle?.requisicion);
+    console.log("[PREVIEW] detalle completo keys:", Object.keys(detalle));
   }, [vale, detalle, viajeParaImprimir]);
 
   // ─── Render ───────────────────────────────────────────────────────────────

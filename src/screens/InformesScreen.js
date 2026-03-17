@@ -53,6 +53,8 @@ const InformesScreen = () => {
     exportMaterialCSV,
     exportRentaCSV,
     exportTicketsCSV,
+    exportViajesMaterialCSV,
+    exportViajesRentaCSV,
   } = useValesExport(obras);
 
   // Estados
@@ -132,35 +134,21 @@ const InformesScreen = () => {
    * Maneja la exportación según el tipo seleccionado
    */
   const handleExport = async () => {
-    if (!exportType) {
-      return;
-    }
+    if (!exportType || !selectedWeek) return;
 
-    if (!selectedWeek) {
-      return;
-    }
-
-    let successCount = 0;
-
-    // Exportar según tipo seleccionado
     if (exportType === "material") {
-      const success = await exportMaterialCSV(selectedWeek, selectedYear);
-      if (success) successCount++;
+      await exportMaterialCSV(selectedWeek, selectedYear);
     } else if (exportType === "renta") {
-      const success = await exportRentaCSV(selectedWeek, selectedYear);
-      if (success) successCount++;
+      await exportRentaCSV(selectedWeek, selectedYear);
     } else if (exportType === "todos") {
-      // Exportar ambos tipos
-      const successMaterial = await exportMaterialCSV(
-        selectedWeek,
-        selectedYear,
-      );
-      const successRenta = await exportRentaCSV(selectedWeek, selectedYear);
-      if (successMaterial) successCount++;
-      if (successRenta) successCount++;
+      await exportMaterialCSV(selectedWeek, selectedYear);
+      await exportRentaCSV(selectedWeek, selectedYear);
     } else if (exportType === "tickets") {
-      const success = await exportTicketsCSV(selectedWeek, selectedYear);
-      if (success) successCount++;
+      await exportTicketsCSV(selectedWeek, selectedYear);
+    } else if (exportType === "viajes_material") {
+      await exportViajesMaterialCSV(selectedWeek, selectedYear);
+    } else if (exportType === "viajes_renta") {
+      await exportViajesRentaCSV(selectedWeek, selectedYear);
     }
   };
 
@@ -264,6 +252,16 @@ const InformesScreen = () => {
                 iconColor={colors.primary}
                 selected={exportType === "material"}
                 onSelect={() => setExportType("material")}
+                disabled={loading || !selectedWeek}
+              />
+
+              <ExportRadioButton
+                label="Viajes de Material"
+                description="Un registro por viaje individual registrado en vales de material"
+                icon="truck-fast"
+                iconColor={colors.primary}
+                selected={exportType === "viajes_material"}
+                onSelect={() => setExportType("viajes_material")}
                 disabled={loading || !selectedWeek}
               />
 

@@ -156,6 +156,7 @@ export const useEstadisticasRentaTendencia = (
           `
           id_vale,
           fecha_creacion,
+          fecha_completado,
           id_obra,
           vale_renta_detalle (
             numero_viajes,
@@ -169,8 +170,8 @@ export const useEstadisticasRentaTendencia = (
         )
         .eq("tipo_vale", "renta")
         .in("estado", ["emitido", "verificado", "conciliado"])
-        .gte("fecha_creacion", fechaInicio)
-        .lte("fecha_creacion", fechaFin);
+        .gte("fecha_completado", fechaInicio)
+        .lte("fecha_completado", fechaFin);
 
       if (filtrarPorObra && obraId) {
         query = query.eq("id_obra", obraId);
@@ -201,10 +202,37 @@ export const useEstadisticasRentaTendencia = (
       domingo.setDate(lunes.getDate() + 6);
       domingo.setHours(23, 59, 59, 999);
 
+      // LOGS TEMPORALES
+      console.log("[Tendencia Renta] Hoy local:", new Date().toString());
+      console.log(
+        "[Tendencia Renta] Lunes calculado (local):",
+        lunes.toString(),
+      );
+      console.log(
+        "[Tendencia Renta] Domingo calculado (local):",
+        domingo.toString(),
+      );
+      console.log(
+        "[Tendencia Renta] Rango UTC enviado a Supabase:",
+        lunes.toISOString(),
+        "→",
+        domingo.toISOString(),
+      );
+
       const data = await fetchVales(
         lunes.toISOString(),
         domingo.toISOString(),
         true,
+      );
+
+      console.log("[Tendencia Renta] Vales recibidos:", data.length);
+      data.forEach((v) =>
+        console.log(
+          "  Vale:",
+          v.id_vale,
+          "| fecha_creacion:",
+          v.fecha_creacion,
+        ),
       );
 
       setValesSemanal(data);
@@ -264,7 +292,7 @@ export const useEstadisticasRentaTendencia = (
     Number(vale.vale_renta_detalle?.[0]?.numero_viajes || 1);
 
   const getFechaOperacional = (vale) =>
-    vale.vale_renta_detalle?.[0]?.hora_inicio ?? vale.fecha_creacion;
+    vale.fecha_completado ?? vale.fecha_creacion;
 
   /**
    * Convierte vales en datasets para LineChart agrupados por material.
@@ -280,7 +308,6 @@ export const useEstadisticasRentaTendencia = (
         return { labels: [], datasets: [], materiales: [] };
       }
 
-      // Obtener materiales distintos en los vales
       const mapaMateriales = {};
       vales.forEach((vale) => {
         const mat = getMaterial(vale);
@@ -296,7 +323,6 @@ export const useEstadisticasRentaTendencia = (
         }),
       );
 
-      // Aplicar filtro de material si existe
       if (filtroMaterialId !== null) {
         materialesLista = materialesLista.filter(
           (m) => m.id === filtroMaterialId,
@@ -337,7 +363,9 @@ export const useEstadisticasRentaTendencia = (
       if (agrupacion === "semana") {
         const semanasSet = new Set();
         vales.forEach((vale) => {
-          semanasSet.add(getISOWeek(vale.fecha_creacion));
+          // CORREGIDO: usar fecha_completado en lugar de fecha_creacion
+          const fechaRef = vale.fecha_completado ?? vale.fecha_creacion;
+          semanasSet.add(getISOWeek(fechaRef));
         });
         const semanas = Array.from(semanasSet).sort((a, b) => a - b);
         const labels = semanas.map((s) => String(s));
@@ -347,9 +375,11 @@ export const useEstadisticasRentaTendencia = (
             return vales
               .filter((vale) => {
                 const mat2 = getMaterial(vale);
+                // CORREGIDO: usar fecha_completado en lugar de fecha_creacion
+                const fechaRef = vale.fecha_completado ?? vale.fecha_creacion;
                 return (
                   mat2?.id_material === mat.id &&
-                  getISOWeek(vale.fecha_creacion) === semana
+                  getISOWeek(fechaRef) === semana
                 );
               })
               .reduce((acc, vale) => acc + getViajes(vale), 0);
@@ -373,7 +403,7 @@ export const useEstadisticasRentaTendencia = (
 
       return { labels: [], datasets: [], materiales: [] };
     },
-    [],
+    [getMaterial, getViajes, getFechaOperacional, getISOWeek],
   );
 
   // ─── Datos procesados ──────────────────────────────────────────────────────

@@ -94,6 +94,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
 
   // --- Estados de guardado ---
   const [saving, setSaving] = useState(false);
+  const [totalTicketsDescarga, setTotalTicketsDescarga] = useState(0);
   const [savingDatos, setSavingDatos] = useState(false);
   const [datosPendientesGuardados, setDatosPendientesGuardados] =
     useState(false);
@@ -351,6 +352,14 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
       return;
     }
 
+    if (totalTicketsDescarga > 0 && totalViajes !== totalTicketsDescarga) {
+      Alert.alert(
+        "No se puede completar",
+        `Los tickets (${totalTicketsDescarga}) y los viajes (${totalViajes}) no coinciden. Deben ser iguales para completar el vale.`,
+      );
+      return;
+    }
+
     const errorDia = validateMismoDiaCreacion(
       detalleRenta?.hora_inicio,
       detalleRenta?.es_turno_nocturno,
@@ -602,6 +611,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           viajes={viajes}
           totalViajes={totalViajes}
           datosPendientesGuardados={datosPendientesGuardados}
+          onTotalTicketsChange={setTotalTicketsDescarga}
         />
 
         {/* Viajes desglosados — solo cuando el vale ya está completado */}
@@ -650,6 +660,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             mensajeBloqueo={mensajeBloqueo}
             saving={saving}
             onCompletar={handleCompletar}
+            totalTickets={totalTicketsDescarga}
           />
         )}
 

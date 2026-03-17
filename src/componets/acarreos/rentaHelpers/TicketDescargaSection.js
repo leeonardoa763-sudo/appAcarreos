@@ -17,7 +17,7 @@
  */
 
 // 1. React
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 
 // 2. React Native
 import {
@@ -109,6 +109,7 @@ const TicketDescargaSection = ({
   viajes = [],
   totalViajes = 0,
   datosPendientesGuardados = false,
+  onTotalTicketsChange,
 }) => {
   const {
     tickets,
@@ -119,6 +120,10 @@ const TicketDescargaSection = ({
     registrarTicket,
     reimprimirTicket,
   } = useTicketsDescarga({ vale, detalleRenta });
+
+  useEffect(() => {
+    onTotalTicketsChange?.(totalTickets);
+  }, [totalTickets]);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [mostrarModalImpresion, setMostrarModalImpresion] = useState(false);

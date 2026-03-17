@@ -264,3 +264,121 @@ export const transformTicketsData = (tickets) => {
     };
   });
 };
+/**
+ * Headers para exportación de viajes de material
+ */
+export const VIAJES_MATERIAL_HEADERS = [
+  { key: "folio_vale", label: "Folio Vale" },
+  { key: "fecha_vale", label: "Fecha Vale" },
+  { key: "semana", label: "Semana" },
+  { key: "estado", label: "Estado" },
+  { key: "obra", label: "Obra" },
+  { key: "operador", label: "Operador" },
+  { key: "placas", label: "Placas" },
+  { key: "material", label: "Material" },
+  { key: "banco", label: "Banco" },
+  { key: "distancia_km", label: "Distancia (km)" },
+  { key: "capacidad_m3", label: "Capacidad (m3)" },
+  { key: "requisicion", label: "Requisicion" },
+  { key: "numero_viaje", label: "Num. Viaje" },
+  { key: "folio_viaje", label: "Folio Viaje" },
+  { key: "hora_registro", label: "Hora Registro" },
+  { key: "volumen_m3", label: "Volumen (m3)" },
+  { key: "peso_ton", label: "Peso (ton)" },
+  { key: "precio_m3", label: "Precio por m3" },
+  { key: "costo_viaje", label: "Costo Viaje" },
+  { key: "folio_vale_fisico", label: "Vale Fisico" },
+  { key: "registrado_por", label: "Registrado Por" },
+  { key: "residente", label: "Residente" },
+];
+
+/**
+ * Headers para exportación de viajes de renta
+ */
+export const VIAJES_RENTA_HEADERS = [
+  { key: "folio_vale", label: "Folio Vale" },
+  { key: "fecha_vale", label: "Fecha Vale" },
+  { key: "semana", label: "Semana" },
+  { key: "estado", label: "Estado" },
+  { key: "obra", label: "Obra" },
+  { key: "operador", label: "Operador" },
+  { key: "placas", label: "Placas" },
+  { key: "material", label: "Material Movido" },
+  { key: "tipo_renta", label: "Tipo Renta" },
+  { key: "hora_inicio_vale", label: "Hora Inicio Vale" },
+  { key: "numero_viaje", label: "Num. Viaje" },
+  { key: "hora_registro", label: "Hora Registro Viaje" },
+  { key: "registrado_por", label: "Registrado Por" },
+  { key: "residente", label: "Residente" },
+];
+
+/**
+ * Transforma viajes de material a formato CSV
+ */
+export const transformViajesMaterialData = (viajes) => {
+  return viajes.map((item) => {
+    const { vale, detalle } = item;
+    const weekNum = vale?.fecha_creacion
+      ? getWeekNumber(new Date(vale.fecha_creacion))
+      : "-";
+
+    return {
+      folio_vale: vale?.folio || "-",
+      fecha_vale: formatDateOnly(vale?.fecha_creacion),
+      semana: weekNum !== "-" ? `Semana ${weekNum}` : "-",
+      estado: vale?.estado || "-",
+      obra: vale?.obras?.obra || "-",
+      operador: getNombreCompleto(vale?.operadores),
+      placas: vale?.vehiculos?.placas || "-",
+      material: detalle?.material?.material || "-",
+      banco: detalle?.bancos?.banco || "-",
+      distancia_km: detalle?.distancia_km || "0",
+      capacidad_m3: detalle?.capacidad_m3 || "0",
+      requisicion: detalle?.requisicion || "-",
+      numero_viaje: item.numero_viaje || "-",
+      folio_viaje:
+        vale?.folio && item.numero_viaje
+          ? `${vale.folio}-${String(item.numero_viaje).padStart(2, "0")}`
+          : "-",
+      hora_registro: formatFechaHoraCompleta(item.hora_registro),
+      volumen_m3: item.volumen_m3 || "0",
+      peso_ton: item.peso_ton || "0",
+      precio_m3: item.precio_m3 || "0",
+      costo_viaje: item.costo_viaje || "0",
+      folio_vale_fisico: item.folio_vale_fisico || "-",
+      registrado_por: getNombreCompleto(item.persona),
+      residente: getNombreCompleto(vale?.persona),
+    };
+  });
+};
+
+/**
+ * Transforma viajes de renta a formato CSV
+ */
+export const transformViajesRentaData = (viajes) => {
+  return viajes.map((item) => {
+    const { vale, detalle } = item;
+    const weekNum = vale?.fecha_creacion
+      ? getWeekNumber(new Date(vale.fecha_creacion))
+      : "-";
+
+    return {
+      folio_vale: vale?.folio || "-",
+      fecha_vale: formatDateOnly(vale?.fecha_creacion),
+      semana: weekNum !== "-" ? `Semana ${weekNum}` : "-",
+      estado: vale?.estado || "-",
+      obra: vale?.obras?.obra || "-",
+      operador: getNombreCompleto(vale?.operadores),
+      placas: vale?.vehiculos?.placas || "-",
+      material: detalle?.material?.material || "-",
+      tipo_renta: detalle?.es_renta_por_dia ? "Por dia" : "Por hora",
+      hora_inicio_vale: detalle?.hora_inicio
+        ? formatFechaHoraCompleta(detalle.hora_inicio)
+        : "-",
+      numero_viaje: item.numero_viaje || "-",
+      hora_registro: formatFechaHoraCompleta(item.hora_registro),
+      registrado_por: getNombreCompleto(item.persona),
+      residente: getNombreCompleto(vale?.persona),
+    };
+  });
+};

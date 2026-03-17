@@ -60,6 +60,14 @@ export const VALE_SELECT_COMPLETO = `
     ),
     sindicatos:id_sindicato (
       sindicato
+    ),
+    vale_material_viajes (
+      id_viaje,
+      numero_viaje,
+      hora_registro,
+      peso_ton,
+      volumen_m3,
+      folio_vale_fisico
     )
   ),
   vale_renta_detalle (

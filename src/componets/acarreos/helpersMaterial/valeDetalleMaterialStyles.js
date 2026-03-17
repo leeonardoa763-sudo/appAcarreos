@@ -245,6 +245,37 @@ const styles = StyleSheet.create({
     flex: 1,
     textTransform: "capitalize",
   },
+  botonReimprimir: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    backgroundColor: colors.surface,
+  },
+  botonReimprimirTexto: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.secondary,
+  },
+  reimprimirAgotado: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingVertical: 10,
+  },
+  reimprimirAgotadoTexto: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
 });
 
 export default styles;

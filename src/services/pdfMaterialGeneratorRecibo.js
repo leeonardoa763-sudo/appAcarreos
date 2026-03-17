@@ -1,11 +1,21 @@
 /**
  * services/pdfMaterialGeneratorRecibo.js
  *
- * Generador de PDFs estilo RECIBO TÉRMICO para vales de MATERIAL
- * Diseñado para impresoras de recibos con rollo de 50mm
- * Mantiene la lógica completa:
- * - Tipo 3 (Tepetate): Genera copia BLANCA inmediata con cantidad final
- * - Tipo 1 y 2: Genera copia ROJA preliminar, luego BLANCA con volumen real y peso
+ * Generador de PDFs estilo RECIBO TERMICO para vales de MATERIAL
+ * Disenado para impresoras de recibos con rollo de 50mm
+ *
+ * LOGICA DE COPIAS:
+ * - Copia ROJA (preliminar): se genera al crear el vale (tipo 1 y 2)
+ * - Copia BLANCA (definitiva): se genera al completar el vale
+ * - Tipo 3 (Tepetate): solo genera copia BLANCA con cantidad final
+ *
+ * NUEVO DISENO:
+ * - Sin campo "Cantidad Pedida"
+ * - Tabla compacta de viajes: remision | tonelaje | m3 | hora
+ * - Peso volumetrico total
+ * - Persona que completo el vale
+ * - Fecha de creacion y fecha de emision del vale
+ * - Todo en una sola pagina
  */
 
 import * as Print from "expo-print";
@@ -18,61 +28,203 @@ import {
 } from "../utils/pdfReceiptHelpers";
 import { renamePDFWithAutoName } from "./pdfFileHandler";
 
-/**
- * Genera HTML del vale de MATERIAL en formato recibo térmico
- */
+// ─── Helpers locales ──────────────────────────────────────────────────────────
+
+const formatHora = (isoString) => {
+  if (!isoString) return "--";
+  return new Date(isoString).toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};
+
+const formatFechaCorta = (isoString) => {
+  if (!isoString) return "--";
+  return new Date(isoString).toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  });
+};
+
+// ─── CSS adicional para tabla de viajes ───────────────────────────────────────
+
+const getTablaViajesCSS = () => `
+  .viajes-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 5px;
+    margin-top: 0.5mm;
+  }
+  .viajes-table th {
+    background-color: #000 !important;
+    color: #FFF !important;
+    font-weight: bold;
+    text-align: center;
+    padding: 0.5mm 0.3mm;
+    font-size: 4.5px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .viajes-table td {
+    text-align: center;
+    padding: 0.4mm 0.3mm;
+    border-bottom: 0.3px solid #ccc;
+    font-size: 4.5px;
+    word-break: break-all;
+  }
+  .viajes-table tr:last-child td {
+    border-bottom: none;
+  }
+  .viajes-table .td-remision {
+    text-align: left;
+    max-width: 18mm;
+    word-break: break-all;
+  }
+  .viajes-totales {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.8mm;
+    padding-top: 0.8mm;
+    border-top: 0.5px solid #000;
+    font-size: 5px;
+  }
+  .viajes-totales-item {
+    text-align: center;
+  }
+  .viajes-totales-label {
+    font-size: 4px;
+    color: #555;
+    display: block;
+  }
+  .viajes-totales-valor {
+    font-weight: bold;
+    font-size: 5.5px;
+    display: block;
+  }
+  .peso-volumetrico-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5mm;
+    padding: 0.5mm;
+    background-color: #f0f0f0 !important;
+    border: 0.3px solid #999;
+    font-size: 5px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .sin-viajes {
+    text-align: center;
+    font-size: 5px;
+    color: #888;
+    padding: 1mm 0;
+    font-style: italic;
+  }
+`;
+
+// ─── Generador de filas de viajes ─────────────────────────────────────────────
+
+const generarFilasViajes = (viajes, esTipo3) => {
+  if (!viajes || viajes.length === 0) {
+    return `<tr><td colspan="4" class="sin-viajes">Sin viajes registrados</td></tr>`;
+  }
+
+  return viajes
+    .map((v) => {
+      const remision = v.folio_vale_fisico || "--";
+      const tonelaje = v.peso_ton ? parseFloat(v.peso_ton).toFixed(2) : "--";
+      const m3 = v.volumen_m3 ? parseFloat(v.volumen_m3).toFixed(2) : "--";
+      const hora = formatHora(v.hora_registro);
+
+      return `
+      <tr>
+        <td class="td-remision">${remision}</td>
+        <td>${esTipo3 ? "--" : tonelaje}</td>
+        <td>${m3}</td>
+        <td>${hora}</td>
+      </tr>
+    `;
+    })
+    .join("");
+};
+
+// ─── Generador de totales de viajes ──────────────────────────────────────────
+
+const generarTotalesViajes = (viajes, esTipo3, volumenRealTotal, pesoTotal) => {
+  const totalViajes = viajes?.length || 0;
+  const totalM3 = volumenRealTotal
+    ? `${parseFloat(volumenRealTotal).toFixed(2)} m³`
+    : "--";
+  const totalTon =
+    !esTipo3 && pesoTotal ? `${parseFloat(pesoTotal).toFixed(2)} Ton` : "--";
+
+  return `
+    <div class="viajes-totales">
+      <div class="viajes-totales-item">
+        <span class="viajes-totales-label">Viajes</span>
+        <span class="viajes-totales-valor">${totalViajes}</span>
+      </div>
+      ${
+        !esTipo3
+          ? `
+      <div class="viajes-totales-item">
+        <span class="viajes-totales-label">Total Ton</span>
+        <span class="viajes-totales-valor">${totalTon}</span>
+      </div>
+      `
+          : ""
+      }
+      <div class="viajes-totales-item">
+        <span class="viajes-totales-label">Total m³</span>
+        <span class="viajes-totales-valor">${totalM3}</span>
+      </div>
+    </div>
+  `;
+};
+
+// ─── HTML principal ───────────────────────────────────────────────────────────
+
 const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const { bgColor, destinatario } = getCopiaInfoRecibo(colorCopia);
 
-  const fechaFormateada = formatearFechaRecibo(valeData.fecha_creacion);
-  const horaFormateada = formatearHoraRecibo(valeData.fecha_creacion);
+  // Fechas
+  const fechaCreacionFormateada = formatFechaCorta(valeData.fecha_creacion);
+  const horaCreacionFormateada = formatHora(valeData.fecha_creacion);
+  const fechaEmisionFormateada = formatearFechaRecibo(new Date());
+  const horaEmisionFormateada = formatearHoraRecibo(new Date());
 
   const esCopiaBlanca = colorCopia.toLowerCase() === "blanca";
 
-  // Extraer datos del vale
-  const detalle = valeData.vale_material_detalles?.[0];
+  // Datos base del detalle
+  const detalle = valeData.vale_material_detalles?.[0] || {};
   const material = detalle.material?.material || "N/A";
   const banco = detalle.bancos?.banco || "N/A";
-  const capacidad = detalle.capacidad_m3 || "Pendiente";
+  const capacidad =
+    valeData.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3 ?? "N/A";
   const distancia = detalle.distancia_km || "N/A";
-  const cantidadPedida = detalle.cantidad_pedida_m3 || "N/A";
   const requisicion = detalle.requisicion || null;
   const folioValeFisico = detalle.folio_vale_fisico
     ? String(detalle.folio_vale_fisico)
     : null;
 
-  // Detectar si es tipo 3 (Tepetate)
   const esTipo3 = detalle.material?.id_tipo_de_material === 3;
 
-  // En generateValeMaterialReciboHTML, justo después de extraer folioValeFisico
-  console.log("[PDF] folioValeFisico:", folioValeFisico);
-  console.log("[PDF] esTipo3:", esTipo3);
+  // Datos post-completado
 
-  // Datos después de completar el vale
-  const folioBanco = detalle.folio_banco || null;
-  const peso = detalle.peso_ton
-    ? `${parseFloat(detalle.peso_ton).toFixed(2)}`
-    : null;
-  const volumenReal = detalle.volumen_real_m3
-    ? `${parseFloat(detalle.volumen_real_m3).toFixed(2)}`
-    : null;
+  const pesoTotal = detalle.peso_ton || null;
+  const volumenReal = detalle.volumen_real_m3 || null;
 
-  // Precios y tarifas
-  const tienePrecio = detalle.precio_m3 && detalle.costo_total;
-  const tarifaPrimerKm = detalle.tarifa_primer_km
-    ? `$${parseFloat(detalle.tarifa_primer_km).toFixed(2)}`
-    : null;
-  const tarifaSubsecuente = detalle.tarifa_subsecuente
-    ? `$${parseFloat(detalle.tarifa_subsecuente).toFixed(2)}/km`
-    : null;
-  const precioM3 = tienePrecio
-    ? `$${parseFloat(detalle.precio_m3).toFixed(2)}`
-    : null;
-  const costoTotal = tienePrecio
-    ? `$${parseFloat(detalle.costo_total).toFixed(2)}`
-    : null;
+  // Factor peso volumetrico: peso_ton / volumen_real_m3 redondeado a 2 decimales
+  const factorPesoVolumetrico =
+    pesoTotal && volumenReal && parseFloat(volumenReal) > 0
+      ? (parseFloat(pesoTotal) / parseFloat(volumenReal)).toFixed(2)
+      : null;
 
-  // Datos de obra y empresa
+  // Viajes registrados (vienen en vale_material_detalles[0].vale_material_viajes)
+  const viajes = detalle.vale_material_viajes || [];
+
   // Datos de obra y empresa
   const cc = valeData.obras?.cc || "";
   const nombreObra = valeData.obras?.obra || "N/A";
@@ -80,23 +232,64 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const empresa = valeData.obras?.empresas?.empresa || "CONSTRUCCION";
   const operador = valeData.operadores?.nombre_completo || "Pendiente";
   const placas = valeData.vehiculos?.placas || "Pendiente";
-
   const sindicato =
     detalle?.sindicatos?.sindicato ||
     valeData.vehiculos?.sindicatos?.sindicato ||
     "N/A";
 
-  // Persona que creó el vale
+  // Personas
   const creador = valeData.persona
-    ? `${valeData.persona.nombre} ${valeData.persona.primer_apellido} ${valeData.persona.segundo_apellido || ""}`.trim()
+    ? `${valeData.persona.nombre} ${valeData.persona.primer_apellido}${
+        valeData.persona.segundo_apellido
+          ? " " + valeData.persona.segundo_apellido
+          : ""
+      }`.trim()
     : "N/A";
 
-  // Persona que computó (completó) el vale
-  const computador = valeData.persona_completador
-    ? `${valeData.persona_completador.nombre} ${valeData.persona_completador.primer_apellido} ${valeData.persona_completador.segundo_apellido || ""}`.trim()
-    : null; // null si aún no se ha completado
+  const completador = valeData.persona_completador
+    ? `${valeData.persona_completador.nombre} ${valeData.persona_completador.primer_apellido}${
+        valeData.persona_completador.segundo_apellido
+          ? " " + valeData.persona_completador.segundo_apellido
+          : ""
+      }`.trim()
+    : null;
 
   const notas = detalle.notas_adicionales?.trim() || null;
+
+  // ─── LOGS DE DIAGNÓSTICO ──────────────────────────────────────────────────
+  console.log("=== PDF MATERIAL GENERANDO ===");
+  console.log("[PDF] Folio:", valeData.folio);
+  console.log("[PDF] Color copia:", colorCopia);
+  console.log("[PDF] Estado:", valeData.estado);
+  console.log("[PDF] --- DETALLE ---");
+  console.log("[PDF] material:", detalle.material?.material);
+  console.log("[PDF] banco:", detalle.bancos?.banco);
+  console.log("[PDF] capacidad:", capacidad);
+  console.log("[PDF] distancia_km:", detalle.distancia_km);
+  console.log("[PDF] volumen_real_m3:", detalle.volumen_real_m3);
+  console.log("[PDF] peso_ton:", detalle.peso_ton);
+  console.log("[PDF] folio_banco:", detalle.folio_banco);
+  console.log("[PDF] factorPesoVolumetrico:", factorPesoVolumetrico);
+  console.log("[PDF] --- VIAJES ---");
+  console.log("[PDF] viajes.length:", viajes.length);
+  viajes.forEach((v, i) => {
+    console.log(`[PDF] viaje[${i}]:`, {
+      numero: v.numero_viaje,
+      remision: v.folio_vale_fisico,
+      peso_ton: v.peso_ton,
+      volumen_m3: v.volumen_m3,
+      hora: v.hora_registro,
+    });
+  });
+  console.log("[PDF] --- PERSONAS ---");
+  console.log("[PDF] creador:", creador);
+  console.log("[PDF] completador:", completador);
+  console.log("[PDF] --- OBRA ---");
+  console.log("[PDF] obra:", obra);
+  console.log("[PDF] operador:", operador);
+  console.log("[PDF] placas:", placas);
+  console.log("==============================");
+  // ─────────────────────────────────────────────────────────────────────────
 
   return `
     <!DOCTYPE html>
@@ -107,18 +300,28 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
       <title>Recibo ${valeData.folio}</title>
       <style>
         ${getReceiptBaseCSS(bgColor)}
+        ${getTablaViajesCSS()}
       </style>
     </head>
     <body>
       <div class="receipt-container">
-        
+
         <!-- HEADER -->
         <div class="receipt-header">
           <h1>${empresa}</h1>
           <h2>VALE DE MATERIAL</h2>
           <div class="folio">No. ${valeData.folio}</div>
-          <div style="font-size: 6px; margin-top: 1mm;">
-            ${fechaFormateada} ${horaFormateada}
+        </div>
+
+        <!-- FECHAS: CREACION Y EMISION -->
+        <div class="receipt-section">
+          <div class="receipt-row">
+            <span class="receipt-row-label">Fecha creacion:</span>
+            <span class="receipt-row-value">${fechaCreacionFormateada} ${horaCreacionFormateada}</span>
+          </div>
+          <div class="receipt-row">
+            <span class="receipt-row-label">Fecha emision:</span>
+            <span class="receipt-row-value">${fechaEmisionFormateada} ${horaEmisionFormateada}</span>
           </div>
         </div>
 
@@ -149,109 +352,38 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
             <span class="receipt-row-label">Distancia:</span>
             <span class="receipt-row-value">${distancia} Km</span>
           </div>
-        </div>
-
-        <!-- CANTIDADES -->
-        <div class="receipt-section">
-          <div class="section-title">CANTIDADES</div>
           ${
             requisicion
               ? `
-            <div class="receipt-row">
-              <span class="receipt-row-label">Requisición:</span>
-              <span class="receipt-row-value">${requisicion}</span>
-            </div>
-            `
+          <div class="receipt-row">
+            <span class="receipt-row-label">Requisicion:</span>
+            <span class="receipt-row-value">${requisicion}</span>
+          </div>
+          `
               : ""
           }
           ${
             folioValeFisico && esTipo3
               ? `
-            <div class="receipt-row">
-              <span class="receipt-row-label">Vale Físico:</span>
-              <span class="receipt-row-value">${folioValeFisico}</span>
-            </div>
-            `
+          <div class="receipt-row">
+            <span class="receipt-row-label">Vale Fisico:</span>
+            <span class="receipt-row-value">${folioValeFisico}</span>
+          </div>
+          `
               : ""
           }
-
           
-          ${
-            !(esCopiaBlanca && esTipo3)
-              ? `
+         ${
+           factorPesoVolumetrico && esCopiaBlanca && !esTipo3
+             ? `
           <div class="receipt-row">
-            <span class="receipt-row-label">Cant. Pedida:</span>
-            <span class="receipt-row-value">${cantidadPedida} m³</span>
+            <span class="receipt-row-label">Factor vol.:</span>
+            <span class="receipt-row-value">${factorPesoVolumetrico}</span>
           </div>
           `
-              : ""
-          }
-
-          ${
-            volumenReal &&
-            (!esCopiaBlanca || esTipo3 || (esCopiaBlanca && !esTipo3))
-              ? `
-          <div class="receipt-row">
-            <span class="receipt-row-label">${
-              esTipo3 ? "Cant. Final:" : "Vol. Real:"
-            }</span>
-            <span class="receipt-row-value">${volumenReal} m³</span>
-          </div>
-          `
-              : ""
-          }
-
-          ${
-            peso && esCopiaBlanca && !esTipo3
-              ? `
-          <div class="receipt-row">
-            <span class="receipt-row-label">Peso:</span>
-            <span class="receipt-row-value">${peso} Ton</span>
-          </div>
-          `
-              : ""
-          }
-
-          ${
-            folioBanco && esCopiaBlanca && !esTipo3
-              ? `
-          <div class="receipt-row">
-            <span class="receipt-row-label">Folio Banco:</span>
-            <span class="receipt-row-value">${folioBanco}</span>
-          </div>
-          `
-              : ""
-          }
+             : ""
+         }
         </div>
-
-        ${
-          tienePrecio
-            ? `
-        <!-- TARIFAS Y COSTO - COMENTADO PARA PRIVACIDAD -->
-        <!--
-        <div class="receipt-section">
-          <div class="section-title">TARIFAS</div>
-          <div class="receipt-row">
-            <span class="receipt-row-label">1er Km:</span>
-            <span class="receipt-row-value">${tarifaPrimerKm}</span>
-          </div>
-          <div class="receipt-row">
-            <span class="receipt-row-label">Subsecuente:</span>
-            <span class="receipt-row-value">${tarifaSubsecuente}</span>
-          </div>
-          <div class="receipt-row">
-            <span class="receipt-row-label">Precio/m³:</span>
-            <span class="receipt-row-value">${precioM3}</span>
-          </div>
-          <div class="total-row">
-            <span>TOTAL:</span>
-            <span>${costoTotal} MXN</span>
-          </div>
-        </div>
-        -->
-        `
-            : ""
-        }
 
         <!-- OPERADOR -->
         <div class="receipt-section">
@@ -269,18 +401,43 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
           </div>
         </div>
 
-        <!-- CREÓ Y COMPUTÓ -->
+        <!-- TABLA DE VIAJES — solo en copia blanca cuando hay viajes -->
+        ${
+          esCopiaBlanca
+            ? `
+        <div class="receipt-section">
+          <div class="section-title">VIAJES REGISTRADOS</div>
+          <table class="viajes-table">
+            <thead>
+              <tr>
+                <th style="text-align:left;">Remision</th>
+                <th>${esTipo3 ? "--" : "Ton"}</th>
+                <th>m³</th>
+                <th>Hora</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${generarFilasViajes(viajes, esTipo3)}
+            </tbody>
+          </table>
+          ${generarTotalesViajes(viajes, esTipo3, volumenReal, pesoTotal)}
+        </div>
+        `
+            : ""
+        }
+
+        <!-- PERSONAS -->
         <div class="receipt-section">
           <div class="receipt-row">
             <span class="receipt-row-label">Creado por:</span>
-            <span class="receipt-row-value" style="font-size: 5px;">${creador}</span>
+            <span class="receipt-row-value" style="font-size:5px;">${creador}</span>
           </div>
           ${
-            computador
+            completador
               ? `
           <div class="receipt-row">
-            <span class="receipt-row-label">Completado por:</span>
-            <span class="receipt-row-value" style="font-size: 5px;">${computador}</span>
+            <span class="receipt-row-label">Completo por:</span>
+            <span class="receipt-row-value" style="font-size:5px;">${completador}</span>
           </div>
           `
               : ""
@@ -293,9 +450,7 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
         <!-- NOTAS -->
         <div class="receipt-section">
           <div class="section-title">NOTAS</div>
-          <div class="notas-section">
-            ${notas}
-          </div>
+          <div class="notas-section">${notas}</div>
         </div>
         `
             : ""
@@ -315,7 +470,7 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
           <div class="copia-badge">COPIA ${colorCopia.toUpperCase()}</div>
           <div class="copia-destinatario">${destinatario}</div>
           <div class="fecha-emision">
-            Emitida: ${fechaFormateada} ${horaFormateada}
+            Emitida: ${fechaEmisionFormateada} ${horaEmisionFormateada}
           </div>
         </div>
 
@@ -324,6 +479,8 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
     </html>
   `;
 };
+
+// ─── Exportación principal ────────────────────────────────────────────────────
 
 /**
  * Genera y comparte PDF de vale de MATERIAL en formato recibo
@@ -334,11 +491,6 @@ export const generateAndShareMaterialRecibo = async (
   qrDataUrl,
 ) => {
   try {
-    console.log("[pdfMaterialGeneratorRecibo] Generando PDF recibo:", {
-      folio: valeData.folio,
-      colorCopia,
-    });
-
     const html = generateValeMaterialReciboHTML(
       valeData,
       colorCopia,
@@ -349,17 +501,13 @@ export const generateAndShareMaterialRecibo = async (
       html,
       base64: false,
       width: 189,
-      height: 1134, // 300mm @ 96dpi — una sola página garantizada
+      // Sin height fijo: se ajusta al contenido automaticamente
     });
+
     const renamedUri = await renamePDFWithAutoName(
       uri,
       valeData.folio,
       colorCopia,
-    );
-
-    console.log(
-      "[pdfMaterialGeneratorRecibo] PDF generado exitosamente:",
-      renamedUri,
     );
 
     if (await Sharing.isAvailableAsync()) {
@@ -368,16 +516,11 @@ export const generateAndShareMaterialRecibo = async (
         dialogTitle: `Vale de Material ${valeData.folio}`,
         UTI: "com.adobe.pdf",
       });
-    } else {
-      console.warn("[pdfMaterialGeneratorRecibo] Sharing no disponible");
     }
 
     return renamedUri;
   } catch (error) {
-    console.error(
-      "[pdfMaterialGeneratorRecibo] Error generando PDF recibo:",
-      error,
-    );
+    console.error("[pdfMaterialGeneratorRecibo] Error generando PDF:", error);
     throw error;
   }
 };
