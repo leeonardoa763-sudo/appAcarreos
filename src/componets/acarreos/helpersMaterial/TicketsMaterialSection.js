@@ -149,20 +149,25 @@ const generarContenidoTicketMaterial = (vale, detalle, ticketData) => {
       contenido: `BANCO: ${banco}\n`,
       opciones: { align: ALINEACION.IZQUIERDA },
     },
+
     {
       tipo: "texto",
       contenido: `DISTANCIA: ${distancia}\n`,
       opciones: { align: ALINEACION.IZQUIERDA },
     },
     { tipo: "separador" },
+    ...(detalle?.requisicion
+      ? [
+          {
+            tipo: "texto",
+            contenido: `REQUISICION: ${String(detalle.requisicion)}\n`,
+            opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+          },
+        ]
+      : []),
     {
       tipo: "texto",
       contenido: `OPERADOR:\n${operador}\n`,
-      opciones: { align: ALINEACION.IZQUIERDA, bold: true },
-    },
-    {
-      tipo: "texto",
-      contenido: `PLACAS: ${placas}\n`,
       opciones: { align: ALINEACION.IZQUIERDA },
     },
     {

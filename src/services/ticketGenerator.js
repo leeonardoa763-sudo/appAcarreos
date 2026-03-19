@@ -54,12 +54,12 @@ export const generarTicketMaterial = (vale) => {
   const nombreObra = vale.obras?.obra || "N/A";
   const obra = cc ? `${cc}-${nombreObra}` : nombreObra;
   const empresa = vale.obras?.empresas?.empresa || "CONSTRUCCION";
-  const placas = vale.vehiculos?.placas || "";
+  const placas = vale.vehiculos?.placas || "N/A";
+  const operador = vale.operadores?.nombre_completo || "N/A";
   const material = detalle.material?.material || "N/A";
   const banco = detalle.bancos?.banco || "N/A";
   const capacidadRaw = vale.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3;
   const capacidad = capacidadRaw ? `${capacidadRaw} m3` : "N/A";
-
   const distancia = detalle.distancia_km ? `${detalle.distancia_km} km` : "N/A";
   const requisicion = detalle.requisicion || null;
   const fecha = formatearFecha(vale.fecha_creacion);
@@ -80,7 +80,11 @@ export const generarTicketMaterial = (vale) => {
       contenido: "VALE DE MATERIAL\n",
       opciones: { align: ALINEACION.CENTRO, bold: true },
     },
-
+    {
+      tipo: "texto",
+      contenido: `${folio}\n`,
+      opciones: { align: ALINEACION.CENTRO, bold: true },
+    },
     {
       tipo: "texto",
       contenido: `${fecha} ${hora}\n`,
@@ -135,13 +139,95 @@ export const generarTicketMaterial = (vale) => {
       contenido: `DISTANCIA: ${distancia}\n`,
       opciones: { align: ALINEACION.IZQUIERDA },
     },
-
     { tipo: "separador" },
     {
       tipo: "texto",
-      contenido: `PLACAS: ${placas}\n`,
+      contenido: `OPERADOR:\n${operador}\n`,
       opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
+    {
+      tipo: "texto",
+      contenido: `PLACAS: ${placas}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA },
+    },
+    { tipo: "separador" },
+  );
+
+  // Desglose de viajes
+  const viajes = detalle.vale_material_viajes || [];
+  if (viajes.length > 0) {
+    lineas.push(
+      {
+        tipo: "texto",
+        contenido: "VIAJES REALIZADOS\n",
+        opciones: { align: ALINEACION.CENTRO, bold: true },
+      },
+      { tipo: "separador" },
+      {
+        tipo: "texto",
+        contenido: "#   VOL    TON   FOLIO      HORA\n",
+        opciones: { align: ALINEACION.IZQUIERDA },
+      },
+      { tipo: "separador" },
+    );
+
+    viajes.forEach((viaje) => {
+      const num = String(viaje.numero_viaje ?? "?").padEnd(3);
+      const vol =
+        viaje.volumen_m3 != null
+          ? String(parseFloat(viaje.volumen_m3).toFixed(2)).padEnd(6)
+          : "N/A   ";
+      const ton =
+        viaje.peso_ton != null
+          ? String(parseFloat(viaje.peso_ton).toFixed(2)).padEnd(6)
+          : "-     ";
+      const folioBanco = viaje.folio_vale_fisico
+        ? String(viaje.folio_vale_fisico).substring(0, 7).padEnd(8)
+        : "-       ";
+      const hora = viaje.hora_registro
+        ? formatearHora(viaje.hora_registro)
+        : "--:--";
+
+      lineas.push({
+        tipo: "texto",
+        contenido: `${num} ${vol} ${ton} ${folioBanco} ${hora}\n`,
+        opciones: { align: ALINEACION.IZQUIERDA },
+      });
+    });
+
+    const totalVol = viajes.reduce(
+      (acc, v) => acc + parseFloat(v.volumen_m3 || 0),
+      0,
+    );
+    const totalTon = viajes.some((v) => v.peso_ton != null)
+      ? viajes.reduce((acc, v) => acc + parseFloat(v.peso_ton || 0), 0)
+      : null;
+
+    lineas.push(
+      { tipo: "separador" },
+      {
+        tipo: "texto",
+        contenido: `TOTAL VIAJES: ${viajes.length}\n`,
+        opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+      },
+      {
+        tipo: "texto",
+        contenido: `TOTAL VOLUMEN: ${totalVol.toFixed(2)} m3\n`,
+        opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+      },
+      ...(totalTon != null
+        ? [
+            {
+              tipo: "texto",
+              contenido: `TOTAL TON: ${totalTon.toFixed(2)} ton\n`,
+              opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+            },
+          ]
+        : []),
+    );
+  }
+
+  lineas.push(
     { tipo: "separador" },
     {
       tipo: "texto",

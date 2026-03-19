@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   FlatList,
+  TouchableOpacity,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
@@ -36,6 +37,8 @@ import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
 
 import CollapsibleSection from "../componets/common/CollapsibleSection";
 
+import ModalPruebaImpresion from "../componets/dev/ModalPruebaImpresion";
+
 const AcarreosScreen = () => {
   const { userProfile, userRole } = useAuth();
   const route = useRoute();
@@ -52,6 +55,7 @@ const AcarreosScreen = () => {
   const [selectedVale, setSelectedVale] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [modalPruebaVisible, setModalPruebaVisible] = useState(false);
 
   const { materiales, sindicatos, operadores, vehiculos } = useCatalogos([
     "materiales",
@@ -633,8 +637,25 @@ const AcarreosScreen = () => {
           )}
         </View>
       </ScrollView>
-
       {/* Modal */}
+      // DESPUÉS
+      {/* DEV — Eliminar antes de producción */}
+      <TouchableOpacity
+        style={styles.botonDev}
+        onPress={() => setModalPruebaVisible(true)}
+        activeOpacity={0.8}
+      >
+        <MaterialCommunityIcons
+          name="bug-outline"
+          size={16}
+          color={colors.surface}
+        />
+        <Text style={styles.botonDevTexto}>Prueba impresión</Text>
+      </TouchableOpacity>
+      <ModalPruebaImpresion
+        visible={modalPruebaVisible}
+        onCerrar={() => setModalPruebaVisible(false)}
+      />
       <ValeDetalleModal
         visible={modalVisible}
         vale={selectedVale}
@@ -648,6 +669,30 @@ const AcarreosScreen = () => {
 const styles = {
   ...commonStyles,
   ...listScreenStyles,
+  botonDev: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    position: "absolute",
+    bottom: 80,
+    right: 16,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    gap: 6,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    zIndex: 99,
+  },
+  botonDevTexto: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.surface,
+  },
 };
 
 export default AcarreosScreen;

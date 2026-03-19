@@ -92,10 +92,7 @@ const ValeFormCompletarTipo3 = ({
         onPress={onCompletar}
         loading={savingToneladas}
         disabled={
-          !cantidadConfirmada ||
-          cantidadConfirmada <= 0 ||
-          !evidenciaLista ||
-          (obraTieneCoordenadas && dentroDelRadio === false)
+          !cantidadConfirmada || cantidadConfirmada <= 0 || !evidenciaLista
         }
         icon="check-circle"
         backgroundColor={colors.accent}

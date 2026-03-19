@@ -52,9 +52,7 @@ const ValeFormCompletarNormal = ({
         title="Completar Vale"
         onPress={onCompletar}
         loading={savingToneladas}
-        disabled={
-          !evidenciaLista || (obraTieneCoordenadas && dentroDelRadio === false)
-        }
+        disabled={!evidenciaLista}
         icon="check-circle"
         backgroundColor={colors.accent}
       />

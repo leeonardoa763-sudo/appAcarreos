@@ -79,8 +79,7 @@ const useEvidenciaVale = (obraData = null) => {
     obraData?.radio_validacion_metros ?? RADIO_DEFAULT_METROS;
 
   // Evidencia lista cuando hay foto subida y ubicación capturada
-  const evidenciaLista = fotoUrl !== null && ubicacion !== null;
-
+  const evidenciaLista = fotoUrl !== null;
   /**
    * Solicita permisos de cámara al sistema operativo
    */
@@ -172,7 +171,7 @@ const useEvidenciaVale = (obraData = null) => {
 
       if (!tienePermiso) {
         setLoadingUbicacion(false);
-        return false;
+        return true; // No bloquea aunque no haya permiso
       }
 
       const posicion = await Location.getCurrentPositionAsync({
@@ -195,26 +194,20 @@ const useEvidenciaVale = (obraData = null) => {
           parseFloat(obraData.latitud),
           parseFloat(obraData.longitud),
         );
-
         setDistanciaObra(distancia);
-      } else {
-        console.log(
-          "[useEvidenciaVale] Obra sin coordenadas, solo se registra ubicación",
-        );
       }
 
       setLoadingUbicacion(false);
       return true;
     } catch (error) {
-      console.error("[useEvidenciaVale] Error en capturarUbicacion:", error);
+      // GPS falló — se registra el error pero NO bloquea completar el vale
       setErrorUbicacion(
-        "No se pudo obtener la ubicación. Verifica que el GPS esté activo.",
+        "No se pudo obtener la ubicación. Se completará solo con la foto.",
       );
       setLoadingUbicacion(false);
-      return false;
+      return true; // Retorna true para no bloquear el flujo
     }
   }, [solicitarPermisoUbicacion, obraData, obraTieneCoordenadas]);
-
   /**
    * Sube la foto al bucket 'evidencias-vales' en Supabase Storage
    * Ruta: evidencias-vales/{folio}/{timestamp}.jpg
