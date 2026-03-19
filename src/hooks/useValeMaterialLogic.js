@@ -124,7 +124,11 @@ export const useValeMaterialLogic = (materiales) => {
               ? (() => {
                   const manana = new Date();
                   manana.setDate(manana.getDate() + 1);
-                  return manana.toISOString().split("T")[0]; // formato DATE: "YYYY-MM-DD"
+                  // Usar fecha local, no UTC
+                  const y = manana.getFullYear();
+                  const m = String(manana.getMonth() + 1).padStart(2, "0");
+                  const d = String(manana.getDate()).padStart(2, "0");
+                  return `${y}-${m}-${d}`;
                 })()
               : null,
             ...(esTipo3DirectFlow && {

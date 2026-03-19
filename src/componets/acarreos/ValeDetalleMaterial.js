@@ -110,7 +110,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   );
 
   // ─── Lógica de fecha operacional ──────────────────────────────────────────
-  const hoy = new Date();
+  const ahora = new Date();
+  const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
   const fechaOperacional = vale?.fecha_programada
     ? (() => {
         const [y, m, d] = vale.fecha_programada.split("-").map(Number);
@@ -370,7 +371,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             />
             <Text style={styles.programadoTexto}>
               Vale programado para el{" "}
-              {new Date(vale.fecha_programada).toLocaleDateString("es-MX", {
+              {(() => {
+                const [y, m, d] = vale.fecha_programada.split("-").map(Number);
+                return new Date(y, m - 1, d);
+              })().toLocaleDateString("es-MX", {
                 weekday: "long",
                 day: "2-digit",
                 month: "long",

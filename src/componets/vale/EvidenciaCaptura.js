@@ -166,12 +166,12 @@ const EvidenciaCaptura = ({
             ) : errorUbicacion ? (
               <View style={styles.estadoRow}>
                 <MaterialCommunityIcons
-                  name="map-marker-off"
+                  name="map-marker-outline"
                   size={16}
-                  color={colors.error || "#E74C3C"}
+                  color={colors.textSecondary}
                 />
-                <Text style={styles.estadoTextoError}>
-                  GPS no disponible — {errorUbicacion}
+                <Text style={styles.estadoTextoPendiente}>
+                  Ubicación no disponible
                 </Text>
               </View>
             ) : (
@@ -238,18 +238,14 @@ const UbicacionIndicador = ({
 
   // Fuera del radio — bloquea con mensaje claro
   return (
-    <View style={styles.fueraRadioContainer}>
-      <View style={styles.estadoRow}>
-        <MaterialCommunityIcons
-          name="map-marker-off"
-          size={18}
-          color="#E74C3C"
-        />
-        <Text style={styles.fueraRadioTitulo}>No puedes completar el vale</Text>
-      </View>
-      <Text style={styles.fueraRadioMensaje}>
-        Te encuentras a {distanciaObra}m de la obra.Acércate al sitio para poder
-        completar el vale.
+    <View style={styles.estadoRow}>
+      <MaterialCommunityIcons
+        name="map-marker-outline"
+        size={16}
+        color={colors.textSecondary}
+      />
+      <Text style={styles.estadoTextoPendiente}>
+        Ubicación registrada — {distanciaObra}m del sitio
       </Text>
     </View>
   );

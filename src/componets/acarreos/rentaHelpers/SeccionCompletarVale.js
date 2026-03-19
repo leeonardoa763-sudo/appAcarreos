@@ -98,8 +98,6 @@ const SeccionCompletarVale = ({
     !!mensajeBloqueo ||
     (!esRentaPorDia && !esRentaPorMedioDia && !horaFin) ||
     !evidenciaProps.evidenciaLista ||
-    (evidenciaProps.obraTieneCoordenadas &&
-      evidenciaProps.dentroDelRadio === false) ||
     ticketsViajesDesbalanceados;
 
   const helperText = esRentaPorDia

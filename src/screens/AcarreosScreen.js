@@ -638,24 +638,7 @@ const AcarreosScreen = () => {
         </View>
       </ScrollView>
       {/* Modal */}
-      // DESPUÉS
-      {/* DEV — Eliminar antes de producción */}
-      <TouchableOpacity
-        style={styles.botonDev}
-        onPress={() => setModalPruebaVisible(true)}
-        activeOpacity={0.8}
-      >
-        <MaterialCommunityIcons
-          name="bug-outline"
-          size={16}
-          color={colors.surface}
-        />
-        <Text style={styles.botonDevTexto}>Prueba impresión</Text>
-      </TouchableOpacity>
-      <ModalPruebaImpresion
-        visible={modalPruebaVisible}
-        onCerrar={() => setModalPruebaVisible(false)}
-      />
+
       <ValeDetalleModal
         visible={modalVisible}
         vale={selectedVale}
