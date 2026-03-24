@@ -172,6 +172,11 @@ const generarContenidoTicketMaterial = (vale, detalle, ticketData) => {
     },
     {
       tipo: "texto",
+      contenido: `PLACAS: ${placas}\n`,
+      opciones: { align: ALINEACION.IZQUIERDA },
+    },
+    {
+      tipo: "texto",
       contenido: `CAPACIDAD: ${capacidad}\n`,
       opciones: { align: ALINEACION.IZQUIERDA },
     },

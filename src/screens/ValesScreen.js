@@ -28,6 +28,7 @@ import UserProfile from "../componets/ButtonsGrid/UserProfile";
 import ButtonsGrid from "../componets/ButtonsGrid/ButtonsGrid";
 import TarifasModal from "../componets/TarifasModal";
 import QRScannerModal from "../componets/common/QRScannerModal";
+import ModalAgregarOperador from "../componets/modals/ModalAgregarOperador";
 
 const ValesScreen = () => {
   const navigation = useNavigation();
@@ -47,6 +48,7 @@ const ValesScreen = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [tarifasModalVisible, setTarifasModalVisible] = useState(false);
+  const [modalOperadorVisible, setModalOperadorVisible] = useState(false);
 
   const { buscarValePorFolio, loading: loadingVale } = useValeByFolio();
 
@@ -83,6 +85,10 @@ const ValesScreen = () => {
     setTarifasModalVisible(true);
   };
 
+  const handleAgregarOperador = () => {
+    setModalOperadorVisible(true);
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -104,6 +110,7 @@ const ValesScreen = () => {
   }
 
   const esChecador = userRole === "CHECADOR";
+  const esResidente = userRole === "Residente";
 
   const buttonConfigs = [
     // Crear vale: solo si NO es checador
@@ -140,6 +147,14 @@ const ValesScreen = () => {
       buttonText: "Tarifas",
       subtitle: "Consultar precios",
       backgroundColor: "#145A32",
+    },
+    // Agregar operador: solo Residente
+    esResidente && {
+      onPress: handleAgregarOperador,
+      iconName: "account-hard-hat",
+      buttonText: "Añadir Operador",
+      subtitle: "Registrar operador y vehículo",
+      backgroundColor: "#1A5276",
     },
   ].filter(Boolean);
 
@@ -186,6 +201,12 @@ const ValesScreen = () => {
         scanning={scanning}
         onBarCodeScanned={handleBarCodeScanned}
         onClose={closeScanner}
+      />
+
+      <ModalAgregarOperador
+        visible={modalOperadorVisible}
+        onClose={() => setModalOperadorVisible(false)}
+        onOperadorAgregado={() => setModalOperadorVisible(false)}
       />
     </ScrollView>
   );

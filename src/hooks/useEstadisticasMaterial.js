@@ -165,8 +165,9 @@ export const useEstadisticasMaterial = (
             material!vale_material_detalles_id_material_fkey (
               id_material,
               material
+            ),
+          vale_material_viajes (*)
             )
-          )
         `,
         )
         .eq("tipo_vale", "material")
@@ -248,14 +249,18 @@ export const useEstadisticasMaterial = (
   // ─── Totales ───────────────────────────────────────────────────────────────
 
   const totales = useMemo(() => {
+    let totalViajes = 0;
     let totalM3 = 0;
     let costoTotal = 0;
     let totalDistancia = 0;
-    const totalViajes = vales.length;
 
     vales.forEach((vale) => {
       const detalle = vale.vale_material_detalles?.[0];
       if (!detalle) return;
+
+      const viajesDelVale = detalle.vale_material_viajes?.length ?? 0;
+      totalViajes += viajesDelVale;
+
       totalM3 += Number(
         detalle.volumen_real_m3 || detalle.cantidad_pedida_m3 || 0,
       );
@@ -263,14 +268,13 @@ export const useEstadisticasMaterial = (
       totalDistancia += Number(detalle.distancia_km || 0);
     });
 
-    // console.log("[useEstadisticasMaterial] Totales calculados:", {
-    //   totalM3: totalM3.toFixed(2),
-    //   costoTotal: costoTotal.toFixed(2),
-    //   totalDistancia: totalDistancia.toFixed(2),
-    //   totalViajes,
-    // });
-
-    return { totalM3, costoTotal, totalDistancia, totalViajes };
+    return {
+      totalViajes,
+      totalM3,
+      costoTotal,
+      totalDistancia,
+      totalVales: vales.length,
+    };
   }, [vales]);
 
   // ─── Materiales movidos (lista agrupada por material) ─────────────────────
@@ -325,10 +329,13 @@ export const useEstadisticasMaterial = (
       const nombre = vale.operadores?.nombre_completo;
       if (!nombre) return;
 
+      const detalle = vale.vale_material_detalles?.[0];
+      const viajesDelVale = detalle?.vale_material_viajes?.length ?? 0;
+
       if (!mapa[nombre]) {
         mapa[nombre] = { nombre, viajes: 0 };
       }
-      mapa[nombre].viajes += 1;
+      mapa[nombre].viajes += viajesDelVale;
     });
 
     const lista = Object.values(mapa)

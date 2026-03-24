@@ -20,7 +20,6 @@ import useEvidenciaVale from "../../hooks/useEvidenciaVale";
 import {
   validateHoraFinNoPosterior,
   validateTiempoMinimoRenta,
-  validateMismoDiaCreacion,
 } from "../../utils/validations";
 
 import KeyboardAvoidingScrollView from "../common/KeyboardAvoidingScrollView";
@@ -236,15 +235,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   useEffect(() => {
     if (!canComplete || !detalleRenta) return;
 
-    const errorDia = validateMismoDiaCreacion(
-      detalleRenta?.hora_inicio,
-      detalleRenta?.es_turno_nocturno,
-    );
-    if (errorDia) {
-      Alert.alert("Vale vencido", errorDia);
-      return;
-    }
-
     if (esRentaPorDia) {
       setMensajeBloqueo(
         validateTiempoMinimoRenta(detalleRenta.hora_inicio, "dia"),
@@ -357,15 +347,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         "No se puede completar",
         `Los tickets (${totalTicketsDescarga}) y los viajes (${totalViajes}) no coinciden. Deben ser iguales para completar el vale.`,
       );
-      return;
-    }
-
-    const errorDia = validateMismoDiaCreacion(
-      detalleRenta?.hora_inicio,
-      detalleRenta?.es_turno_nocturno,
-    );
-    if (errorDia) {
-      setMensajeBloqueo(errorDia);
       return;
     }
 

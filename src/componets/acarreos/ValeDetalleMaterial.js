@@ -121,16 +121,9 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
       ? new Date(vale.fecha_creacion)
       : null;
 
-  const esMismoDia = fechaOperacional
-    ? fechaOperacional.getFullYear() === hoy.getFullYear() &&
-      fechaOperacional.getMonth() === hoy.getMonth() &&
-      fechaOperacional.getDate() === hoy.getDate()
-    : false;
-
   const canComplete =
     vale?.estado === "en_proceso" &&
     detalleMaterial &&
-    esMismoDia &&
     (!tieneDatosPendientes || datosPendientesGuardados);
 
   // ─── Hook de viajes ───────────────────────────────────────────────────────
@@ -382,24 +375,6 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             </Text>
           </View>
         )}
-
-        {/* Bloqueo por fecha */}
-        {vale?.estado === "en_proceso" &&
-          !esMismoDia &&
-          !vale?.fecha_programada && (
-            <View style={styles.bloqueadoContainer}>
-              <MaterialCommunityIcons
-                name="lock-clock"
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={styles.bloqueadoTexto}>
-                Este vale no puede completarse porque fue creado el{" "}
-                {formatDate(vale.fecha_creacion)}. Solo se puede completar el
-                mismo día.
-              </Text>
-            </View>
-          )}
 
         {/* Info general del vale */}
         <ValeInfoGeneral
