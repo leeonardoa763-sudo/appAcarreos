@@ -74,14 +74,14 @@ export const useTicketsMaterial = (vale) => {
     (viajesRegistrados = 0, operadorYVehiculoGuardados = false) => {
       if (!estaEnProceso) return false;
 
+      // Primer ticket: disponible apenas el vale está en proceso, sin requerir operador
+      if (totalTickets === 0) return true;
+
+      // Tickets siguientes: necesita operador/vehículo y al menos tantos viajes como tickets
       const tieneAsignacion =
         operadorYVehiculoGuardados || tieneOperadorYVehiculo;
       if (!tieneAsignacion) return false;
 
-      // Primer ticket: disponible apenas hay operador y vehículo
-      if (totalTickets === 0) return true;
-
-      // Tickets siguientes: necesita al menos tantos viajes como tickets impresos
       return viajesRegistrados >= totalTickets;
     },
     [estaEnProceso, tieneOperadorYVehiculo, totalTickets],

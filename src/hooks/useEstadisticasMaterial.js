@@ -301,7 +301,7 @@ export const useEstadisticasMaterial = (
       }
 
       mapa[id_material].m3Total += m3;
-      mapa[id_material].viajes += 1;
+      mapa[id_material].viajes += detalle.vale_material_viajes?.length ?? 0;
     });
 
     const lista = Object.values(mapa).sort((a, b) => b.m3Total - a.m3Total);
@@ -333,9 +333,9 @@ export const useEstadisticasMaterial = (
       const viajesDelVale = detalle?.vale_material_viajes?.length ?? 0;
 
       if (!mapa[nombre]) {
-        mapa[nombre] = { nombre, viajes: 0 };
+        mapa[nombre] = { nombre, viajes: 0, vales: 0 };
       }
-      mapa[nombre].viajes += viajesDelVale;
+      mapa[nombre].vales += 1;
     });
 
     const lista = Object.values(mapa)
@@ -374,10 +374,15 @@ export const useEstadisticasMaterial = (
       dia.setDate(hoy.getDate() - i);
       const diaStr = dia.toISOString().split("T")[0];
 
-      const viajesDelDia = vales.filter((vale) => {
-        const fechaVale = vale.fecha_creacion?.split("T")[0];
-        return fechaVale === diaStr;
-      }).length;
+      const viajesDelDia = vales.reduce((acc, vale) => {
+        const fechaRaw = vale.fecha_completado;
+        if (!fechaRaw) return acc;
+        const fechaLocal = new Date(fechaRaw);
+        const fechaStr = `${fechaLocal.getFullYear()}-${String(fechaLocal.getMonth() + 1).padStart(2, "0")}-${String(fechaLocal.getDate()).padStart(2, "0")}`;
+        if (fechaStr !== diaStr) return acc;
+        const detalle = vale.vale_material_detalles?.[0];
+        return acc + (detalle?.vale_material_viajes?.length ?? 0);
+      }, 0);
 
       const etiqueta = dia.toLocaleDateString("es-MX", { weekday: "short" });
       barData.push({ label: etiqueta, value: viajesDelDia });

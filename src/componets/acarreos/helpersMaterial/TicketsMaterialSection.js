@@ -93,13 +93,13 @@ const generarContenidoTicketMaterial = (vale, detalle, ticketData) => {
   const obra = cc ? `${cc}-${nombreObra}` : nombreObra;
   const material = detalle?.material?.material || "N/A";
   const banco = detalle?.bancos?.banco || "N/A";
-  const placas = vale.vehiculos?.placas || "N/A";
-  const operador = vale.operadores?.nombre_completo || "N/A";
+  const placas = vale.vehiculos?.placas || "";
+  const operador = vale.operadores?.nombre_completo || "";
   const capacidad = vale.vehiculos?.capacidad_m3
     ? `${vale.vehiculos.capacidad_m3} m3`
     : detalle?.capacidad_m3
       ? `${detalle.capacidad_m3} m3`
-      : "N/A";
+      : "";
   const distancia = detalle?.distancia_km
     ? `${detalle.distancia_km} km`
     : "N/A";
@@ -276,8 +276,9 @@ const TicketsMaterialSection = ({
   const numeroSiguienteTicket = totalTickets + 1;
 
   const razonBloqueado = () => {
+    if (totalTickets === 0) return null; // primer ticket nunca tiene bloqueo si está en proceso
     if (!vale?.id_operador && !operadorYVehiculoGuardados)
-      return "Asigna operador y vehículo primero";
+      return "Asigna operador y vehículo antes del segundo ticket";
     if (totalTickets > 0 && totalViajes < totalTickets)
       return `Registra el viaje ${totalTickets} para imprimir el siguiente ticket`;
     return null;
