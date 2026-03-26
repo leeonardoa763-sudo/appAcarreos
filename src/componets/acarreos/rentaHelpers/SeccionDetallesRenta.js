@@ -103,14 +103,6 @@ const SeccionDetallesRenta = ({
         />
       )}
 
-      {vale.estado !== "en_proceso" && vale.fecha_completado && (
-        <InfoRow
-          icon="calendar-check"
-          label="Emitido el"
-          value={`${formatDate(vale.fecha_completado)} · ${formatTime(vale.fecha_completado)}`}
-        />
-      )}
-
       {detalleRenta.notas_adicionales && (
         <View style={styles.notasContainer}>
           <View style={styles.notasHeader}>

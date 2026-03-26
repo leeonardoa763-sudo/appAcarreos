@@ -16,7 +16,7 @@ const PREFIJO_CLAVE = "reimpresion_pdf_";
  * @param {string|number} idVale - ID del vale
  * @returns {{ yaReimprimio: boolean, loading: boolean, marcarReimprimido: Function }}
  */
-export const useReimprimirPDF = (idVale) => {
+export const useReimprimirPDF = (idVale, userRole) => {
   const [yaReimprimio, setYaReimprimio] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -31,10 +31,19 @@ export const useReimprimirPDF = (idVale) => {
 
     const verificar = async () => {
       try {
+        const rolNormalizado = userRole?.toLowerCase();
+        const esChecador = rolNormalizado === "checador";
+
+        // Residente y Administrador siempre pueden reimprimir
+        if (!esChecador) {
+          setYaReimprimio(false);
+          setLoading(false);
+          return;
+        }
+
         const valor = await AsyncStorage.getItem(clave);
         setYaReimprimio(valor === "true");
       } catch (error) {
-        // Si falla la lectura, permitir la reimpresión por seguridad
         setYaReimprimio(false);
       } finally {
         setLoading(false);

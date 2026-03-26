@@ -335,51 +335,111 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
     try {
       setGuardando(true);
 
-      const { data: operadorNuevo, error: errorOperador } = await supabase
+      const nombreCompleto = [
+        form.nombre.trim(),
+        form.primerApellido.trim(),
+        form.segundoApellido.trim(),
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      // ── 1. Verificar si el operador ya existe por nombre ──────────────────
+      const { data: operadorExistente } = await supabase
         .from("operadores")
-        .insert({
-          nombre: form.nombre.trim(),
-          primer_apellido: form.primerApellido.trim(),
-          segundo_apellido: form.segundoApellido.trim() || null,
-          id_sindicato: form.sindicatoId,
-          activo: true,
-        })
         .select("id_operador, nombre_completo, id_sindicato")
-        .single();
+        .ilike("nombre_completo", nombreCompleto)
+        .maybeSingle();
 
-      if (errorOperador) throw errorOperador;
+      let operadorFinal;
+      let operadorEsNuevo = false;
 
-      const { data: vehiculoNuevo, error: errorVehiculo } = await supabase
+      if (operadorExistente) {
+        operadorFinal = operadorExistente;
+      } else {
+        const { data: operadorNuevo, error: errorOperador } = await supabase
+          .from("operadores")
+          .insert({
+            nombre: form.nombre.trim(),
+            primer_apellido: form.primerApellido.trim(),
+            segundo_apellido: form.segundoApellido.trim() || null,
+            id_sindicato: form.sindicatoId,
+            activo: true,
+          })
+          .select("id_operador, nombre_completo, id_sindicato")
+          .single();
+
+        if (errorOperador) throw errorOperador;
+        operadorFinal = operadorNuevo;
+        operadorEsNuevo = true;
+      }
+
+      // ── 2. Verificar si la placa ya existe ────────────────────────────────
+      const placas = form.placas.trim().toUpperCase();
+
+      const { data: vehiculoExistente } = await supabase
         .from("vehiculos")
-        .insert({
-          placas: form.placas.trim().toUpperCase(),
-          capacidad_m3: parseFloat(form.capacidad),
-          id_sindicato: form.sindicatoId,
-          activo: true,
-        })
         .select("id_vehiculo, placas, capacidad_m3")
-        .single();
+        .eq("placas", placas)
+        .maybeSingle();
 
-      if (errorVehiculo) throw errorVehiculo;
+      let vehiculoFinal;
+      let placaEraExistente = false;
+
+      if (vehiculoExistente) {
+        placaEraExistente = true;
+        const { data: vehiculoActualizado, error: errorUpdate } = await supabase
+          .from("vehiculos")
+          .update({
+            capacidad_m3: parseFloat(form.capacidad),
+            id_sindicato: form.sindicatoId,
+          })
+          .eq("id_vehiculo", vehiculoExistente.id_vehiculo)
+          .select("id_vehiculo, placas, capacidad_m3")
+          .single();
+
+        if (errorUpdate) throw errorUpdate;
+        vehiculoFinal = vehiculoActualizado;
+      } else {
+        const { data: vehiculoNuevo, error: errorVehiculo } = await supabase
+          .from("vehiculos")
+          .insert({
+            placas,
+            capacidad_m3: parseFloat(form.capacidad),
+            id_sindicato: form.sindicatoId,
+            activo: true,
+          })
+          .select("id_vehiculo, placas, capacidad_m3")
+          .single();
+
+        if (errorVehiculo) throw errorVehiculo;
+        vehiculoFinal = vehiculoNuevo;
+      }
 
       if (!isMounted.current) return;
 
-      Alert.alert(
-        "Operador registrado",
-        `${operadorNuevo.nombre_completo} y su vehículo (${vehiculoNuevo.placas}) fueron agregados correctamente.`,
-        [
-          {
-            text: "OK",
-            onPress: () => onOperadorAgregado?.(operadorNuevo, vehiculoNuevo),
-          },
-        ],
-      );
+      // ── 3. Construir mensaje de resultado ─────────────────────────────────
+      let mensaje;
+      if (!operadorEsNuevo && placaEraExistente) {
+        mensaje = `El operador "${operadorFinal.nombre_completo}" y la placa "${vehiculoFinal.placas}" ya existían. Se actualizó la capacidad a ${vehiculoFinal.capacidad_m3} m³.`;
+      } else if (!operadorEsNuevo) {
+        mensaje = `La placa "${vehiculoFinal.placas}" fue agregada. El operador "${operadorFinal.nombre_completo}" ya existía y no fue duplicado.`;
+      } else if (placaEraExistente) {
+        mensaje = `Operador "${operadorFinal.nombre_completo}" registrado correctamente. La placa "${vehiculoFinal.placas}" ya existía, se actualizó su capacidad a ${vehiculoFinal.capacidad_m3} m³.`;
+      } else {
+        mensaje = `${operadorFinal.nombre_completo} y su vehículo (${vehiculoFinal.placas}) fueron agregados correctamente.`;
+      }
+
+      Alert.alert("Listo", mensaje, [
+        {
+          text: "OK",
+          onPress: () => onOperadorAgregado?.(operadorFinal, vehiculoFinal),
+        },
+      ]);
     } catch (error) {
       console.error("[ModalAgregarOperador] Error al guardar:", error);
       Alert.alert(
         "Error",
         "No se pudo registrar el operador. Por favor intenta de nuevo.",
-        [{ text: "OK" }],
       );
     } finally {
       if (isMounted.current) setGuardando(false);

@@ -86,7 +86,7 @@ const ValeInfoDetalles = ({
             <InfoRow
               icon="calendar-check"
               label="Emitido el"
-              value={formatDate(vale.fecha_creacion)}
+              value={`${formatDate(vale.fecha_creacion)} ${new Date(vale.fecha_creacion).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`}
             />
           </>
         )}

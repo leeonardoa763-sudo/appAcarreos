@@ -59,7 +59,7 @@ const ValeInfoGeneral = ({
         <InfoRow
           icon="calendar-check"
           label="Fecha completado"
-          value={formatDate(vale.fecha_completado)}
+          value={`${formatDate(vale.fecha_completado)} ${new Date(vale.fecha_completado).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`}
         />
       )}
 

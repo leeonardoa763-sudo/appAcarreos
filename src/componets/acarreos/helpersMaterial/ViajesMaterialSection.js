@@ -41,7 +41,7 @@ import { BLUETOOTH_ENABLED } from "../../../config/features";
 import FormInput from "../../forms/FormInput";
 import ModalImprimirTicketRenta from "../rentaHelpers/ModalImprimirTicketRenta";
 import ValeFormCompletarNormal from "./ValeFormCompletarNormal";
-import ValeFormCompletarTipo3 from "./ValeFormCompletarTipo3";
+
 // 6. Imports condicionales Bluetooth
 let generarTicketMaterialViaje;
 if (BLUETOOTH_ENABLED) {
@@ -167,27 +167,23 @@ const ViajeItem = ({ viaje, esTipo3, esChecador }) => (
 
 // ─── Formulario de captura por tipo ───────────────────────────────────────────
 
-const FormularioViaje = ({ tipoMaterial, valores, onChange, disabled }) => {
+const FormularioViaje = ({
+  tipoMaterial,
+  valores,
+  onChange,
+  disabled,
+  capacidadVehiculo,
+}) => {
   if (tipoMaterial === 3) {
     return (
       <View style={styles.formulario}>
         <FormInput
-          label="Volumen del viaje"
+          label="Capacidad del viaje"
           value={valores.volumenDirecto}
           onChangeText={(v) => onChange({ ...valores, volumenDirecto: v })}
-          placeholder="Ej: 8.5"
+          placeholder={capacidadVehiculo ? `${capacidadVehiculo}` : "Ej: 8.5"}
           keyboardType="numeric"
           suffix="m³"
-          disabled={disabled}
-        />
-        <FormInput
-          label="Folio Vale Físico"
-          value={valores.folioValeFisico}
-          onChangeText={(v) =>
-            onChange({ ...valores, folioValeFisico: v.replace(/[^0-9]/g, "") })
-          }
-          placeholder="Ej: 12345"
-          keyboardType="number-pad"
           disabled={disabled}
         />
       </View>
@@ -248,9 +244,16 @@ const ViajesMaterialSection = ({
 }) => {
   const esTipo3 = tipoMaterial === 3;
 
+  // TEMPORAL
+
+  const capacidadVehiculo =
+    vale?.vehiculos?.capacidad_m3?.toString() ??
+    detalle?.capacidad_m3?.toString() ??
+    "";
+
   const valorInicialForm = {
     pesoTon: "",
-    volumenDirecto: "",
+    volumenDirecto: esTipo3 ? capacidadVehiculo : "",
     folioValeFisico: "",
   };
 
@@ -302,7 +305,11 @@ const ViajesMaterialSection = ({
     });
 
     if (resultado) {
-      setValores(valorInicialForm);
+      setValores({
+        pesoTon: "",
+        volumenDirecto: esTipo3 ? capacidadVehiculo : "",
+        folioValeFisico: "",
+      });
       debugTicketEnConsola(vale, detalle, resultado);
     }
   }, [validarFormulario, onRegistrarViaje, esTipo3, valores]);
@@ -393,6 +400,7 @@ const ViajesMaterialSection = ({
         valores={valores}
         onChange={setValores}
         disabled={registrando}
+        capacidadVehiculo={capacidadVehiculo}
       />
 
       {/* Botón registrar */}
@@ -435,15 +443,15 @@ const ViajesMaterialSection = ({
           </>
         )}
       </TouchableOpacity>
-      {/* Formulario de completar — según tipo de material */}
-      {esTipo3 ? (
-        <ValeFormCompletarTipo3
-          detalleMaterial={detalle}
-          cantidadConfirmada={cantidadConfirmada}
-          setCantidadConfirmada={setCantidadConfirmada}
+      {/* Formulario de completar — tipo 1/2 con peso y folio */}
+      {!esTipo3 && (
+        <ValeFormCompletarNormal
+          pesoToneladas={pesoToneladas}
+          setPesoToneladas={setPesoToneladas}
+          folioBanco={folioBanco}
+          setFolioBanco={setFolioBanco}
           notasAdicionales={notasAdicionales}
           setNotasAdicionales={setNotasAdicionales}
-          esChecador={esChecador}
           savingToneladas={saving}
           onCompletar={onCompletar}
           evidenciaLista={evidenciaProps?.evidenciaLista}
@@ -462,14 +470,11 @@ const ViajesMaterialSection = ({
           onCapturarUbicacion={evidenciaProps?.onCapturarUbicacion}
           folioVale={vale?.folio}
         />
-      ) : (
+      )}
+
+      {/* Completar vale — tipo 3, solo evidencia */}
+      {esTipo3 && (
         <ValeFormCompletarNormal
-          pesoToneladas={pesoToneladas}
-          setPesoToneladas={setPesoToneladas}
-          folioBanco={folioBanco}
-          setFolioBanco={setFolioBanco}
-          notasAdicionales={notasAdicionales}
-          setNotasAdicionales={setNotasAdicionales}
           savingToneladas={saving}
           onCompletar={onCompletar}
           evidenciaLista={evidenciaProps?.evidenciaLista}

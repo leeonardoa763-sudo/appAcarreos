@@ -55,7 +55,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     yaReimprimio,
     loading: loadingReimpresion,
     marcarReimprimido,
-  } = useReimprimirPDF(vale?.id_vale);
+  } = useReimprimirPDF(vale?.id_vale, userRole);
 
   const {
     modalVisible: modalCancelarVisible,
@@ -425,6 +425,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             totalViajes={totalViajes}
             operadorYVehiculoGuardados={datosPendientesGuardados}
             onTotalTicketsChange={setTotalTickets}
+            esTipo3={esTipo3}
           />
         )}
 

@@ -82,8 +82,8 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
             </View>
             <TouchableOpacity
               onPress={() => {
-                onRefresh();
                 onClose();
+                onRefresh();
               }}
               style={styles.closeButton}
             >

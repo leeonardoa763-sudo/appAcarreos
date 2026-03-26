@@ -107,7 +107,7 @@ const AcarreosScreen = () => {
     return () => clearTimeout(timer);
   }, [route.params?.valeEscaneado]);
 
-  const fetchVales = async () => {
+  const fetchVales = async (silent = false) => {
     if (!userProfile?.id_persona) {
       return;
     }
@@ -120,7 +120,7 @@ const AcarreosScreen = () => {
       isFetching.current = true;
 
       if (isMounted.current) {
-        setLoading(true);
+        if (!silent) setLoading(true);
         setError(null);
       }
 
@@ -643,7 +643,7 @@ const AcarreosScreen = () => {
         visible={modalVisible}
         vale={selectedVale}
         onClose={handleCloseModal}
-        onRefresh={fetchVales}
+        onRefresh={() => fetchVales(true)}
       />
     </>
   );

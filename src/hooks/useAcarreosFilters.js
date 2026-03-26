@@ -47,11 +47,11 @@ export const useAcarreosFilters = (
   );
 
   // Sincronizar soloHoy cuando esChecador cambia de false a true
-  useEffect(() => {
-    if (esChecador) {
-      setFilters((prev) => ({ ...prev, soloHoy: true }));
-    }
-  }, [esChecador]);
+  // useEffect(() => {
+  //   if (esChecador) {
+  //     setFilters((prev) => ({ ...prev, soloHoy: true }));
+  //   }
+  // }, [esChecador]);
 
   // ─── Setter individual ─────────────────────────────────────────────────────
   // key: nombre del filtro, value: valor, label: texto para mostrar en chip
@@ -64,8 +64,8 @@ export const useAcarreosFilters = (
   }, []);
 
   const clearFilters = useCallback(() => {
-    setFilters({ ...FILTROS_INICIALES, soloHoy: esChecador ? true : false });
-  }, [esChecador]);
+    setFilters({ ...FILTROS_INICIALES });
+  }, []);
 
   // ─── Contador de filtros activos ───────────────────────────────────────────
   const activeCount = useMemo(() => {

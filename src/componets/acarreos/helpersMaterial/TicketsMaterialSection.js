@@ -86,7 +86,12 @@ const fHora = (fecha) => {
   });
 };
 
-const generarContenidoTicketMaterial = (vale, detalle, ticketData) => {
+const generarContenidoTicketMaterial = (
+  vale,
+  detalle,
+  ticketData,
+  esTipo3 = false,
+) => {
   const empresa = vale.obras?.empresas?.empresa || "CONSTRUCCION";
   const cc = vale.obras?.cc || "";
   const nombreObra = vale.obras?.obra || "N/A";
@@ -156,7 +161,7 @@ const generarContenidoTicketMaterial = (vale, detalle, ticketData) => {
       opciones: { align: ALINEACION.IZQUIERDA },
     },
     { tipo: "separador" },
-    ...(detalle?.requisicion
+    ...(!esTipo3 && detalle?.requisicion
       ? [
           {
             tipo: "texto",
@@ -250,6 +255,7 @@ const TicketsMaterialSection = ({
   totalViajes,
   operadorYVehiculoGuardados = false,
   onTotalTicketsChange,
+  esTipo3 = false,
 }) => {
   const {
     tickets,
@@ -401,7 +407,12 @@ const TicketsMaterialSection = ({
         valeData={vale}
         generarLineas={() => {
           if (!ticketPendiente) return [];
-          return generarContenidoTicketMaterial(vale, detalle, ticketPendiente);
+          return generarContenidoTicketMaterial(
+            vale,
+            detalle,
+            ticketPendiente,
+            esTipo3,
+          );
         }}
         resumenDatos={{
           folio: ticketPendiente?.folio_ticket,

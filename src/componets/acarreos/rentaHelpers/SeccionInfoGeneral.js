@@ -62,11 +62,18 @@ const SeccionInfoGeneral = ({ vale, detalleRenta, formatDate }) => {
           />
         )}
 
+      {vale.fecha_creacion && (
+        <InfoRow
+          icon="calendar-plus"
+          label="Creado el"
+          value={`${formatDate(vale.fecha_creacion)} ${new Date(vale.fecha_creacion).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`}
+        />
+      )}
       {vale.fecha_completado && (
         <InfoRow
           icon="calendar-check"
-          label="Fecha completado"
-          value={formatDate(vale.fecha_completado)}
+          label="Completado el"
+          value={`${formatDate(vale.fecha_completado)} ${new Date(vale.fecha_completado).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`}
         />
       )}
       {vale.estado === "cancelado" && vale.motivo_cancelacion && (

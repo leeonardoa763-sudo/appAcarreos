@@ -512,18 +512,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ticketFolio: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: "700",
     color: colors.textPrimary,
   },
   ticketBanco: {
-    fontSize: 12,
+    fontSize: 10,
     color: colors.secondary,
     fontWeight: "600",
     marginTop: 2,
   },
   ticketFecha: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textSecondary,
     marginTop: 1,
   },

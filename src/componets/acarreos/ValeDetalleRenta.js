@@ -44,7 +44,7 @@ import ModalImprimirTicketRenta from "./rentaHelpers/ModalImprimirTicketRenta";
 import { Text } from "react-native";
 
 const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
-  const { userProfile } = useAuth();
+  const { userProfile, userRole } = useAuth();
   const {
     modalVisible: modalCancelarVisible,
     motivo,
@@ -68,7 +68,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     yaReimprimio,
     loading: loadingReimpresion,
     marcarReimprimido,
-  } = useReimprimirPDF(vale?.id_vale);
+  } = useReimprimirPDF(vale?.id_vale, userRole);
 
   const sindicatoId = detalleRenta?.id_sindicato;
 

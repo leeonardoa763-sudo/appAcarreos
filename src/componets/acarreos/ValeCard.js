@@ -196,8 +196,8 @@ const ValeCard = ({ vale, onPress }) => {
       <View style={styles.footer}>
         <Text style={styles.dateText}>
           {isRenta
-            ? formatDate(rentaInfo?.horaInicio ?? vale.fecha_creacion)
-            : formatDate(vale.fecha_creacion)}
+            ? `${formatDate(rentaInfo?.horaInicio ?? vale.fecha_creacion)} ${formatTime(rentaInfo?.horaInicio ?? vale.fecha_creacion)}`
+            : `${formatDate(vale.fecha_creacion)} ${formatTime(vale.fecha_creacion)}`}
         </Text>
         <TouchableOpacity
           style={[
@@ -225,8 +225,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    padding: 10,
+    marginBottom: 8,
     borderLeftWidth: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   folioContainer: {
     flexDirection: "row",
@@ -259,10 +259,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   infoText: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textPrimary,
     marginLeft: 8,
   },
@@ -270,8 +270,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   completadorText: {
-    fontSize: 12,
+    fontSize: 10,
     color: colors.accent,
     fontWeight: "500",
   },

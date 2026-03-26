@@ -158,8 +158,9 @@ export const useEstadisticasRenta = (
         )
         .eq("tipo_vale", "renta")
         .in("estado", ["emitido", "verificado", "conciliado"])
-        .gte("fecha_creacion", fechaInicio)
-        .lte("fecha_creacion", fechaFin);
+        .not("fecha_completado", "is", null)
+        .gte("fecha_completado", fechaInicio)
+        .lte("fecha_completado", fechaFin);
 
       // ── Filtro de obra: una sola fuente de verdad ──
       if (obraId) {
@@ -168,35 +169,13 @@ export const useEstadisticasRenta = (
         query = query.eq("id_persona_creador", residenteId);
       }
 
-      query = query.order("fecha_creacion", { ascending: false });
+      query = query.order("fecha_completado", { ascending: false });
 
       const { data, error: supabaseError } = await query;
 
       if (supabaseError) throw supabaseError;
 
       const resultados = data || [];
-
-      if (resultados.length > 0) {
-        const obrasEnResultado = [
-          ...new Set(resultados.map((v) => v.obras?.obra).filter(Boolean)),
-        ];
-
-        const sindicatosEnResultado = [
-          ...new Set(
-            resultados
-              .map((v) => v.vale_renta_detalle?.[0]?.sindicatos?.sindicato)
-              .filter(Boolean),
-          ),
-        ];
-      } else {
-        console.warn("[useEstadisticasRenta] Sin resultados. Posibles causas:");
-        console.warn("  - residenteId incorrecto:", residenteId);
-        console.warn(
-          "  - obraId no tiene vales de renta en este periodo:",
-          obraId,
-        );
-        console.warn("  - El rango de fechas no coincide con vales existentes");
-      }
 
       setVales(resultados);
     } catch (err) {
@@ -257,12 +236,6 @@ export const useEstadisticasRenta = (
     });
 
     const lista = Object.values(mapa).sort((a, b) => b.vales - a.vales);
-
-    lista.forEach((s) =>
-      console.log(
-        `  [Sindicato] ${s.nombre}: ${s.vales} vales | ${s.horas.toFixed(1)} hrs | ${s.dias.toFixed(1)} dias`,
-      ),
-    );
 
     return lista;
   }, [vales]);
