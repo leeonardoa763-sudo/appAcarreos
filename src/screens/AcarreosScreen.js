@@ -308,9 +308,24 @@ const AcarreosScreen = () => {
       </View>
     );
   }
-
+  // DESPUÉS
   return (
     <>
+      <FilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        filters={filters}
+        setFilter={setFilter}
+        clearFilters={clearFilters}
+        activeCount={activeCount}
+        obras={obras}
+        materiales={materiales}
+        sindicatos={sindicatos}
+        operadores={operadores}
+        vehiculos={vehiculos}
+        esChecador={esChecador}
+      />
+
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
@@ -322,21 +337,6 @@ const AcarreosScreen = () => {
           />
         }
       >
-        <FilterBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          filters={filters}
-          setFilter={setFilter}
-          clearFilters={clearFilters}
-          activeCount={activeCount}
-          obras={obras}
-          materiales={materiales}
-          sindicatos={sindicatos}
-          operadores={operadores}
-          vehiculos={vehiculos}
-          esChecador={esChecador}
-        />
-
         {/* ========== SECCIÓN MATERIAL ========== */}
         <View style={styles.section}>
           <Text style={styles.categoryTitle}>Material</Text>

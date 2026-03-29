@@ -5,16 +5,17 @@
  * NOTA: La lógica de cálculo de distancia ahora está en ValeMaterialScreen
  */
 import { useState } from "react";
+
 import {
   validateOperadorId,
   validateVehiculoId,
   validateCapacidad,
+  validateCapacidadVehiculo,
   validateMaterialId,
   validateBancoId,
   validateSindicatoId,
   validateDistancia,
 } from "../utils/validations";
-
 export const useValeMaterialForm = (materiales = []) => {
   const [formData, setFormData] = useState({
     materialId: null,
@@ -78,16 +79,6 @@ export const useValeMaterialForm = (materiales = []) => {
     if (esTipo1 && !formData.requisicion?.trim()) {
       newErrors.requisicion =
         "La requisición es obligatoria para este material";
-    }
-
-    // Validación folio vale físico: Obligatorio solo para tipo 3 en flujo directo
-    if (esTipo3DirectFlow && !formData.folioValeFisico?.trim()) {
-      newErrors.folioValeFisico = "El folio del vale físico es obligatorio";
-    } else if (
-      formData.folioValeFisico?.trim() &&
-      !/^\d+$/.test(formData.folioValeFisico.trim())
-    ) {
-      newErrors.folioValeFisico = "El folio debe contener solo números";
     }
 
     setErrors(newErrors);

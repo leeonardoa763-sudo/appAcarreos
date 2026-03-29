@@ -468,23 +468,6 @@ const ValeMaterialScreen = () => {
               autoCapitalize="characters"
             />
           )}
-
-          {/* Campo Folio Vale Físico (solo tipo 3 en flujo directo) */}
-          {esTipo3DirectFlow && (
-            <FormInput
-              label="Folio de Vale Físico"
-              value={formData.folioValeFisico}
-              onChangeText={(value) =>
-                setFormData({
-                  ...formData,
-                  folioValeFisico: value.replace(/[^0-9]/g, ""),
-                })
-              }
-              placeholder="Ej: 12345"
-              keyboardType="number-pad"
-              error={errors.folioValeFisico}
-            />
-          )}
         </View>
         {/* SECCIÓN: DATOS DE OPERADOR */}
         <View style={styles.section}>

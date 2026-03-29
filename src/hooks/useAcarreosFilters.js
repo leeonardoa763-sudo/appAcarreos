@@ -42,8 +42,9 @@ export const useAcarreosFilters = (
   persistedFilters = null,
   esChecador = false,
 ) => {
+  // DESPUÉS
   const [filters, setFilters] = useState(
-    persistedFilters ?? { ...FILTROS_INICIALES },
+    persistedFilters ?? { ...FILTROS_INICIALES, soloHoy: esChecador },
   );
 
   // Sincronizar soloHoy cuando esChecador cambia de false a true

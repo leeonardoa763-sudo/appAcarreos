@@ -24,6 +24,8 @@ import ValeMaterialScreen from "../screens/ValeMaterialScreen";
 import ConfiguracionScreen from "../screens/ConfiguracionScreen";
 import EstadisticasScreen from "../screens/EstadisticasScreen";
 
+import DevToolsScreen from "../screens/DevToolsScreen";
+
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -105,9 +107,9 @@ function ValesStack() {
 
 // Tabs principales
 function MainTabs() {
-  // 🆕 Obtener rol del usuario para mostrar/ocultar tabs
   const { userRole } = useAuth();
   const esChecador = userRole === "CHECADOR";
+  const esAdministrador = userRole === "Administrador";
 
   return (
     <Tab.Navigator
@@ -168,6 +170,22 @@ function MainTabs() {
           <Tab.Screen name="Informes" component={InformesScreen} />
           <Tab.Screen name="Estadísticas" component={EstadisticasScreen} />
         </>
+      )}
+      {esAdministrador && (
+        <Tab.Screen
+          name="DevTools"
+          component={DevToolsScreen}
+          options={{
+            tabBarLabel: "Dev",
+            tabBarIcon: ({ color }) => (
+              <MaterialCommunityIcons
+                name="bug-outline"
+                size={26}
+                color={color}
+              />
+            ),
+          }}
+        />
       )}
     </Tab.Navigator>
   );

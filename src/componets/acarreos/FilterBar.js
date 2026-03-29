@@ -298,19 +298,18 @@ const FilterBar = ({
   // ── Configuración de chips ─────────────────────────────────────────────────
 
   const chips = [
+    // DESPUÉS
     {
       key: "soloHoy",
       icon: "calendar-today",
-      label: esChecador ? "Hoy (fijo)" : "Hoy",
+      label: "Hoy",
       active: filters.soloHoy,
       hasDropdown: false,
       onPress: () => {
-        if (esChecador) return;
         closeAll();
         setFilter("soloHoy", !filters.soloHoy);
       },
       onClear: () => {
-        if (esChecador) return;
         setFilter("soloHoy", false);
       },
     },

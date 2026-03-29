@@ -1,5 +1,5 @@
 // 1. React y hooks
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 
 // 2. React Native
 import {
@@ -29,7 +29,8 @@ import ButtonsGrid from "../componets/ButtonsGrid/ButtonsGrid";
 import TarifasModal from "../componets/TarifasModal";
 import QRScannerModal from "../componets/common/QRScannerModal";
 import ModalAgregarOperador from "../componets/modals/ModalAgregarOperador";
-
+import ModalAsignarVehiculo from "../componets/modals/ModalAsignarVehiculo";
+import useVehiculoQRScanner from "../hooks/useVehiculoQRScanner";
 const ValesScreen = () => {
   const navigation = useNavigation();
   const {
@@ -49,6 +50,9 @@ const ValesScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [tarifasModalVisible, setTarifasModalVisible] = useState(false);
   const [modalOperadorVisible, setModalOperadorVisible] = useState(false);
+  const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
+
+  const callbackQrRef = useRef(null);
 
   const { buscarValePorFolio, loading: loadingVale } = useValeByFolio();
 
@@ -63,6 +67,16 @@ const ValesScreen = () => {
       }
     },
     [buscarValePorFolio, navigation],
+  );
+
+  const handleIrAVale = useCallback(
+    (vale) => {
+      const tabNavigator = navigation.getParent();
+      if (tabNavigator) {
+        tabNavigator.navigate("Acarreos", { valeEscaneado: vale });
+      }
+    },
+    [navigation],
   );
 
   const {
@@ -88,6 +102,21 @@ const ValesScreen = () => {
   const handleAgregarOperador = () => {
     setModalOperadorVisible(true);
   };
+
+  const handleAbrirScannerVehiculo = useCallback((onQrDetectado) => {
+    callbackQrRef.current = onQrDetectado;
+    setModalAsignarVisible(false);
+    setTimeout(() => scannerVehiculo.abrirScanner(), 400);
+  }, []);
+  const scannerVehiculo = useVehiculoQRScanner({
+    onQrDetectado: useCallback((qrUid) => {
+      if (callbackQrRef.current) {
+        callbackQrRef.current(qrUid);
+        callbackQrRef.current = null;
+      }
+      setModalAsignarVisible(true);
+    }, []),
+  });
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -131,6 +160,15 @@ const ValesScreen = () => {
       backgroundColor: "#1B4F72",
       isMain: true,
       loading: loadingVale,
+    },
+    // Asignar vehículo: todos los roles
+    {
+      onPress: () => setModalAsignarVisible(true),
+      iconName: "truck-plus",
+      buttonText: "Asignar Vehículo",
+      subtitle: "Vincular camión a un vale",
+      backgroundColor: "#1A6B3C",
+      isMain: true,
     },
     // Archivados: solo si NO es checador
     !esChecador && {
@@ -196,11 +234,18 @@ const ValesScreen = () => {
         userObras={obras || []}
       />
 
+      <ModalAsignarVehiculo
+        visible={modalAsignarVisible}
+        onClose={() => setModalAsignarVisible(false)}
+        onIrAVale={handleIrAVale}
+        onAbrirScanner={handleAbrirScannerVehiculo}
+      />
+
       <QRScannerModal
-        visible={scannerVisible}
-        scanning={scanning}
-        onBarCodeScanned={handleBarCodeScanned}
-        onClose={closeScanner}
+        visible={scannerVehiculo.scannerVisible}
+        scanning={scannerVehiculo.scanning}
+        onBarCodeScanned={scannerVehiculo.handleBarCodeScanned}
+        onClose={scannerVehiculo.cerrarScanner}
       />
 
       <ModalAgregarOperador
