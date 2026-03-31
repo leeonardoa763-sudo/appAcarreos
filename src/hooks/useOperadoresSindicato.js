@@ -75,6 +75,7 @@ export const useOperadoresSindicato = () => {
           qr_uid: vehiculoActivo?.qr_uid ?? null,
           placas: vehiculoActivo?.placas ?? null,
           capacidad_m3: vehiculoActivo?.capacidad_m3 ?? null,
+          sindicato: nombreSindicato,
         });
       });
 

@@ -42,7 +42,6 @@ const htmlTarjeta = (operador) => {
 // ── HTML completo del documento ───────────────────────────────────────────────
 
 const construirHTML = (operadores) => {
-  // Partir en páginas de 9
   const paginas = [];
   for (let i = 0; i < operadores.length; i += 9) {
     paginas.push(operadores.slice(i, i + 9));
@@ -152,11 +151,17 @@ const construirHTML = (operadores) => {
 // ── Función compartida para generar y compartir el PDF ───────────────────────
 
 const generarYCompartir = async (html, nombreArchivo) => {
-  console.log("[PDF] HTML generado:", html);
   const { uri } = await Print.printToFileAsync({
     html,
     base64: false,
   });
+
+  // Renombrar el archivo con el nombre deseado
+  const dirBase = uri.substring(0, uri.lastIndexOf("/") + 1);
+  const uriRenombrado = `${dirBase}${nombreArchivo}`;
+
+  const FileSystem = require("expo-file-system/legacy");
+  await FileSystem.moveAsync({ from: uri, to: uriRenombrado });
 
   const disponible = await Sharing.isAvailableAsync();
   if (!disponible) {
@@ -166,7 +171,7 @@ const generarYCompartir = async (html, nombreArchivo) => {
   }
 
   await Promise.race([
-    Sharing.shareAsync(uri, {
+    Sharing.shareAsync(uriRenombrado, {
       mimeType: "application/pdf",
       dialogTitle: nombreArchivo,
       UTI: "com.adobe.pdf",
@@ -176,35 +181,41 @@ const generarYCompartir = async (html, nombreArchivo) => {
     ),
   ]);
 
-  return uri;
+  return uriRenombrado;
 };
 
 // ── API pública ───────────────────────────────────────────────────────────────
 
 /**
  * Genera y comparte un PDF con la tarjeta QR de un solo operador.
+ * Nombre del archivo: QR_NombreOperador_PLACAS.pdf
  *
  * @param {object} operador - { nombre_completo, qr_uid, placas, sindicato }
  */
 export const generarPDFOperadorIndividual = async (operador) => {
+  console.log("[PDF individual] operador recibido:", JSON.stringify(operador));
   const operadorConSindicato = {
     ...operador,
     sindicato: operador.sindicato ?? "",
   };
 
   const html = construirHTML([operadorConSindicato]);
-  const nombre = `QR_${operador.nombre_completo.replace(/\s+/g, "_")}.pdf`;
+
+  const nombreLimpio = operador.nombre_completo.replace(/\s+/g, "_");
+  const placasTexto = operador.placas ? `_${operador.placas}` : "";
+  const nombre = `QR_${nombreLimpio}${placasTexto}.pdf`;
+
   return generarYCompartir(html, nombre);
 };
 
 /**
  * Genera y comparte un PDF masivo con todos los operadores que tienen qr_uid.
- * Agrupa por sindicato tal como llegan los grupos del hook.
+ * Si viene un solo sindicato: QR_CTM.pdf
+ * Si vienen varios: QR_Operadores_Todos.pdf
  *
  * @param {array} grupos - [{ sindicato, operadores: [{ ...operador }] }]
  */
 export const generarPDFOperadoresMasivo = async (grupos) => {
-  // Aplanar todos los operadores con qr_uid, inyectando nombre de sindicato
   const operadores = grupos.flatMap((grupo) =>
     grupo.operadores
       .filter((op) => !!op.qr_uid)
@@ -219,5 +230,11 @@ export const generarPDFOperadoresMasivo = async (grupos) => {
   }
 
   const html = construirHTML(operadores);
-  return generarYCompartir(html, "QR_Operadores_Todos.pdf");
+
+  const nombreArchivo =
+    grupos.length === 1
+      ? `QR_${grupos[0].sindicato.replace(/\s+/g, "_")}.pdf`
+      : "QR_Operadores_Todos.pdf";
+
+  return generarYCompartir(html, nombreArchivo);
 };

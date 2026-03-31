@@ -320,6 +320,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
+  itemValeMaterial: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
 });
 
 export default styles;

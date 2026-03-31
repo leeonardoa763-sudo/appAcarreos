@@ -216,9 +216,12 @@ const useVehiculoQR = () => {
          obras ( obra, cc ),
           vale_material_detalles (
             id_sindicato,
-            material:id_material ( id_tipo_de_material )
+            material:id_material ( id_tipo_de_material, material )
           ),
-          vale_renta_detalle ( id_sindicato )
+          vale_renta_detalle (
+            id_sindicato,
+            material:id_material ( material )
+          )
         `,
         )
         .eq("estado", "en_proceso")

@@ -1,20 +1,4 @@
-/**
- * components/acarreos/rentaHelpers/TicketDescargaSection.js
- *
- * Sección que aparece en ValeDetalleRenta cuando el material
- * tiene es_material_descarga = true.
- *
- * Muestra:
- * - Lista de tickets ya generados
- * - Botón para generar el siguiente ticket (habilitado según lógica de viajes)
- * - Modal para capturar el banco de descarga
- *
- * PROPS:
- * - vale: object
- * - detalleRenta: object
- * - viajes: array — viajes registrados (de useViajesRenta)
- * - totalViajes: number
- */
+// components/acarreos/rentaHelpers/TicketDescargaSection.js
 
 // 1. React
 import React, { useState, useCallback, useEffect } from "react";
@@ -42,8 +26,7 @@ import { useTicketsDescarga } from "../../../hooks/useTicketsDescarga";
 // 6. Local - Componentes
 import BancoDescargaModal from "./BancoDescargaModal";
 import ModalImprimirTicketRenta from "./ModalImprimirTicketRenta";
-
-// Imports condicionales de Bluetooth
+import MaterialTicketModal from "./MaterialTicketModal";
 
 // ─── Subcomponente: item de ticket ya generado ────────────────────────────────
 
@@ -73,6 +56,9 @@ const TicketItem = ({ ticket, onReimprimir }) => {
       <View style={styles.ticketInfo}>
         <Text style={styles.ticketFolio}>{ticket.folio_ticket}</Text>
         <Text style={styles.ticketBanco}>{ticket.banco_descarga}</Text>
+        {ticket.material?.material && (
+          <Text style={styles.ticketMaterial}>{ticket.material.material}</Text>
+        )}
         <Text style={styles.ticketFecha}>
           {formatFecha(ticket.fecha_impresion)}
         </Text>
@@ -126,8 +112,10 @@ const TicketDescargaSection = ({
   }, [totalTickets]);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [mostrarModalMaterial, setMostrarModalMaterial] = useState(false);
   const [mostrarModalImpresion, setMostrarModalImpresion] = useState(false);
   const [ticketPendiente, setTicketPendiente] = useState(null);
+  const [bancoSeleccionado, setBancoSeleccionado] = useState(null);
   const [modoReimpresion, setModoReimpresion] = useState(false);
 
   if (!esMaterialDescarga) {
@@ -167,16 +155,30 @@ const TicketDescargaSection = ({
     setModalVisible(true);
   }, [puedeGenerar]);
 
-  const handleConfirmarBanco = useCallback(
-    async (bancoDescarga) => {
-      setModalVisible(false);
-      const ticketData = await registrarTicket(bancoDescarga);
+  const handleConfirmarBanco = useCallback((bancoDescarga) => {
+    setModalVisible(false);
+    setBancoSeleccionado(bancoDescarga);
+    setMostrarModalMaterial(true);
+  }, []);
+
+  const handleConfirmarMaterial = useCallback(
+    async (materialSeleccionado) => {
+      setMostrarModalMaterial(false);
+      const ticketData = await registrarTicket(
+        bancoSeleccionado,
+        materialSeleccionado,
+      );
       if (!ticketData) return;
       setTicketPendiente(ticketData);
       setMostrarModalImpresion(true);
     },
-    [registrarTicket],
+    [registrarTicket, bancoSeleccionado],
   );
+
+  const handleCancelarMaterial = useCallback(() => {
+    setMostrarModalMaterial(false);
+    setBancoSeleccionado(null);
+  }, []);
 
   const handleCancelarModal = useCallback(() => {
     setModalVisible(false);
@@ -285,6 +287,15 @@ const TicketDescargaSection = ({
         loading={registrando}
       />
 
+      {/* Modal selector de material */}
+      <MaterialTicketModal
+        visible={mostrarModalMaterial}
+        materialDefault={detalleRenta?.material}
+        numeroTicket={numeroSiguienteTicket}
+        onConfirmar={handleConfirmarMaterial}
+        onCancelar={handleCancelarMaterial}
+      />
+
       {/* Modal selector de impresora */}
       <ModalImprimirTicketRenta
         visible={mostrarModalImpresion}
@@ -346,7 +357,8 @@ const generarContenidoTicketDescarga = (vale, detalleRenta, ticketData) => {
   const cc = vale.obras?.cc || "";
   const nombreObra = vale.obras?.obra || "N/A";
   const obra = cc ? `${cc}-${nombreObra}` : nombreObra;
-  const material = detalleRenta?.material?.material || "N/A";
+  const material =
+    ticketData.material?.material || detalleRenta?.material?.material || "N/A";
   const placas = vale.vehiculos?.placas || "N/A";
   const capacidad = detalleRenta?.capacidad_m3
     ? `${detalleRenta.capacidad_m3} m3`
@@ -521,6 +533,12 @@ const styles = StyleSheet.create({
     color: colors.secondary,
     fontWeight: "600",
     marginTop: 2,
+  },
+  ticketMaterial: {
+    fontSize: 10,
+    color: colors.accent,
+    fontWeight: "600",
+    marginTop: 1,
   },
   ticketFecha: {
     fontSize: 10,

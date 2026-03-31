@@ -25,18 +25,19 @@ import { useCatalogos } from "../hooks/useCatalogos";
 import { useFolioGenerator } from "../hooks/useFolioGenerator";
 import { useValeMaterialForm } from "../hooks/useValeMaterialForm";
 import { useValeMaterialLogic } from "../hooks/useValeMaterialLogic";
-import { useValeMaterialPDF } from "../hooks/useValeMaterialPDF";
+
 import { useObras } from "../hooks/useObras";
 import { useFeatureFlags } from "../hooks/useFeatureFlags";
 
 // Componentes
 import SectionHeader from "../componets/common/SectionHeader";
 import PrimaryButton from "../componets/common/PrimaryButton";
-import QRCodeGenerator from "../componets/common/QRCodeGenerator";
+
 import SuccessModal from "../componets/common/SuccessModal";
 import FormInput from "../componets/forms/FormInput";
 import CustomModalPicker from "../componets/forms/CustomModalPicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
+import SelectorCantidadVales from "../componets/vale/SelectorCantidadVales";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
 import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
 import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
@@ -46,7 +47,10 @@ const ValeMaterialScreen = () => {
   const { userProfile, userRole } = useAuth();
   const { flags } = useFeatureFlags();
   const isMounted = useRef(true);
+  const selectorCantidadRef = useRef(null);
   const esChecador = userRole === "CHECADOR";
+
+  const [cantidadVales, setCantidadVales] = useState(1);
 
   // Datos de obra
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
@@ -90,21 +94,9 @@ const ValeMaterialScreen = () => {
     generarCopiaRoja,
     submitting,
     crearVale,
+    crearValesEnLote,
     tipoMaterialSeleccionado,
   } = useValeMaterialLogic(materiales);
-
-  const {
-    qrDataUrl,
-    generatingPDF,
-    shouldSharePDF,
-    setShouldSharePDF,
-    compartirPDF,
-    handleQRGenerated,
-    navegarAcarreos,
-    resetPDFState,
-    setMounted,
-  } = useValeMaterialPDF(navigation);
-
   const { generateFolio } = useFolioGenerator();
 
   // Computed: tipo 3 en flujo directo
@@ -125,11 +117,8 @@ const ValeMaterialScreen = () => {
   useEffect(() => {
     return () => {
       isMounted.current = false;
-      if (typeof setMounted === "function") {
-        setMounted(false);
-      }
     };
-  }, [setMounted]);
+  }, []);
 
   // Efecto: Actualizar material seleccionado
   useEffect(() => {
@@ -219,11 +208,6 @@ const ValeMaterialScreen = () => {
   }, [formData.bancoId, obraSeleccionada, obras]);
 
   // Efecto: Compartir PDF cuando QR esté listo
-  useEffect(() => {
-    if (qrDataUrl && shouldSharePDF && valeCreado) {
-      compartirPDF(valeCreado, generarCopiaRoja);
-    }
-  }, [qrDataUrl, shouldSharePDF, valeCreado, generarCopiaRoja, compartirPDF]);
 
   // Efecto: Reset al salir
   useEffect(() => {
@@ -252,15 +236,47 @@ const ValeMaterialScreen = () => {
   // Función: Reset completo
   const resetForm = () => {
     resetFormData();
-    resetPDFState();
     setValeCreado(null);
     setFolioCreado(null);
     setMaterialSeleccionado(null);
   };
 
   // Función: Crear vale
-  const handleCrearVale = async () => {
+  const handleCrearVale = () => {
+    if (completarDespues && cantidadVales > 1) {
+      // Validar primero antes de mostrar confirmacion
+      if (!validateForm(esTipo3DirectFlow, completarDespues)) {
+        Alert.alert(
+          "Campos incompletos",
+          "Por favor completa todos los campos requeridos",
+        );
+        return;
+      }
+      if (!obraSeleccionada) {
+        Alert.alert("Error", "Debes seleccionar una obra");
+        return;
+      }
+      if (!obraDataParaFolio) {
+        Alert.alert("Error", "Datos de obra no disponibles. Intenta de nuevo.");
+        return;
+      }
+      // Delegar al modal de confirmacion del selector
+      selectorCantidadRef.current?.pedirConfirmacion();
+      return;
+    }
+    ejecutarCreacionVales();
+  };
+
+  const ejecutarCreacionVales = async () => {
     if (!validateForm(esTipo3DirectFlow, completarDespues)) {
+      Alert.alert(
+        "Campos incompletos",
+        "Por favor completa todos los campos requeridos",
+      );
+      return;
+    }
+
+    if (!obraSeleccionada) {
       Alert.alert(
         "Campos incompletos",
         "Por favor completa todos los campos requeridos",
@@ -277,37 +293,42 @@ const ValeMaterialScreen = () => {
       Alert.alert("Error", "Datos de obra no disponibles. Intenta de nuevo.");
       return;
     }
+    const cantidad = completarDespues ? cantidadVales : 1;
 
     try {
-      const { valeCompleto, folio } = await crearVale(
-        { ...formData, completarDespues, programarManana },
-        obraDataParaFolio,
-        userProfile,
-        generateFolio,
-        materiales,
-      );
+      if (cantidad > 1) {
+        const { creados } = await crearValesEnLote(
+          { ...formData, completarDespues: true, programarManana },
+          obraDataParaFolio,
+          userProfile,
+          generateFolio,
+          materiales,
+          cantidad,
+        );
 
-      if (isMounted.current) {
-        setValeCreado(valeCompleto);
-        setFolioCreado(folio);
-        setShowSuccessModal(true);
+        if (isMounted.current) {
+          setFolioCreado(`${creados} vales creados`);
+          setShowSuccessModal(true);
+        }
+      } else {
+        const { valeCompleto, folio } = await crearVale(
+          { ...formData, completarDespues, programarManana },
+          obraDataParaFolio,
+          userProfile,
+          generateFolio,
+          materiales,
+        );
+
+        if (isMounted.current) {
+          setValeCreado(valeCompleto);
+          setFolioCreado(folio);
+          setShowSuccessModal(true);
+        }
       }
     } catch (error) {
       if (isMounted.current) {
         Alert.alert("Error", `No se pudo crear el vale: ${error.message}`);
       }
-    }
-  };
-
-  // Función: Manejar compartir desde modal
-  const handleCompartirDesdeModal = async () => {
-    setShowSuccessModal(false);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    if (qrDataUrl) {
-      compartirPDF(valeCreado, generarCopiaRoja);
-    } else {
-      setShouldSharePDF(true);
     }
   };
 
@@ -338,14 +359,6 @@ const ValeMaterialScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Generador de QR invisible */}
-      {valeCreado?.qr_verification_url && (
-        <QRCodeGenerator
-          value={valeCreado.qr_verification_url}
-          onGenerated={handleQRGenerated}
-          size={200}
-        />
-      )}
       {/* Indicador de presupuesto fijo arriba */}
       {materialConsultado && formData.materialId && (
         <View style={styles.presupuestoFijo}>
@@ -501,6 +514,16 @@ const ValeMaterialScreen = () => {
             </View>
           </TouchableOpacity>
 
+          {/* Selector de cantidad: solo visible si completarDespues esta activo */}
+          {completarDespues && (
+            <SelectorCantidadVales
+              ref={selectorCantidadRef}
+              cantidad={cantidadVales}
+              onCantidadChange={setCantidadVales}
+              onConfirmar={ejecutarCreacionVales}
+            />
+          )}
+
           {/* Toggle: Programar para mañana */}
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
@@ -551,38 +574,6 @@ const ValeMaterialScreen = () => {
           />
         </View>
 
-        {/* Información de tipo de copia */}
-        {materialSeleccionado && (
-          <View style={styles.infoCopiasContainer}>
-            <Text style={styles.infoCopiasText}>
-              {esTipo3DirectFlow ? (
-                <>
-                  Se generará{" "}
-                  <Text style={styles.infoCopiasDestacado}>copia BLANCA</Text>
-                  {" directamente"}
-                </>
-              ) : tipoMaterialSeleccionado === 2 &&
-                !flags.TIPO2_GENERAR_PDF_ROJO ? (
-                <>
-                  <Text style={styles.infoCopiasDestacado}>
-                    Sin PDF al crear
-                  </Text>
-                  {" — se completará en Acarreos"}
-                </>
-              ) : (
-                <>
-                  Se generará copia{" "}
-                  <Text style={styles.infoCopiasDestacado}>
-                    {generarCopiaRoja ? "ROJA" : "BLANCA"}
-                  </Text>
-                  {" para "}
-                  {generarCopiaRoja ? "el banco de material" : "el operador"}
-                </>
-              )}
-            </Text>
-          </View>
-        )}
-
         {/* Botón crear vale */}
         <View style={styles.buttonContainer}>
           <PrimaryButton
@@ -594,7 +585,7 @@ const ValeMaterialScreen = () => {
                   : "Crear Vale"
             }
             onPress={handleCrearVale}
-            loading={submitting || generatingPDF}
+            loading={submitting}
             icon={
               presupuestoAgotado
                 ? "cancel"
@@ -614,29 +605,29 @@ const ValeMaterialScreen = () => {
 
       <SuccessModal
         visible={showSuccessModal}
-        title="Vale Creado"
-        message={`Vale ${folioCreado} creado exitosamente${
-          esTipo3DirectFlow
-            ? "\n\nSe generó la copia BLANCA definitiva"
-            : tipoMaterialSeleccionado === 2 && !flags.TIPO2_GENERAR_PDF_ROJO
-              ? "\n\nEl vale quedó en proceso para completarse en Acarreos"
-              : generarCopiaRoja
-                ? "\n\nSe generó la copia ROJA preliminar"
-                : "\n\nSe generó la copia BLANCA definitiva"
-        }`}
-        primaryAction={
-          tipoMaterialSeleccionado === 2 && !flags.TIPO2_GENERAR_PDF_ROJO
-            ? null
-            : {
-                text: "Compartir PDF",
-                icon: "file-pdf-box",
-                onPress: handleCompartirDesdeModal,
-              }
+        title={
+          cantidadVales > 1 && completarDespues ? "Lote Creado" : "Vale Creado"
         }
-        onClose={() => {
-          setShowSuccessModal(false);
-          navegarAcarreos();
+        message={
+          cantidadVales > 1 && completarDespues
+            ? `${folioCreado} exitosamente.\n\nAsigna operador y vehículo a cada uno desde la pantalla de Acarreos.`
+            : `Vale ${folioCreado} creado exitosamente.\n\n${
+                completarDespues
+                  ? "El operador y vehículo quedaron pendientes. Asígnalos desde Acarreos."
+                  : 'El vale quedó en "En Proceso". Complétalo desde Acarreos cuando el operador termine.'
+              }`
+        }
+        primaryAction={{
+          text: "Ir a Acarreos",
+          icon: "arrow-right-circle",
+          onPress: () => {
+            setShowSuccessModal(false);
+            navigation.navigate("ValesMain");
+            const tabNavigator = navigation.getParent();
+            if (tabNavigator?.navigate) tabNavigator.navigate("Acarreos");
+          },
         }}
+        onClose={() => {}}
       />
     </View>
   );

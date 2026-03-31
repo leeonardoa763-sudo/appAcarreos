@@ -13,65 +13,20 @@ import { useFeatureFlags } from "./useFeatureFlags";
 
 export const useValeMaterialLogic = (materiales) => {
   const [materialSeleccionado, setMaterialSeleccionado] = useState(null);
-  const [generarCopiaRoja, setGenerarCopiaRoja] = useState(true);
+
   const [submitting, setSubmitting] = useState(false);
   const { flags } = useFeatureFlags();
 
-  // Efecto: Determinar tipo de copia según material y feature flags
-  useEffect(() => {
-    if (!materiales || materiales.length === 0) return;
-
-    const materialId = materialSeleccionado?.id_material;
-    if (!materialId) {
-      setGenerarCopiaRoja(true);
-      return;
-    }
-
-    const material = materiales.find((m) => m.id_material === materialId);
-    if (!material) return;
-
-    const tipoDeMaterial = material.id_tipo_de_material;
-
-    /*
-     * LÓGICA ORIGINAL (flujo dos pasos para todos):
-     * const nuevaCopiaRoja = true;
-     *
-     * Reemplazada por lógica condicional via FEATURE_FLAGS
-     */
-    let nuevaCopiaRoja = true;
-
-    if (tipoDeMaterial === 3 && !flags.TIPO3_FLUJO_DOS_PASOS) {
-      // Tepetate en flujo directo: no genera copia roja
-      nuevaCopiaRoja = false;
-    }
-
-    if (tipoDeMaterial === 2 && !flags.TIPO2_GENERAR_PDF_ROJO) {
-      // Carpeta asfáltica: tampoco genera copia roja
-      nuevaCopiaRoja = false;
-    }
-
-    if (generarCopiaRoja !== nuevaCopiaRoja) {
-      setGenerarCopiaRoja(nuevaCopiaRoja);
-    }
-  }, [materialSeleccionado, materiales]);
-
-  // Función: Crear vale de material
-  const crearVale = async (
+  // Funcion interna: crea UN vale con un folio ya calculado
+  const _insertarVale = async (
     formData,
     obraData,
     userProfile,
-    generateFolio,
+    folio,
     materiales,
   ) => {
-    console.log("[useValeMaterialLogic] Iniciando creación de vale...");
-    setSubmitting(true);
-
     try {
-      // PASO 1: Generar folio
-      const folio = await generateFolio(obraData);
-      console.log("[useValeMaterialLogic] Folio generado:", folio);
-
-      // PASO 2: Verificar folio único
+      // Verificar folio unico
       const { data: verificacion } = await supabase
         .from("vales")
         .select("folio")
@@ -90,18 +45,8 @@ export const useValeMaterialLogic = (materiales) => {
         (m) => m.id_material === formData.materialId,
       )?.id_tipo_de_material;
 
-      const esTipo3DirectFlow =
-        tipoDeMaterial === 3 && !flags.TIPO3_FLUJO_DOS_PASOS;
-
-      /*
-       * LÓGICA ORIGINAL:
-       * estado: generarCopiaRoja ? "en_proceso" : "emitido"
-       *
-       * Nueva lógica: Tipo 3 en flujo directo va a "emitido" inmediatamente.
-       * Tipo 2 y el resto van a "en_proceso".
-       */
-      const estadoInicial = esTipo3DirectFlow ? "emitido" : "en_proceso";
-
+      // DESPUÉS:
+      const estadoInicial = "en_proceso";
       const { data: valeNuevo, error: errorVale } = await supabase
         .from("vales")
         .insert([
@@ -131,10 +76,6 @@ export const useValeMaterialLogic = (materiales) => {
                   return `${y}-${m}-${d}`;
                 })()
               : null,
-            ...(esTipo3DirectFlow && {
-              id_persona_completador: userProfile.id_persona,
-              fecha_completado: new Date().toISOString(),
-            }),
           },
         ])
         .select()
@@ -169,10 +110,7 @@ export const useValeMaterialLogic = (materiales) => {
         peso_ton: null,
         notas_adicionales: formData.notasAdicionales || null,
         requisicion: formData.requisicion || null,
-        // NUEVO: Folio vale físico, solo para tipo 3 en flujo directo
-        folio_vale_fisico: esTipo3DirectFlow
-          ? parseInt(formData.folioValeFisico, 10)
-          : null,
+        folio_vale_fisico: null,
       };
 
       const { error: errorDetalle } = await supabase
@@ -253,12 +191,72 @@ export const useValeMaterialLogic = (materiales) => {
         throw new Error("El vale no tiene todos los datos necesarios");
       }
 
-      console.log("[useValeMaterialLogic] Vale creado exitosamente");
-
       return { valeCompleto, folio };
     } catch (error) {
-      console.error("[useValeMaterialLogic] Error completo:", error);
-      console.error("[useValeMaterialLogic] Stack:", error.stack);
+      throw error;
+    }
+  };
+
+  // Funcion publica: crea UN vale (flujo original)
+  const crearVale = async (
+    formData,
+    obraData,
+    userProfile,
+    generateFolio,
+    materiales,
+  ) => {
+    setSubmitting(true);
+    try {
+      const folio = await generateFolio(obraData);
+      const resultado = await _insertarVale(
+        formData,
+        obraData,
+        userProfile,
+        folio,
+        materiales,
+      );
+      return resultado;
+    } catch (error) {
+      throw error;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Funcion publica: crea N vales con folios consecutivos sin colisiones
+  const crearValesEnLote = async (
+    formData,
+    obraData,
+    userProfile,
+    generateFolio,
+    materiales,
+    cantidad,
+  ) => {
+    setSubmitting(true);
+    try {
+      // PASO 1: Calcular el folio base una sola vez
+      const folioBase = await generateFolio(obraData);
+
+      // PASO 2: Derivar todos los folios en memoria antes de insertar cualquiera
+      // Formato: SUF-CC-00001 → extraer numero y generar secuencia
+      const partes = folioBase.split("-");
+      const numeroBase = parseInt(partes[partes.length - 1], 10);
+      const prefijo = partes.slice(0, partes.length - 1).join("-") + "-";
+
+      const folios = Array.from({ length: cantidad }, (_, i) => {
+        const numero = numeroBase + i;
+        return `${prefijo}${String(numero).padStart(5, "0")}`;
+      });
+
+      // PASO 3: Insertar vales secuencialmente con sus folios pre-calculados
+      let creados = 0;
+      for (const folio of folios) {
+        await _insertarVale(formData, obraData, userProfile, folio, materiales);
+        creados++;
+      }
+
+      return { creados };
+    } catch (error) {
       throw error;
     } finally {
       setSubmitting(false);
@@ -268,9 +266,9 @@ export const useValeMaterialLogic = (materiales) => {
   return {
     materialSeleccionado,
     setMaterialSeleccionado,
-    generarCopiaRoja,
     submitting,
     crearVale,
+    crearValesEnLote,
     tipoMaterialSeleccionado: materialSeleccionado?.id_tipo_de_material ?? null,
   };
 };
