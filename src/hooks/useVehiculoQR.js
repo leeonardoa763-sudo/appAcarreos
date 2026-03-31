@@ -91,6 +91,8 @@ const useVehiculoQR = () => {
             placas,
             capacidad_m3,
             qr_uid,
+           id_sindicato,
+            sindicatos:id_sindicato ( sindicato ),
             id_operador_sugerido,
             activo,
             operador_sugerido:operadores!id_operador_sugerido (
@@ -168,7 +170,7 @@ const useVehiculoQR = () => {
         }
 
         // ── Paso D: cargar vales disponibles ────────────────────────────────
-        await _cargarValesDisponibles();
+        await _cargarValesDisponibles(vehiculoData.id_sindicato);
       } catch (err) {
         console.error(
           "[useVehiculoQR] buscarVehiculoPorQR falló:",
@@ -193,8 +195,11 @@ const useVehiculoQR = () => {
    * Trae todos los vales en_proceso que no tienen vehículo asignado.
    * Se filtra por id_obra del usuario activo (RLS lo maneja automáticamente).
    */
-  const _cargarValesDisponibles = useCallback(async () => {
-    console.log("[useVehiculoQR] Cargando vales disponibles...");
+  const _cargarValesDisponibles = useCallback(async (idSindicato) => {
+    console.log(
+      "[useVehiculoQR] Cargando vales disponibles para sindicato:",
+      idSindicato,
+    );
 
     try {
       const { data, error: errorVales } = await supabase
@@ -208,7 +213,12 @@ const useVehiculoQR = () => {
           id_operador,
           id_vehiculo,
           fecha_creacion,
-          obras ( obra, cc )
+         obras ( obra, cc ),
+          vale_material_detalles (
+            id_sindicato,
+            material:id_material ( id_tipo_de_material )
+          ),
+          vale_renta_detalle ( id_sindicato )
         `,
         )
         .eq("estado", "en_proceso")
@@ -223,11 +233,23 @@ const useVehiculoQR = () => {
         throw new Error(`Error BD al cargar vales: ${errorVales.message}`);
       }
 
+      const valesFiltrados = (data ?? []).filter((vale) => {
+        if (vale.tipo_vale === "material") {
+          return vale.vale_material_detalles?.[0]?.id_sindicato === idSindicato;
+        }
+        if (vale.tipo_vale === "renta") {
+          return vale.vale_renta_detalle?.[0]?.id_sindicato === idSindicato;
+        }
+        return false;
+      });
+
       console.log(
-        "[useVehiculoQR] Vales disponibles encontrados:",
+        "[useVehiculoQR] Vales totales:",
         data?.length ?? 0,
+        "| del sindicato:",
+        valesFiltrados.length,
       );
-      setValesDisponibles(data ?? []);
+      setValesDisponibles(valesFiltrados);
     } catch (err) {
       console.error(
         "[useVehiculoQR] _cargarValesDisponibles falló:",
@@ -239,7 +261,6 @@ const useVehiculoQR = () => {
       ]);
     }
   }, []);
-
   // ─── 3. Asignar vehículo a un vale ───────────────────────────────────────
 
   /**
