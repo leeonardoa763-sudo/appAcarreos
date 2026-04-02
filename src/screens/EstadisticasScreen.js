@@ -96,6 +96,28 @@ const EstadisticasScreen = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.periodoScroll}
         >
+          {/* Boton de filtro de obra */}
+          <TouchableOpacity
+            style={[styles.obraBtn, hayFiltroObra && styles.obraBtnActivo]}
+            onPress={() => setModalObrasVisible(true)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="office-building-outline"
+              size={15}
+              color={hayFiltroObra ? colors.surface : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.periodoBtnText,
+                hayFiltroObra && styles.periodoBtnTextActivo,
+              ]}
+              numberOfLines={1}
+            >
+              {obraSeleccionadaLabel}
+            </Text>
+          </TouchableOpacity>
+
           {PERIODOS.map((p) => (
             <TouchableOpacity
               key={p.id}
@@ -121,28 +143,6 @@ const EstadisticasScreen = () => {
               </Text>
             </TouchableOpacity>
           ))}
-
-          {/* Boton de filtro de obra */}
-          <TouchableOpacity
-            style={[styles.obraBtn, hayFiltroObra && styles.obraBtnActivo]}
-            onPress={() => setModalObrasVisible(true)}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons
-              name="office-building-outline"
-              size={15}
-              color={hayFiltroObra ? colors.surface : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.periodoBtnText,
-                hayFiltroObra && styles.periodoBtnTextActivo,
-              ]}
-              numberOfLines={1}
-            >
-              {obraSeleccionadaLabel}
-            </Text>
-          </TouchableOpacity>
         </ScrollView>
 
         {/* Tab switch Material / Renta */}

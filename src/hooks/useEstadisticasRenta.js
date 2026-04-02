@@ -3,21 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../config/supabase";
 
-/**
- * Hook de estadísticas para vales de RENTA
- *
- * Recibe periodo y obraId como parametros.
- * - Si obraId es null => filtra por residenteId (todas sus obras)
- * - Si obraId tiene valor => filtra por esa obra especifica
- *
- * Devuelve:
- * - vales: array raw de vales con sus detalles
- * - totales: { totalHoras, totalDias, costoTotal, totalVales }
- * - sindicatosUsados: [{ id, nombre, horas, dias, vales }] agrupado
- * - topOperadores: [{ nombre, vales }]
- * - chartData: { pieData, barData }
- * - loading, error, refetch
- */
 export const useEstadisticasRenta = (
   periodo = "mes",
   residenteId = null,
@@ -35,22 +20,43 @@ export const useEstadisticasRenta = (
 
     switch (periodo) {
       case "hoy":
-        fechaInicio = new Date(hoy);
-        fechaInicio.setHours(0, 0, 0, 0);
-        fechaFin = new Date(hoy);
-        fechaFin.setHours(23, 59, 59, 999);
+        fechaInicio = new Date(
+          hoy.getFullYear(),
+          hoy.getMonth(),
+          hoy.getDate(),
+          0,
+          0,
+          0,
+          0,
+        );
+        fechaFin = new Date(
+          hoy.getFullYear(),
+          hoy.getMonth(),
+          hoy.getDate(),
+          23,
+          59,
+          59,
+          999,
+        );
         break;
 
       case "semana": {
         const diaSemana = (hoy.getDay() + 6) % 7;
-        fechaInicio = new Date(hoy);
-        fechaInicio.setDate(hoy.getDate() - diaSemana);
-        fechaInicio.setHours(0, 0, 0, 0);
+        fechaInicio = new Date(
+          hoy.getFullYear(),
+          hoy.getMonth(),
+          hoy.getDate() - diaSemana,
+          0,
+          0,
+          0,
+          0,
+        );
         fechaFin = new Date(fechaInicio);
         fechaFin.setDate(fechaInicio.getDate() + 6);
         fechaFin.setHours(23, 59, 59, 999);
         break;
       }
+
       case "mes":
         fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
         fechaFin = new Date(
@@ -62,6 +68,7 @@ export const useEstadisticasRenta = (
           59,
         );
         break;
+
       case "trimestre":
         fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 2, 1);
         fechaFin = new Date(
@@ -73,6 +80,7 @@ export const useEstadisticasRenta = (
           59,
         );
         break;
+
       case "semestre":
         fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1);
         fechaFin = new Date(
@@ -84,10 +92,12 @@ export const useEstadisticasRenta = (
           59,
         );
         break;
+
       case "año":
         fechaInicio = new Date(hoy.getFullYear(), 0, 1);
         fechaFin = new Date(hoy.getFullYear(), 11, 31, 23, 59, 59);
         break;
+
       default:
         fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
         fechaFin = new Date(
@@ -119,6 +129,9 @@ export const useEstadisticasRenta = (
       setError(null);
 
       const { fechaInicio, fechaFin } = calcularRangoFechas();
+      // LOG TEMPORAL
+      console.log("[StatsRenta] Periodo:", periodo);
+      console.log("[StatsRenta] Rango:", fechaInicio, "→", fechaFin);
 
       let query = supabase
         .from("vales")
@@ -127,6 +140,7 @@ export const useEstadisticasRenta = (
           id_vale,
           folio,
           fecha_creacion,
+          fecha_completado,
           estado,
           id_obra,
           obras!vales_id_obra_fkey (
@@ -145,6 +159,7 @@ export const useEstadisticasRenta = (
             costo_total,
             capacidad_m3,
             numero_viajes,
+            hora_inicio,
             material!vale_renta_detalle_id_material_fkey (
               id_material,
               material
@@ -157,25 +172,40 @@ export const useEstadisticasRenta = (
         `,
         )
         .eq("tipo_vale", "renta")
-        .in("estado", ["emitido", "verificado", "conciliado"])
-        .not("fecha_completado", "is", null)
-        .gte("fecha_completado", fechaInicio)
-        .lte("fecha_completado", fechaFin);
+        .in("estado", [
+          "aceptado",
+          "en_proceso",
+          "emitido",
+          "verificado",
+          "conciliado",
+        ])
+        .gte("fecha_creacion", fechaInicio)
+        .lte("fecha_creacion", fechaFin);
 
-      // ── Filtro de obra: una sola fuente de verdad ──
       if (obraId) {
         query = query.eq("id_obra", obraId);
       } else {
         query = query.eq("id_persona_creador", residenteId);
       }
 
-      query = query.order("fecha_completado", { ascending: false });
+      query = query.order("fecha_creacion", { ascending: false });
 
       const { data, error: supabaseError } = await query;
 
       if (supabaseError) throw supabaseError;
 
       const resultados = data || [];
+
+      // LOG TEMPORAL - borrar después de verificar
+      console.log("[StatsRenta] Total vales encontrados:", resultados.length);
+      resultados.forEach((vale) => {
+        const detalle = vale.vale_renta_detalle?.[0];
+        console.log(
+          `[StatsRenta] Vale: ${vale.folio} | Obra: ${vale.id_obra} | Estado: ${vale.estado} | ` +
+            `Material: ${detalle?.material?.material} | Viajes: ${detalle?.numero_viajes ?? 0} | ` +
+            `Horas: ${detalle?.total_horas ?? 0}`,
+        );
+      });
 
       setVales(resultados);
     } catch (err) {
@@ -209,7 +239,7 @@ export const useEstadisticasRenta = (
     return { totalHoras, totalDias, costoTotal, totalVales };
   }, [vales]);
 
-  // ─── Sindicatos usados (lista agrupada) ───────────────────────────────────
+  // ─── Sindicatos usados ────────────────────────────────────────────────────
 
   const sindicatosUsados = useMemo(() => {
     const mapa = {};
@@ -235,12 +265,10 @@ export const useEstadisticasRenta = (
       mapa[id_sindicato].vales += 1;
     });
 
-    const lista = Object.values(mapa).sort((a, b) => b.vales - a.vales);
-
-    return lista;
+    return Object.values(mapa).sort((a, b) => b.vales - a.vales);
   }, [vales]);
 
-  // ─── Materiales movidos (capacidad x viajes) ──────────────────────────────
+  // ─── Materiales movidos ───────────────────────────────────────────────────
 
   const materialesMovidos = useMemo(() => {
     const mapa = {};
@@ -253,7 +281,7 @@ export const useEstadisticasRenta = (
       if (!nombreMaterial) return;
 
       const capacidad = Number(detalle.capacidad_m3 || 0);
-      const viajes = Number(detalle.numero_viajes || 1);
+      const viajes = Number(detalle.numero_viajes || 0);
       const m3 = capacidad * viajes;
 
       if (!mapa[nombreMaterial]) {
@@ -270,7 +298,7 @@ export const useEstadisticasRenta = (
     return Object.values(mapa).sort((a, b) => b.m3Total - a.m3Total);
   }, [vales]);
 
-  // ─── Top operadores ────────────────────────────────────────────────────────
+  // ─── Top operadores ───────────────────────────────────────────────────────
 
   const topOperadores = useMemo(() => {
     const mapa = {};
@@ -280,7 +308,7 @@ export const useEstadisticasRenta = (
       if (!nombre) return;
 
       const detalle = vale.vale_renta_detalle?.[0];
-      const viajes = Number(detalle?.numero_viajes || 1);
+      const viajes = Number(detalle?.numero_viajes || 0);
       const placas = vale.vehiculos?.placas;
 
       if (!mapa[nombre]) {
@@ -300,7 +328,7 @@ export const useEstadisticasRenta = (
       }));
   }, [vales]);
 
-  // ─── Chart data ────────────────────────────────────────────────────────────
+  // ─── Chart data ───────────────────────────────────────────────────────────
 
   const chartData = useMemo(() => {
     const COLORES = [
@@ -314,7 +342,6 @@ export const useEstadisticasRenta = (
       "#FDCB6E",
     ];
 
-    // Pie chart: distribucion de vales por sindicato
     const mapaMateriales = {};
 
     vales.forEach((vale) => {
@@ -325,12 +352,10 @@ export const useEstadisticasRenta = (
       if (!nombreMaterial) return;
 
       const capacidad = Number(detalle.capacidad_m3 || 0);
-      const viajes = Number(detalle.numero_viajes || 1);
+      const viajes = Number(detalle.numero_viajes || 0);
       const m3 = capacidad * viajes;
 
-      if (!mapaMateriales[nombreMaterial]) {
-        mapaMateriales[nombreMaterial] = 0;
-      }
+      if (!mapaMateriales[nombreMaterial]) mapaMateriales[nombreMaterial] = 0;
       mapaMateriales[nombreMaterial] += m3;
     });
 
@@ -342,18 +367,22 @@ export const useEstadisticasRenta = (
       }))
       .sort((a, b) => b.value - a.value);
 
-    // Bar chart: vales por dia (ultimos 7 dias)
+    // Bar chart: vales por dia usando fecha_creacion local
     const hoy = new Date();
     const barData = [];
 
     for (let i = 6; i >= 0; i--) {
-      const dia = new Date(hoy);
-      dia.setDate(hoy.getDate() - i);
-      const diaStr = dia.toISOString().split("T")[0];
+      const dia = new Date(
+        hoy.getFullYear(),
+        hoy.getMonth(),
+        hoy.getDate() - i,
+      );
+      const diaStr = `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, "0")}-${String(dia.getDate()).padStart(2, "0")}`;
 
       const valesDelDia = vales.filter((vale) => {
-        const fechaVale = vale.fecha_creacion?.split("T")[0];
-        return fechaVale === diaStr;
+        const f = new Date(vale.fecha_creacion);
+        const fechaStr = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`;
+        return fechaStr === diaStr;
       }).length;
 
       const etiqueta = dia.toLocaleDateString("es-MX", { weekday: "short" });
@@ -363,7 +392,7 @@ export const useEstadisticasRenta = (
     return { pieData, barData };
   }, [sindicatosUsados, vales]);
 
-  // ─── Return ────────────────────────────────────────────────────────────────
+  // ─── Return ───────────────────────────────────────────────────────────────
 
   return {
     vales,

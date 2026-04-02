@@ -49,7 +49,13 @@ const ValeInfoDetalles = ({
         <InfoRow
           icon="cube-send"
           label="Capacidad"
-          value={`${detalleMaterial.capacidad_m3} m³`}
+          value={
+            detalleMaterial.capacidad_m3
+              ? `${detalleMaterial.capacidad_m3} m³`
+              : vale.vehiculos?.capacidad_m3
+                ? `${vale.vehiculos.capacidad_m3} m³`
+                : "Pendiente"
+          }
         />
 
         <InfoRow

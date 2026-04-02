@@ -43,6 +43,7 @@ const AcarreosScreen = () => {
   const { userProfile, userRole } = useAuth();
   const route = useRoute();
   const esChecador = userRole === "CHECADOR";
+  const esAdministrador = userRole === "Administrador";
 
   //  Obtener obras asignadas (incluir loading)
   const { obras, loading: obrasLoading } = useObras(userProfile?.id_persona);
@@ -145,11 +146,11 @@ const AcarreosScreen = () => {
         .in("id_obra", obrasIds)
         .order("fecha_creacion", { ascending: false });
 
-      if (esChecador) {
+      if (!esAdministrador) {
         queryVales = queryVales.not(
           "estado",
           "in",
-          '("verificado","conciliado")',
+          '("verificado","conciliado","cancelado")',
         );
       }
 
@@ -398,7 +399,7 @@ const AcarreosScreen = () => {
           </CollapsibleSection>
 
           {/* Material - Verificados */}
-          {!esChecador && (
+          {esAdministrador && (
             <CollapsibleSection
               title="Verificados"
               icon="check-decagram"
@@ -428,7 +429,7 @@ const AcarreosScreen = () => {
           )}
 
           {/* Material - Conciliados */}
-          {!esChecador && (
+          {esAdministrador && (
             <CollapsibleSection
               title="Conciliados"
               icon="currency-usd"
@@ -547,7 +548,7 @@ const AcarreosScreen = () => {
             />
           </CollapsibleSection>
           {/* Renta - Verificados */}
-          {!esChecador && (
+          {esAdministrador && (
             <CollapsibleSection
               title="Verificados"
               icon="check-decagram"
@@ -577,7 +578,7 @@ const AcarreosScreen = () => {
           )}
 
           {/* Renta - Conciliados */}
-          {!esChecador && (
+          {esAdministrador && (
             <CollapsibleSection
               title="Conciliados"
               icon="currency-usd"
