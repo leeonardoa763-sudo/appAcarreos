@@ -43,6 +43,7 @@ import { useTicketsMaterial } from "../../../hooks/useTicketsMaterial";
 
 // 6. Local - Componentes
 import ModalImprimirTicketRenta from "../rentaHelpers/ModalImprimirTicketRenta";
+import ModalCambiarBanco from "./ModalCambiarBanco";
 
 // 7. Imports condicionales Bluetooth
 let generarTicketMaterialViaje;
@@ -91,13 +92,15 @@ const generarContenidoTicketMaterial = (
   detalle,
   ticketData,
   esTipo3 = false,
+  bancoOverride = null,
 ) => {
   const empresa = vale.obras?.empresas?.empresa || "CONSTRUCCION";
   const cc = vale.obras?.cc || "";
   const nombreObra = vale.obras?.obra || "N/A";
   const obra = cc ? `${cc}-${nombreObra}` : nombreObra;
   const material = detalle?.material?.material || "N/A";
-  const banco = detalle?.bancos?.banco || "N/A";
+  const banco = bancoOverride?.banco ?? detalle?.bancos?.banco ?? "N/A";
+  const distanciaKm = bancoOverride?.distancia_km ?? detalle?.distancia_km;
   const placas = vale.vehiculos?.placas || "";
   const operador = vale.operadores?.nombre_completo || "";
   const capacidad = vale.vehiculos?.capacidad_m3
@@ -105,9 +108,7 @@ const generarContenidoTicketMaterial = (
     : detalle?.capacidad_m3
       ? `${detalle.capacidad_m3} m3`
       : "";
-  const distancia = detalle?.distancia_km
-    ? `${detalle.distancia_km} km`
-    : "N/A";
+  const distancia = distanciaKm ? `${distanciaKm} km` : "N/A";
   const qrUrl =
     vale.qr_verification_url ||
     `https://web-acarreos.vercel.app/vale/${vale.folio}`;
@@ -154,7 +155,6 @@ const generarContenidoTicketMaterial = (
       contenido: `BANCO: ${banco}\n`,
       opciones: { align: ALINEACION.IZQUIERDA },
     },
-
     {
       tipo: "texto",
       contenido: `DISTANCIA: ${distancia}\n`,
@@ -209,7 +209,6 @@ const generarContenidoTicketMaterial = (
 
 const TicketItem = ({ ticket, onReimprimir }) => {
   const yaReimpreso = ticket.reimprimir_count >= 1;
-
   return (
     <View style={styles.ticketItem}>
       <View style={styles.ticketIcono}>
@@ -256,6 +255,7 @@ const TicketsMaterialSection = ({
   operadorYVehiculoGuardados = false,
   onTotalTicketsChange,
   esTipo3 = false,
+  ultimoIdViaje = null,
 }) => {
   const {
     tickets,
@@ -265,6 +265,7 @@ const TicketsMaterialSection = ({
     calcularPuedeImprimir,
     registrarTicket,
     reimprimirTicket,
+    actualizarBancoViaje,
   } = useTicketsMaterial(vale);
 
   useEffect(() => {
@@ -273,7 +274,12 @@ const TicketsMaterialSection = ({
 
   const [ticketPendiente, setTicketPendiente] = useState(null);
   const [mostrarModalImpresion, setMostrarModalImpresion] = useState(false);
+  const [mostrarModalCambiarBanco, setMostrarModalCambiarBanco] =
+    useState(false);
   const [modoReimpresion, setModoReimpresion] = useState(false);
+  const [bancoOverride, setBancoOverride] = useState(null);
+  const [bancoParaTicketActual, setBancoParaTicketActual] = useState(null);
+  const [actualizandoBanco, setActualizandoBanco] = useState(false);
 
   const puedeImprimir = calcularPuedeImprimir(
     totalViajes,
@@ -282,7 +288,7 @@ const TicketsMaterialSection = ({
   const numeroSiguienteTicket = totalTickets + 1;
 
   const razonBloqueado = () => {
-    if (totalTickets === 0) return null; // primer ticket nunca tiene bloqueo si está en proceso
+    if (totalTickets === 0) return null;
     if (!vale?.id_operador && !operadorYVehiculoGuardados)
       return "Asigna operador y vehículo antes del segundo ticket";
     if (totalTickets > 0 && totalViajes < totalTickets)
@@ -292,6 +298,20 @@ const TicketsMaterialSection = ({
 
   // ─── Flujo imprimir ticket ────────────────────────────────────────────────
 
+  const bancoNombreActual = detalle?.bancos?.banco ?? null;
+
+  const _registrarYMostrar = useCallback(
+    async (bancoParaTicket = null) => {
+      const ticketData = await registrarTicket();
+      if (!ticketData) return;
+      setTicketPendiente(ticketData);
+      setBancoParaTicketActual(bancoParaTicket);
+      setModoReimpresion(false);
+      setMostrarModalImpresion(true);
+    },
+    [registrarTicket],
+  );
+
   const handleImprimirTicket = useCallback(async () => {
     if (!puedeImprimir) {
       const razon = razonBloqueado();
@@ -299,19 +319,62 @@ const TicketsMaterialSection = ({
       return;
     }
 
-    const ticketData = await registrarTicket();
-    if (!ticketData) return;
+    if (esTipo3 && ultimoIdViaje && totalTickets > 0) {
+      Alert.alert(
+        "Banco de destino",
+        `El viaje se realizó al banco: ${bancoOverride?.banco ?? bancoNombreActual ?? "habitual"}.\n\n¿Deseas cambiar el banco para este ticket?`,
+        [
+          {
+            text: "No, mismo banco",
+            onPress: () => _registrarYMostrar(null),
+          },
+          {
+            text: "Si, cambiar banco",
+            onPress: () => setMostrarModalCambiarBanco(true),
+          },
+        ],
+      );
+      return;
+    }
 
-    setTicketPendiente(ticketData);
-    setModoReimpresion(false);
-    setMostrarModalImpresion(true);
-  }, [puedeImprimir, registrarTicket]);
+    await _registrarYMostrar(null);
+  }, [
+    puedeImprimir,
+    esTipo3,
+    ultimoIdViaje,
+    totalTickets,
+    bancoOverride,
+    bancoNombreActual,
+    _registrarYMostrar,
+  ]);
+
+  const handleConfirmarCambiarBanco = useCallback(
+    async (bancoNuevo) => {
+      setMostrarModalCambiarBanco(false);
+      if (!ultimoIdViaje) return;
+
+      setActualizandoBanco(true);
+      const resultado = await actualizarBancoViaje(ultimoIdViaje, bancoNuevo);
+      setActualizandoBanco(false);
+      if (!resultado) return;
+
+      setBancoOverride(bancoNuevo);
+      await _registrarYMostrar(bancoNuevo);
+    },
+    [ultimoIdViaje, actualizarBancoViaje, _registrarYMostrar],
+  );
+
+  const handleCancelarCambiarBanco = useCallback(async () => {
+    setMostrarModalCambiarBanco(false);
+    await _registrarYMostrar(null);
+  }, [_registrarYMostrar]);
 
   const handleReimprimirTicket = useCallback(
     async (ticket) => {
       const datos = await reimprimirTicket(ticket);
       if (!datos) return;
       setTicketPendiente(datos);
+      setBancoParaTicketActual(null);
       setModoReimpresion(true);
       setMostrarModalImpresion(true);
     },
@@ -367,10 +430,11 @@ const TicketsMaterialSection = ({
       <TouchableOpacity
         style={[
           styles.botonImprimir,
-          (!puedeImprimir || registrando) && styles.botonDeshabilitado,
+          (!puedeImprimir || registrando || actualizandoBanco) &&
+            styles.botonDeshabilitado,
         ]}
         onPress={handleImprimirTicket}
-        disabled={registrando}
+        disabled={registrando || actualizandoBanco}
         activeOpacity={0.8}
       >
         {registrando ? (
@@ -401,7 +465,7 @@ const TicketsMaterialSection = ({
         <Text style={styles.razonBloqueo}>{razonBloqueado()}</Text>
       )}
 
-      {/* Modal impresión — reutilizando ModalImprimirTicketRenta */}
+      {/* Modal impresión */}
       <ModalImprimirTicketRenta
         visible={mostrarModalImpresion}
         valeData={vale}
@@ -412,24 +476,37 @@ const TicketsMaterialSection = ({
             detalle,
             ticketPendiente,
             esTipo3,
+            modoReimpresion ? null : bancoParaTicketActual,
           );
         }}
         resumenDatos={{
           folio: ticketPendiente?.folio_ticket,
           operador: vale?.operadores?.nombre_completo,
           placas: vale?.vehiculos?.placas,
-          descripcion: `${detalle?.material?.material ?? "Material"} — ${detalle?.bancos?.banco ?? ""}`,
+          descripcion: `${detalle?.material?.material ?? "Material"} — ${(modoReimpresion ? null : bancoParaTicketActual?.banco) ?? detalle?.bancos?.banco ?? ""}`,
         }}
         onImpreso={() => {
           setMostrarModalImpresion(false);
           setTicketPendiente(null);
           setModoReimpresion(false);
+          setBancoParaTicketActual(null);
+          if (!modoReimpresion) setBancoOverride(null);
         }}
         onSinImpresora={() => {
           setMostrarModalImpresion(false);
           setTicketPendiente(null);
           setModoReimpresion(false);
+          setBancoParaTicketActual(null);
+          if (!modoReimpresion) setBancoOverride(null);
         }}
+      />
+
+      <ModalCambiarBanco
+        visible={mostrarModalCambiarBanco}
+        idObra={vale?.id_obra}
+        bancoActual={bancoNombreActual}
+        onConfirmar={handleConfirmarCambiarBanco}
+        onCancelar={handleCancelarCambiarBanco}
       />
     </View>
   );

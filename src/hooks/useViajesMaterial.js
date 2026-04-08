@@ -72,6 +72,11 @@ export const useViajesMaterial = (
           precio_m3,
           costo_viaje,
           folio_vale_fisico,
+          id_banco_override,
+          distancia_km_override,
+          precio_m3_override,
+          costo_viaje_override,
+          banco_override:id_banco_override (id_banco, banco),
           persona:id_persona_registro (
             nombre,
             primer_apellido
@@ -307,7 +312,9 @@ export const useViajesMaterial = (
                     volumenM3,
                   );
                   const totalCosto = viajes.reduce(
-                    (acc, v) => acc + parseFloat(v.costo_viaje || 0),
+                    (acc, v) =>
+                      acc +
+                      parseFloat(v.costo_viaje_override ?? v.costo_viaje ?? 0),
                     costos.costoTotal,
                   );
                   const totalPeso =
@@ -420,8 +427,15 @@ export const useViajesMaterial = (
                 hora_registro,
                 peso_ton,
                 volumen_m3,
-                folio_vale_fisico
-            )
+                folio_vale_fisico,
+                precio_m3,
+                costo_viaje,
+                id_banco_override,
+                distancia_km_override,
+                precio_m3_override,
+                costo_viaje_override,
+                banco_override:id_banco_override (id_banco, banco)
+              )
             )
             `,
           )

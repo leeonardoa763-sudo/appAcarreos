@@ -14,6 +14,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Alert } from "react-native";
 import { supabase } from "../config/supabase";
 import { useAuth } from "./useAuth";
+import { calcularCostoValeMaterial } from "../utils/preciosMaterial";
 
 export const useTicketsMaterial = (vale) => {
   const { userProfile } = useAuth();
@@ -185,6 +186,115 @@ export const useTicketsMaterial = (vale) => {
     }
   }, []);
 
+  // ─── Actualizar banco override en el último viaje ─────────────────────────
+
+  const actualizarBancoViaje = useCallback(
+    async (idViaje, bancoOverride) => {
+      try {
+        console.log("[actualizarBancoViaje] idViaje:", idViaje);
+        console.log("[actualizarBancoViaje] vale.id_vale:", vale?.id_vale);
+        console.log("[actualizarBancoViaje] bancoOverride:", bancoOverride);
+
+        const { data: valeData, error: errorVale } = await supabase
+          .from("vales")
+          .select("id_vehiculo, vale_material_detalles!inner(id_material)")
+          .eq("id_vale", vale.id_vale)
+          .single();
+        console.log(
+          "[actualizarBancoViaje] valeData:",
+          valeData,
+          "errorVale:",
+          errorVale,
+        );
+        if (errorVale || !valeData)
+          throw new Error("No se pudo obtener el vale");
+
+        const { data: vehiculoData, error: errorVehiculo } = await supabase
+          .from("vehiculos")
+          .select("id_sindicato")
+          .eq("id_vehiculo", valeData.id_vehiculo)
+          .single();
+        console.log(
+          "[actualizarBancoViaje] vehiculoData:",
+          vehiculoData,
+          "errorVehiculo:",
+          errorVehiculo,
+        );
+        if (errorVehiculo || !vehiculoData)
+          throw new Error("No se pudo obtener el sindicato del vehiculo");
+
+        const { data: materialData, error: errorMaterial } = await supabase
+          .from("material")
+          .select("id_tipo_de_material")
+          .eq("id_material", valeData.vale_material_detalles[0].id_material)
+          .single();
+        console.log(
+          "[actualizarBancoViaje] materialData:",
+          materialData,
+          "errorMaterial:",
+          errorMaterial,
+        );
+        if (errorMaterial || !materialData)
+          throw new Error("No se pudo obtener el tipo de material");
+
+        const { data: viajeData, error: errorViaje } = await supabase
+          .from("vale_material_viajes")
+          .select("volumen_m3")
+          .eq("id_viaje", idViaje)
+          .single();
+        console.log(
+          "[actualizarBancoViaje] viajeData:",
+          viajeData,
+          "errorViaje:",
+          errorViaje,
+        );
+        if (errorViaje || !viajeData)
+          throw new Error("No se pudo obtener el viaje");
+
+        if (errorViaje || !viajeData)
+          throw new Error("No se pudo obtener el viaje");
+
+        const costos = await calcularCostoValeMaterial(
+          materialData.id_tipo_de_material,
+          vehiculoData.id_sindicato,
+          bancoOverride.distancia_km,
+          viajeData.volumen_m3,
+        );
+
+        const { error: errorUpdate } = await supabase
+          .from("vale_material_viajes")
+          .update({
+            id_banco_override: bancoOverride.id_banco,
+            distancia_km_override: bancoOverride.distancia_km,
+            precio_m3_override: costos.precioM3,
+            costo_viaje_override: costos.costoTotal,
+          })
+          .eq("id_viaje", idViaje);
+        console.log("[actualizarBancoViaje] errorUpdate:", errorUpdate);
+
+        if (errorUpdate) throw errorUpdate;
+
+        return {
+          banco: bancoOverride.banco,
+          distancia_km: bancoOverride.distancia_km,
+          precio_m3: costos.precioM3,
+          costo_viaje: costos.costoTotal,
+        };
+      } catch (error) {
+        console.error(
+          "[useTicketsMaterial] Error actualizando banco viaje:",
+          error,
+        );
+        Alert.alert(
+          "Error",
+          `No se pudo actualizar el banco del viaje: ${error.message}`,
+        );
+        return null;
+      }
+    },
+    [vale?.id_vale],
+  );
+
   return {
     tickets,
     loading,
@@ -193,6 +303,7 @@ export const useTicketsMaterial = (vale) => {
     calcularPuedeImprimir,
     registrarTicket,
     reimprimirTicket,
+    actualizarBancoViaje,
     recargarTickets: cargarTickets,
   };
 };

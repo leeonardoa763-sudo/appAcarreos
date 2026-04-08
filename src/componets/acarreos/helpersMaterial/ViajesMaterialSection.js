@@ -129,44 +129,60 @@ const debugTicketEnConsola = (vale, detalle, viaje) => {
 
 // ─── ViajeItem ────────────────────────────────────────────────────────────────
 
-const ViajeItem = ({ viaje, esTipo3, esChecador }) => (
-  <View style={styles.viajeItem}>
-    <View style={styles.viajeIcono}>
-      <MaterialCommunityIcons
-        name="truck-check"
-        size={16}
-        color={colors.accent}
-      />
-    </View>
+const ViajeItem = ({ viaje, esTipo3, esChecador, bancoDefault }) => {
+  const bancoNombre = viaje.banco_override?.banco ?? bancoDefault ?? "--";
+  const costoReal = viaje.costo_viaje_override ?? viaje.costo_viaje;
+  const conOverride = !!viaje.id_banco_override;
 
-    <View style={styles.viajeInfo}>
-      <Text style={styles.viajeNumero}>Viaje {viaje.numero_viaje}</Text>
-      <Text style={styles.viajeHora}>{formatHora(viaje.hora_registro)}</Text>
-      {viaje.folio_vale_fisico ? (
-        <Text style={styles.viajeFolio}>Rem. {viaje.folio_vale_fisico}</Text>
-      ) : null}
-    </View>
+  return (
+    <View style={styles.viajeItem}>
+      <View style={styles.viajeIcono}>
+        <MaterialCommunityIcons
+          name="truck-check"
+          size={16}
+          color={colors.accent}
+        />
+      </View>
 
-    <View style={styles.viajeMetrics}>
-      <Text style={styles.viajeM3}>
-        {viaje.volumen_m3
-          ? `${parseFloat(viaje.volumen_m3).toFixed(2)} m³`
-          : "—"}
-      </Text>
-      {!esTipo3 && viaje.peso_ton != null && (
-        <Text style={styles.viajeTon}>
-          {parseFloat(viaje.peso_ton).toFixed(2)} ton
+      <View style={styles.viajeInfo}>
+        <Text style={styles.viajeNumero}>Viaje {viaje.numero_viaje}</Text>
+        <Text style={styles.viajeHora}>{formatHora(viaje.hora_registro)}</Text>
+        <Text style={styles.viajeBanco} numberOfLines={1}>
+          {bancoNombre}
+          {conOverride ? "  alt" : ""}
         </Text>
-      )}
-      {!esChecador && viaje.costo_viaje != null && (
-        <Text style={styles.viajeCosto}>{formatCosto(viaje.costo_viaje)}</Text>
-      )}
+        {viaje.folio_vale_fisico ? (
+          <Text style={styles.viajeFolio}>Rem. {viaje.folio_vale_fisico}</Text>
+        ) : null}
+      </View>
+
+      <View style={styles.viajeMetrics}>
+        <Text style={styles.viajeM3}>
+          {viaje.volumen_m3
+            ? `${parseFloat(viaje.volumen_m3).toFixed(2)} m³`
+            : "—"}
+        </Text>
+        {!esTipo3 && viaje.peso_ton != null && (
+          <Text style={styles.viajeTon}>
+            {parseFloat(viaje.peso_ton).toFixed(2)} ton
+          </Text>
+        )}
+        {!esChecador && costoReal != null && (
+          <Text
+            style={[
+              styles.viajeCosto,
+              conOverride && styles.viajeCostoOverride,
+            ]}
+          >
+            {formatCosto(costoReal)}
+          </Text>
+        )}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 // ─── Formulario de captura por tipo ───────────────────────────────────────────
-
 const FormularioViaje = ({
   tipoMaterial,
   valores,
@@ -180,12 +196,16 @@ const FormularioViaje = ({
         <FormInput
           label="Capacidad del viaje"
           value={valores.volumenDirecto}
-          onChangeText={(v) => onChange({ ...valores, volumenDirecto: v })}
+          onChangeText={() => {}}
           placeholder={capacidadVehiculo ? `${capacidadVehiculo}` : "Ej: 8.5"}
           keyboardType="numeric"
           suffix="m³"
-          disabled={disabled}
+          disabled={true}
+          editable={false}
         />
+        <Text style={styles.campoFijoTexto}>
+          Capacidad fija del vehiculo. No editable.
+        </Text>
       </View>
     );
   }
@@ -388,6 +408,7 @@ const ViajesMaterialSection = ({
                 viaje={viaje}
                 esTipo3={esTipo3}
                 esChecador={esChecador}
+                bancoDefault={detalle?.bancos?.banco}
               />
             ))}
           </View>
@@ -597,6 +618,15 @@ const styles = StyleSheet.create({
     color: colors.secondary,
     marginTop: 2,
   },
+
+  viajeBanco: {
+    fontSize: 11,
+    color: colors.secondary,
+    marginTop: 2,
+  },
+  viajeCostoOverride: {
+    color: colors.primary,
+  },
   viajeMetrics: {
     alignItems: "flex-end",
     gap: 2,
@@ -635,6 +665,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: colors.surface,
+  },
+  campoFijoTexto: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: -8,
+    marginLeft: 2,
+    fontStyle: "italic",
   },
 });
 

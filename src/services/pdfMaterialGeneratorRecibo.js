@@ -122,24 +122,37 @@ const getTablaViajesCSS = () => `
     padding: 1mm 0;
     font-style: italic;
   }
+
+    .viajes-table .td-banco {
+    text-align: left;
+    max-width: 16mm;
+    word-break: break-all;
+    font-size: 4px;
+  }
 `;
 
 // ─── Generador de filas de viajes ─────────────────────────────────────────────
 
-const generarFilasViajes = (viajes, esTipo3) => {
+const generarFilasViajes = (viajes, esTipo3, bancoDefault) => {
   if (!viajes || viajes.length === 0) {
-    return `<tr><td colspan="4" class="sin-viajes">Sin viajes registrados</td></tr>`;
+    return `<tr><td colspan="5" class="sin-viajes">Sin viajes registrados</td></tr>`;
   }
 
   return viajes
     .map((v) => {
+      const banco = v.banco_override?.banco ?? bancoDefault ?? "--";
       const remision = v.folio_vale_fisico || "--";
       const tonelaje = v.peso_ton ? parseFloat(v.peso_ton).toFixed(2) : "--";
       const m3 = v.volumen_m3 ? parseFloat(v.volumen_m3).toFixed(2) : "--";
       const hora = formatHora(v.hora_registro);
+      const costoReal = v.costo_viaje_override ?? v.costo_viaje;
+      const costo = costoReal
+        ? `$${parseFloat(costoReal).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+        : "--";
 
       return `
       <tr>
+        <td class="td-banco">${banco}</td>
         <td class="td-remision">${remision}</td>
         <td>${esTipo3 ? "--" : tonelaje}</td>
         <td>${m3}</td>
@@ -149,7 +162,6 @@ const generarFilasViajes = (viajes, esTipo3) => {
     })
     .join("");
 };
-
 // ─── Generador de totales de viajes ──────────────────────────────────────────
 
 const generarTotalesViajes = (viajes, esTipo3, volumenRealTotal, pesoTotal) => {
@@ -159,6 +171,13 @@ const generarTotalesViajes = (viajes, esTipo3, volumenRealTotal, pesoTotal) => {
     : "--";
   const totalTon =
     !esTipo3 && pesoTotal ? `${parseFloat(pesoTotal).toFixed(2)} Ton` : "--";
+  const totalCosto = viajes?.reduce(
+    (acc, v) => acc + parseFloat(v.costo_viaje_override ?? v.costo_viaje ?? 0),
+    0,
+  );
+  const totalCostoFormateado = totalCosto
+    ? `$${totalCosto.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+    : "--";
 
   return `
     <div class="viajes-totales">
@@ -180,6 +199,7 @@ const generarTotalesViajes = (viajes, esTipo3, volumenRealTotal, pesoTotal) => {
         <span class="viajes-totales-label">Total m³</span>
         <span class="viajes-totales-valor">${totalM3}</span>
       </div>
+    
     </div>
   `;
 };
@@ -408,16 +428,17 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
         <div class="receipt-section">
           <div class="section-title">VIAJES REGISTRADOS</div>
           <table class="viajes-table">
-            <thead>
+          <thead>
               <tr>
-                <th style="text-align:left;">Remision</th>
+                <th style="text-align:left;">Banco</th>
+                <th style="text-align:left;">Rem.</th>
                 <th>${esTipo3 ? "--" : "Ton"}</th>
                 <th>m³</th>
                 <th>Hora</th>
               </tr>
             </thead>
             <tbody>
-              ${generarFilasViajes(viajes, esTipo3)}
+              ${generarFilasViajes(viajes, esTipo3, banco)}
             </tbody>
           </table>
           ${generarTotalesViajes(viajes, esTipo3, volumenReal, pesoTotal)}

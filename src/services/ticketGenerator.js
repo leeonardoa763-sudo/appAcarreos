@@ -66,6 +66,7 @@ export const generarTicketMaterial = (vale) => {
   const hora = formatearHora(vale.fecha_creacion);
   const estado = traducirEstado(vale.estado);
   const folio = vale.folio || "N/A";
+  const esTipo3 = detalle.material?.id_tipo_de_material === 3;
   const qrUrl =
     vale.qr_verification_url || `https://web-acarreos.vercel.app/vale/${folio}`;
 
@@ -165,7 +166,9 @@ export const generarTicketMaterial = (vale) => {
       { tipo: "separador" },
       {
         tipo: "texto",
-        contenido: "#   VOL    TON   FOLIO      HORA\n",
+        contenido: esTipo3
+          ? "#   VOL    BANCO          HORA\n"
+          : "#   VOL    TON   FOLIO      HORA\n",
         opciones: { align: ALINEACION.IZQUIERDA },
       },
       { tipo: "separador" },
@@ -177,31 +180,50 @@ export const generarTicketMaterial = (vale) => {
         viaje.volumen_m3 != null
           ? String(parseFloat(viaje.volumen_m3).toFixed(2)).padEnd(6)
           : "N/A   ";
-      const ton =
-        viaje.peso_ton != null
-          ? String(parseFloat(viaje.peso_ton).toFixed(2)).padEnd(6)
-          : "-     ";
-      const folioBanco = viaje.folio_vale_fisico
-        ? String(viaje.folio_vale_fisico).substring(0, 7).padEnd(8)
-        : "-       ";
       const hora = viaje.hora_registro
         ? formatearHora(viaje.hora_registro)
         : "--:--";
 
-      lineas.push({
-        tipo: "texto",
-        contenido: `${num} ${vol} ${ton} ${folioBanco} ${hora}\n`,
-        opciones: { align: ALINEACION.IZQUIERDA },
-      });
+      if (esTipo3) {
+        const bancoNombre =
+          viaje.banco_override?.banco ?? detalle.bancos?.banco ?? "--";
+        const distanciaKm =
+          viaje.distancia_km_override ?? detalle.distancia_km ?? "--";
+        const bancoCorto =
+          `${bancoNombre.substring(0, 8).padEnd(8)} ${distanciaKm}km`.padEnd(
+            14,
+          );
+
+        lineas.push({
+          tipo: "texto",
+          contenido: `${num} ${vol} ${bancoCorto} ${hora}\n`,
+          opciones: { align: ALINEACION.IZQUIERDA },
+        });
+      } else {
+        const ton =
+          viaje.peso_ton != null
+            ? String(parseFloat(viaje.peso_ton).toFixed(2)).padEnd(6)
+            : "-     ";
+        const folioBanco = viaje.folio_vale_fisico
+          ? String(viaje.folio_vale_fisico).substring(0, 7).padEnd(8)
+          : "-       ";
+
+        lineas.push({
+          tipo: "texto",
+          contenido: `${num} ${vol} ${ton} ${folioBanco} ${hora}\n`,
+          opciones: { align: ALINEACION.IZQUIERDA },
+        });
+      }
     });
 
     const totalVol = viajes.reduce(
       (acc, v) => acc + parseFloat(v.volumen_m3 || 0),
       0,
     );
-    const totalTon = viajes.some((v) => v.peso_ton != null)
-      ? viajes.reduce((acc, v) => acc + parseFloat(v.peso_ton || 0), 0)
-      : null;
+    const totalTon =
+      !esTipo3 && viajes.some((v) => v.peso_ton != null)
+        ? viajes.reduce((acc, v) => acc + parseFloat(v.peso_ton || 0), 0)
+        : null;
 
     lineas.push(
       { tipo: "separador" },
@@ -253,6 +275,7 @@ export const generarTicketMaterial = (vale) => {
 
   return lineas;
 };
+
 /**
  * Genera líneas del ticket de vale de RENTA
  */
@@ -437,13 +460,10 @@ export const generarTicketRenta = (vale) => {
 
   return lineas;
 };
+
 /**
  * Genera líneas del ticket por VIAJE de vale de MATERIAL
  * Se imprime después de registrar cada viaje individual
- *
- * @param {object} vale - Datos completos del vale
- * @param {object} detalle - vale_material_detalles[0]
- * @param {object} viaje - Viaje recién registrado (de vale_material_viajes)
  */
 export const generarTicketMaterialViaje = (vale, detalle, viaje) => {
   const cc = vale.obras?.cc || "";
