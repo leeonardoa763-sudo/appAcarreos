@@ -98,6 +98,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     updatedVale?.vale_material_detalles?.[0] ??
     valeLocal?.vale_material_detalles?.[0] ??
     vale?.vale_material_detalles?.[0];
+
   const tieneDatosPendientes = !vale?.id_operador || !vale?.id_vehiculo;
   const esTipo3 = detalleMaterial?.material?.id_tipo_de_material === 3;
   const tipoMaterial = detalleMaterial?.material?.id_tipo_de_material ?? null;
@@ -400,6 +401,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             loading={false}
             totalViajes={detalleMaterial?.vale_material_viajes?.length || 0}
             esTipo3={esTipo3}
+            detalle={detalleMaterial}
+            esChecador={esChecador}
           />
         )}
 

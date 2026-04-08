@@ -648,12 +648,12 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.65)",
-    justifyContent: "flex-end",
+    justifyContent: "center",
+    paddingHorizontal: 20,
   },
   contenedor: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 20,
     paddingBottom: 48,
     maxHeight: "90%",
   },

@@ -129,10 +129,14 @@ const debugTicketEnConsola = (vale, detalle, viaje) => {
 
 // ─── ViajeItem ────────────────────────────────────────────────────────────────
 
-const ViajeItem = ({ viaje, esTipo3, esChecador, bancoDefault }) => {
-  const bancoNombre = viaje.banco_override?.banco ?? bancoDefault ?? "--";
-  const costoReal = viaje.costo_viaje_override ?? viaje.costo_viaje;
-  const conOverride = !!viaje.id_banco_override;
+const ViajeItem = ({ viaje, detalle, esTipo3, esChecador }) => {
+  // Resolver valores efectivos: override tiene prioridad
+  const bancoEfectivo =
+    viaje.bancos_override?.banco ?? detalle?.bancos?.banco ?? "—";
+  const costoEfectivo = viaje.costo_viaje_override ?? viaje.costo_viaje;
+  const precioEfectivo = viaje.precio_m3_override ?? viaje.precio_m3;
+  const distanciaEfectiva =
+    viaje.distancia_km_override ?? detalle?.distancia_km;
 
   return (
     <View style={styles.viajeItem}>
@@ -147,13 +151,10 @@ const ViajeItem = ({ viaje, esTipo3, esChecador, bancoDefault }) => {
       <View style={styles.viajeInfo}>
         <Text style={styles.viajeNumero}>Viaje {viaje.numero_viaje}</Text>
         <Text style={styles.viajeHora}>{formatHora(viaje.hora_registro)}</Text>
-        <Text style={styles.viajeBanco} numberOfLines={1}>
-          {bancoNombre}
-          {conOverride ? "  alt" : ""}
-        </Text>
         {viaje.folio_vale_fisico ? (
           <Text style={styles.viajeFolio}>Rem. {viaje.folio_vale_fisico}</Text>
         ) : null}
+        <Text style={styles.viajeBanco}>{bancoEfectivo}</Text>
       </View>
 
       <View style={styles.viajeMetrics}>
@@ -167,15 +168,8 @@ const ViajeItem = ({ viaje, esTipo3, esChecador, bancoDefault }) => {
             {parseFloat(viaje.peso_ton).toFixed(2)} ton
           </Text>
         )}
-        {!esChecador && costoReal != null && (
-          <Text
-            style={[
-              styles.viajeCosto,
-              conOverride && styles.viajeCostoOverride,
-            ]}
-          >
-            {formatCosto(costoReal)}
-          </Text>
+        {!esChecador && costoEfectivo != null && (
+          <Text style={styles.viajeCosto}>{formatCosto(costoEfectivo)}</Text>
         )}
       </View>
     </View>
@@ -263,8 +257,6 @@ const ViajesMaterialSection = ({
   esChecador,
 }) => {
   const esTipo3 = tipoMaterial === 3;
-
-  // TEMPORAL
 
   const capacidadVehiculo =
     vale?.vehiculos?.capacidad_m3?.toString() ??
@@ -406,9 +398,9 @@ const ViajesMaterialSection = ({
               <ViajeItem
                 key={viaje.id_viaje}
                 viaje={viaje}
+                detalle={detalle}
                 esTipo3={esTipo3}
                 esChecador={esChecador}
-                bancoDefault={detalle?.bancos?.banco}
               />
             ))}
           </View>
