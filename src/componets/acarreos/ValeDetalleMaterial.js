@@ -401,7 +401,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             loading={false}
             totalViajes={detalleMaterial?.vale_material_viajes?.length || 0}
             esTipo3={esTipo3}
-            detalle={detalleMaterial}
+            bancoDefault={detalleMaterial?.bancos?.banco || null}
             esChecador={esChecador}
           />
         )}

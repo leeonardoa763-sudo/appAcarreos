@@ -86,35 +86,35 @@ const SeccionViajesCompletado = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 16,
+    marginHorizontal: 4,
     marginBottom: 12,
     backgroundColor: colors.surface,
     borderRadius: 12,
-    padding: 16,
+    padding: 10,
     borderWidth: 1,
     borderColor: "#E8EDF2",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 10,
     gap: 8,
   },
   titulo: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: colors.textPrimary,
   },
   badge: {
     backgroundColor: colors.secondary,
     borderRadius: 12,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 2,
   },
   badgeTexto: {
     color: colors.surface,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
   },
   tabla: {
@@ -126,20 +126,20 @@ const styles = StyleSheet.create({
   tablaHeader: {
     flexDirection: "row",
     backgroundColor: "#F5F6FA",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
   },
   tablaHeaderTexto: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "600",
     color: colors.textSecondary,
     textTransform: "uppercase",
   },
   colNumero: {
-    width: 32,
+    width: 25,
   },
   colHora: {
-    width: 90,
+    width: 72,
   },
   colPersona: {
     flex: 1,
@@ -147,34 +147,34 @@ const styles = StyleSheet.create({
   viajeRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
     borderTopWidth: 1,
     borderTopColor: "#F0F0F0",
   },
   viajeNumeroContainer: {
-    width: 32,
+    width: 22,
     alignItems: "flex-start",
   },
   viajeNumero: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "700",
     color: colors.accent,
   },
   viajeHoraContainer: {
-    width: 90,
+    width: 72,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
   viajeHora: {
-    fontSize: 13,
+    fontSize: 9,
     color: colors.textPrimary,
     fontWeight: "500",
   },
   viajePersona: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
   },
 });

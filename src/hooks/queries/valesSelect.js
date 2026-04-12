@@ -67,14 +67,15 @@ export const VALE_SELECT_COMPLETO = `
       hora_registro,
       peso_ton,
       volumen_m3,
-      precio_m3,
-      costo_viaje,
       folio_vale_fisico,
+      costo_viaje,
+      precio_m3,
       id_banco_override,
       distancia_km_override,
       precio_m3_override,
       costo_viaje_override,
-      bancos_override:vale_material_viajes_id_banco_override_fkey (
+      bancos_override:id_banco_override (
+        id_banco,
         banco
       )
     )

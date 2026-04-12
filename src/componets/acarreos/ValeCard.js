@@ -29,60 +29,66 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import StatusBadge from "../common/StatusBadge";
 
+// ─── Helpers fuera del componente ────────────────────────────────────────────
+
+const formatDate = (dateString) => {
+  if (!dateString) return "Sin fecha";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatTime = (dateString) => {
+  if (!dateString) return "Sin hora";
+  const date = new Date(dateString);
+  return date.toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatPlacas = (placas) => {
+  if (!placas) return "Pendiente";
+  return placas.replace(/([A-Za-z]+)(\d+)([A-Za-z]*)/, "$1 $2 $3").trim();
+};
+
+const getMaterialInfo = (vale) => {
+  if (
+    vale.tipo_vale === "material" &&
+    vale.vale_material_detalles?.length > 0
+  ) {
+    const detalle = vale.vale_material_detalles[0];
+    return {
+      requisicion: detalle.requisicion || null,
+      material: detalle.material?.material || "N/A",
+      folioValeFisico: detalle.folio_vale_fisico || null,
+    };
+  }
+  return null;
+};
+
+const getRentaInfo = (vale) => {
+  if (vale.tipo_vale === "renta" && vale.vale_renta_detalle?.length > 0) {
+    const detalle = vale.vale_renta_detalle[0];
+    return {
+      horaInicio: detalle.hora_inicio,
+      horaFin: detalle.hora_fin,
+    };
+  }
+  return null;
+};
+
+// ─── Componente ───────────────────────────────────────────────────────────────
+
 const ValeCard = ({ vale, onPress }) => {
   const isMaterial = vale.tipo_vale === "material";
   const isRenta = vale.tipo_vale === "renta";
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "Sin fecha";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("es-MX", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const formatTime = (dateString) => {
-    if (!dateString) return "Sin hora";
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("es-MX", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const formatPlacas = (placas) => {
-    if (!placas) return "Pendiente";
-    return placas.replace(/([A-Za-z]+)(\d+)([A-Za-z]*)/, "$1 $2 $3").trim();
-  };
-
-  const getMaterialInfo = () => {
-    if (isMaterial && vale.vale_material_detalles?.length > 0) {
-      const detalle = vale.vale_material_detalles[0];
-      return {
-        requisicion: detalle.requisicion || null,
-        material: detalle.material?.material || "N/A",
-        folioValeFisico: detalle.folio_vale_fisico || null,
-      };
-    }
-    return null;
-  };
-  const getRentaInfo = () => {
-    if (isRenta && vale.vale_renta_detalle?.length > 0) {
-      const detalle = vale.vale_renta_detalle[0];
-      return {
-        horaInicio: detalle.hora_inicio,
-        horaFin: detalle.hora_fin,
-      };
-    }
-    return null;
-  };
-
-  const materialInfo = getMaterialInfo();
-  const rentaInfo = getRentaInfo();
+  const materialInfo = getMaterialInfo(vale);
+  const rentaInfo = getRentaInfo(vale);
   const estadoActual = vale.estado;
-
   return (
     <TouchableOpacity
       style={[

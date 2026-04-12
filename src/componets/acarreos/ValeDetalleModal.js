@@ -80,13 +80,7 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
                 <Text style={styles.modalFolio}>{vale.folio}</Text>
               </View>
             </View>
-            <TouchableOpacity
-              onPress={() => {
-                onClose();
-                onRefresh();
-              }}
-              style={styles.closeButton}
-            >
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <MaterialCommunityIcons name="close" size={28} color="#FFFFFF" />
             </TouchableOpacity>
           </View>

@@ -28,32 +28,15 @@ const useValeByFolio = () => {
     try {
       setLoading(true);
 
-      console.log("[useValeByFolio] Buscando folio:", folio);
-      console.log("[useValeByFolio] Tipo de dato:", typeof folio);
-      console.log("[useValeByFolio] Longitud:", folio?.length);
-
       const { data, error } = await supabase
         .from("vales")
         .select(VALE_SELECT_COMPLETO)
         .eq("folio", folio)
         .maybeSingle();
-      console.log("[useValeByFolio] Respuesta error:", JSON.stringify(error));
 
       if (error) throw error;
 
       if (!data) {
-        // Busqueda amplia para diagnostico
-        const { data: todosVales } = await supabase
-          .from("vales")
-          .select("id_vale, folio")
-          .limit(5)
-          .order("fecha_creacion", { ascending: false });
-
-        console.log(
-          "[useValeByFolio] Ultimos 5 folios en BD:",
-          JSON.stringify(todosVales),
-        );
-
         Alert.alert(
           "Vale no encontrado",
           `Folio escaneado: "${folio}"\n\nVerifica que el QR corresponda a un vale de este sistema.`,
@@ -62,29 +45,12 @@ const useValeByFolio = () => {
         return null;
       }
 
-      console.log("[useValeByFolio] Vale encontrado:", data.folio);
-      console.log("[useValeByFolio] tipo_vale:", data.tipo_vale);
-      console.log(
-        "[useValeByFolio] vale_renta_detalle count:",
-        data.vale_renta_detalle?.length,
-      );
-
-      if (data.vale_renta_detalle?.length > 0) {
-        const det = data.vale_renta_detalle[0];
-        console.log(
-          "[useValeByFolio] detalle[0].material:",
-          JSON.stringify(det.material),
-        );
-        console.log(
-          "[useValeByFolio] es_material_descarga:",
-          det.material?.es_material_descarga,
-        );
-      }
-
       return data;
     } catch (error) {
-      console.error("[useValeByFolio] Error completo:", JSON.stringify(error));
-      Alert.alert("Error", `Detalle: ${error.message}`, [{ text: "OK" }]);
+      console.error("[useValeByFolio] Error:", error.message);
+      Alert.alert("Error", `No se pudo buscar el vale. Intenta de nuevo.`, [
+        { text: "OK" },
+      ]);
       return null;
     } finally {
       setLoading(false);

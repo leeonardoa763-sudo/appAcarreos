@@ -62,6 +62,10 @@ const LoginScreen = ({ navigation }) => {
   const [loginTimeout, setLoginTimeout] = useState(null);
   const [rememberMe, setRememberMe] = useState(false);
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(true);
+  const [autoLoginStatus, setAutoLoginStatus] = useState("verificando");
+  // valores: 'verificando' | 'conectando' | 'cargando_perfil' | 'timeout' | 'error'
+  const [autoLoginErrorCode, setAutoLoginErrorCode] = useState(null);
+  const autoLoginTimerRef = useRef(null);
 
   const timeoutRef = useRef(null);
   const isMounted = useRef(true);
@@ -72,25 +76,42 @@ const LoginScreen = ({ navigation }) => {
 
     return () => {
       isMounted.current = false;
-      if (timeoutRef.current) {
-        timeoutRef.current.clear();
-      }
+      if (timeoutRef.current) timeoutRef.current.clear();
+      if (autoLoginTimerRef.current) clearTimeout(autoLoginTimerRef.current); // NUEVO
     };
   }, []);
 
+  const AUTO_LOGIN_TIMEOUT_MS = 4000;
+
   const attemptAutoLogin = async () => {
     let handled = false;
+
+    // Timeout de seguridad — si algo cuelga, la app siempre sale del loading
+    autoLoginTimerRef.current = setTimeout(() => {
+      if (isMounted.current && isAutoLoggingIn) {
+        setAutoLoginStatus("timeout");
+        // Dar 2 segundos para que el usuario lea el mensaje, luego mostrar login
+        setTimeout(() => {
+          if (isMounted.current) setIsAutoLoggingIn(false);
+        }, 2000);
+      }
+    }, AUTO_LOGIN_TIMEOUT_MS);
+
     try {
+      setAutoLoginStatus("verificando");
+
       const hasCredentials = await hasRememberedCredentials();
 
       if (!hasCredentials) {
+        clearTimeout(autoLoginTimerRef.current);
         if (isMounted.current) setIsAutoLoggingIn(false);
         return;
       }
 
       const credentials = await getCredentials();
 
-      if (!credentials.email || !credentials.password) {
+      if (!credentials?.email || !credentials?.password) {
+        clearTimeout(autoLoginTimerRef.current);
         if (isMounted.current) setIsAutoLoggingIn(false);
         return;
       }
@@ -98,9 +119,10 @@ const LoginScreen = ({ navigation }) => {
       if (isMounted.current) {
         setEmail(credentials.email);
         setRememberMe(true);
+        setAutoLoginStatus("conectando");
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email: credentials.email,
@@ -108,20 +130,37 @@ const LoginScreen = ({ navigation }) => {
       });
 
       if (error) {
+        clearTimeout(autoLoginTimerRef.current);
+
         if (error.message.includes("Invalid login credentials")) {
           await clearCredentials();
           if (isMounted.current) {
-            Alert.alert(
-              "Sesión Expirada",
-              "Por favor ingresa tu contraseña nuevamente",
-              [{ text: "OK" }],
-            );
+            setIsAutoLoggingIn(false);
+            setTimeout(() => {
+              Alert.alert(
+                "Sesión Expirada",
+                "Por favor ingresa tu contraseña nuevamente",
+                [{ text: "OK" }],
+              );
+            }, 300);
+          }
+        } else {
+          // Error de red u otro — mostrar código para diagnóstico
+          if (isMounted.current) {
+            const codigo = `AL-${Date.now().toString(36).toUpperCase().slice(-5)}`;
+            setAutoLoginErrorCode(codigo);
+            setAutoLoginStatus("error");
+            setTimeout(() => {
+              if (isMounted.current) setIsAutoLoggingIn(false);
+            }, 3000);
           }
         }
         return;
       }
 
       if (data?.user?.id) {
+        if (isMounted.current) setAutoLoginStatus("cargando_perfil");
+
         const { data: perfil, error: perfilError } = await supabase
           .from("persona")
           .select("usuario_activo")
@@ -130,6 +169,7 @@ const LoginScreen = ({ navigation }) => {
 
         if (!perfilError && perfil?.usuario_activo === false) {
           handled = true;
+          clearTimeout(autoLoginTimerRef.current);
           await clearCredentials();
           await supabase.auth.signOut();
 
@@ -138,7 +178,7 @@ const LoginScreen = ({ navigation }) => {
             setTimeout(() => {
               Alert.alert(
                 "Usuario Discontinuado",
-                "Tu acceso a la aplicación ha sido desactivado. Comunícate con el administrador para más información.",
+                "Tu acceso ha sido desactivado. Comunícate con el administrador.",
                 [{ text: "Entendido" }],
               );
             }, 300);
@@ -146,10 +186,25 @@ const LoginScreen = ({ navigation }) => {
           return;
         }
       }
+
+      // Login exitoso — limpiar timer, AuthContext maneja la navegación
+      clearTimeout(autoLoginTimerRef.current);
     } catch (error) {
-      console.error("[LoginScreen] Error en auto-login:", error);
+      clearTimeout(autoLoginTimerRef.current);
+      console.error("[LoginScreen] Error inesperado en auto-login:", error);
+
+      if (isMounted.current) {
+        const codigo = `AL-${Date.now().toString(36).toUpperCase().slice(-5)}`;
+        setAutoLoginErrorCode(codigo);
+        setAutoLoginStatus("error");
+        setTimeout(() => {
+          if (isMounted.current) setIsAutoLoggingIn(false);
+        }, 3000);
+      }
     } finally {
-      if (!handled && isMounted.current) setIsAutoLoggingIn(false);
+      if (!handled && isMounted.current) {
+        setIsAutoLoggingIn(false);
+      }
     }
   };
 
@@ -248,6 +303,43 @@ const LoginScreen = ({ navigation }) => {
   };
 
   if (isAutoLoggingIn) {
+    const statusConfig = {
+      verificando: {
+        icono: "shield-check-outline",
+        texto: "Verificando credenciales...",
+        subtexto: "Revisando acceso guardado",
+        mostrarSpinner: true,
+      },
+      conectando: {
+        icono: "server-network",
+        texto: "Conectando al servidor...",
+        subtexto: "Estableciendo sesión segura",
+        mostrarSpinner: true,
+      },
+      cargando_perfil: {
+        icono: "account-circle-outline",
+        texto: "Cargando tu perfil...",
+        subtexto: "Casi listo",
+        mostrarSpinner: true,
+      },
+      timeout: {
+        icono: "wifi-off",
+        texto: "Conexión lenta detectada",
+        subtexto: "Abriendo inicio de sesión manual...",
+        mostrarSpinner: false,
+      },
+      error: {
+        icono: "alert-circle-outline",
+        texto: "No se pudo conectar",
+        subtexto: "Abriendo inicio de sesión manual...",
+        mostrarSpinner: false,
+      },
+    };
+
+    const config = statusConfig[autoLoginStatus] || statusConfig.verificando;
+    const esError =
+      autoLoginStatus === "error" || autoLoginStatus === "timeout";
+
     return (
       <LinearGradient
         colors={["#D84315", "#FF6B35", "#FF8C61"]}
@@ -258,15 +350,37 @@ const LoginScreen = ({ navigation }) => {
           style={styles.autoLoginLogo}
           resizeMode="contain"
         />
-        <ActivityIndicator
-          size="large"
-          color="#FFFFFF"
-          style={styles.autoLoginSpinner}
+
+        <MaterialCommunityIcons
+          name={config.icono}
+          size={48}
+          color={esError ? "rgba(255,255,100,0.9)" : "#FFFFFF"}
+          style={{ marginBottom: 16 }}
         />
-        <Text style={styles.autoLoginText}>Iniciando sesión...</Text>
-        <Text style={styles.autoLoginSubtext}>
-          Verificando credenciales guardadas
-        </Text>
+
+        {config.mostrarSpinner && (
+          <ActivityIndicator
+            size="large"
+            color="#FFFFFF"
+            style={styles.autoLoginSpinner}
+          />
+        )}
+
+        <Text style={styles.autoLoginText}>{config.texto}</Text>
+        <Text style={styles.autoLoginSubtext}>{config.subtexto}</Text>
+
+        {/* Codigo de diagnostico — solo visible en error */}
+        {esError && autoLoginErrorCode && (
+          <View style={styles.errorCodeContainer}>
+            <MaterialCommunityIcons
+              name="bug-outline"
+              size={14}
+              color="rgba(255,255,255,0.8)"
+            />
+            <Text style={styles.errorCodeLabel}>Codigo de error:</Text>
+            <Text style={styles.errorCodeValue}>{autoLoginErrorCode}</Text>
+          </View>
+        )}
       </LinearGradient>
     );
   }
@@ -634,6 +748,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "rgba(255, 255, 255, 0.75)",
     marginLeft: 6,
+  },
+
+  errorCodeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 20,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  errorCodeLabel: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.8)",
+  },
+  errorCodeValue: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    letterSpacing: 1,
   },
 });
 

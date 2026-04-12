@@ -7,13 +7,13 @@
  * Columnas: # | Banco | m³ | Precio | Hora
  */
 
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
   ActivityIndicator,
   StyleSheet,
-  TouchableOpacity,
+  ScrollView,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../../config/colors";
@@ -45,7 +45,7 @@ const formatCosto = (valor) => {
 // ─── Helpers para resolver valores reales del viaje ──────────────────────────
 
 const getBancoNombre = (viaje, bancoDefault) => {
-  if (viaje.banco_override?.banco) return viaje.banco_override.banco;
+  if (viaje.bancos_override?.banco) return viaje.bancos_override.banco;
   return bancoDefault || "--";
 };
 
@@ -64,7 +64,6 @@ const tieneOverride = (viaje) => !!viaje.id_banco_override;
 const ViajeRow = ({ viaje, esTipo3, esUltimo, bancoDefault, esChecador }) => {
   const banco = getBancoNombre(viaje, bancoDefault);
   const costoReal = getCostoViajeReal(viaje);
-  const precioReal = getPrecioM3Real(viaje);
   const conOverride = tieneOverride(viaje);
 
   return (
@@ -217,53 +216,55 @@ const SeccionViajesMaterialCompletado = ({
         </View>
       )}
 
-      {/* Tabla */}
-      <View style={styles.tabla}>
-        {/* Encabezado */}
-        <View style={styles.tablaHeader}>
-          <View style={styles.colNumero}>
-            <Text style={styles.tablaHeaderTexto}>#</Text>
-          </View>
-          <View style={styles.colBanco}>
-            <Text style={styles.tablaHeaderTexto}>Banco</Text>
-          </View>
-          {!esTipo3 && (
-            <View style={styles.colTon}>
-              <Text style={styles.tablaHeaderTexto}>Ton</Text>
+      {/* Tabla con scroll horizontal */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.tabla}>
+          {/* Encabezado */}
+          <View style={styles.tablaHeader}>
+            <View style={styles.colNumero}>
+              <Text style={styles.tablaHeaderTexto}>#</Text>
             </View>
-          )}
-          <View style={styles.colM3}>
-            <Text style={styles.tablaHeaderTexto}>m³</Text>
-          </View>
-          {!esChecador && (
-            <View style={styles.colCosto}>
-              <Text style={styles.tablaHeaderTexto}>Costo</Text>
+            <View style={styles.colBanco}>
+              <Text style={styles.tablaHeaderTexto}>Banco</Text>
             </View>
-          )}
-          <View style={styles.colHora}>
-            <Text style={styles.tablaHeaderTexto}>Hora</Text>
+            {!esTipo3 && (
+              <View style={styles.colTon}>
+                <Text style={styles.tablaHeaderTexto}>Ton</Text>
+              </View>
+            )}
+            <View style={styles.colM3}>
+              <Text style={styles.tablaHeaderTexto}>m³</Text>
+            </View>
+            {!esChecador && (
+              <View style={styles.colCosto}>
+                <Text style={styles.tablaHeaderTexto}>Costo</Text>
+              </View>
+            )}
+            <View style={styles.colHora}>
+              <Text style={styles.tablaHeaderTexto}>Hora</Text>
+            </View>
           </View>
-        </View>
 
-        {/* Filas */}
-        {viajes.map((viaje, index) => (
-          <ViajeRow
-            key={viaje.id_viaje}
-            viaje={viaje}
+          {/* Filas */}
+          {viajes.map((viaje, index) => (
+            <ViajeRow
+              key={viaje.id_viaje}
+              viaje={viaje}
+              esTipo3={esTipo3}
+              esUltimo={index === viajes.length - 1}
+              bancoDefault={bancoDefault}
+              esChecador={esChecador}
+            />
+          ))}
+
+          {/* Totales */}
+          <FilaTotales
+            viajes={viajes}
             esTipo3={esTipo3}
-            esUltimo={index === viajes.length - 1}
-            bancoDefault={bancoDefault}
             esChecador={esChecador}
           />
-        ))}
-
-        {/* Totales */}
-        <FilaTotales
-          viajes={viajes}
-          esTipo3={esTipo3}
-          esChecador={esChecador}
-        />
-      </View>
+        </View>
+      </ScrollView>
     </View>
   );
 };
@@ -272,37 +273,37 @@ const SeccionViajesMaterialCompletado = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 16,
+    marginHorizontal: 8,
     marginBottom: 12,
     backgroundColor: colors.surface,
     borderRadius: 12,
-    padding: 16,
+    padding: 10,
     borderWidth: 1,
     borderColor: "#E8EDF2",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 10,
     gap: 8,
   },
   titulo: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: colors.textPrimary,
   },
   badge: {
     backgroundColor: colors.secondary,
     borderRadius: 12,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 2,
     minWidth: 24,
     alignItems: "center",
   },
   badgeTexto: {
     color: colors.surface,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
   },
   notaOverride: {
@@ -311,14 +312,14 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: "#EEF4FB",
     borderRadius: 8,
-    padding: 8,
-    marginBottom: 12,
+    padding: 7,
+    marginBottom: 10,
   },
   notaOverrideTexto: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 10,
     color: colors.secondary,
-    lineHeight: 16,
+    lineHeight: 15,
   },
   tabla: {
     borderRadius: 8,
@@ -329,12 +330,12 @@ const styles = StyleSheet.create({
   tablaHeader: {
     flexDirection: "row",
     backgroundColor: "#F5F6FA",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     alignItems: "center",
   },
   tablaHeaderTexto: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "600",
     color: colors.textSecondary,
     textTransform: "uppercase",
@@ -342,8 +343,8 @@ const styles = StyleSheet.create({
   viajeRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
     borderTopWidth: 1,
     borderTopColor: "#F0F0F0",
   },
@@ -353,48 +354,48 @@ const styles = StyleSheet.create({
   filaTotales: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     backgroundColor: "#F5F6FA",
     borderTopWidth: 1,
     borderTopColor: "#D0D5DD",
   },
   // ─── Columnas ───────────────────────────────────────────────────────────────
   colNumero: {
-    width: 20,
+    width: 24,
     alignItems: "center",
   },
   colBanco: {
-    flex: 1,
-    paddingRight: 4,
+    width: 140,
+    paddingRight: 6,
   },
   colTon: {
-    width: 44,
+    width: 54,
     alignItems: "flex-end",
-    paddingRight: 4,
+    paddingRight: 6,
   },
   colM3: {
-    width: 44,
+    width: 54,
     alignItems: "flex-end",
-    paddingRight: 4,
+    paddingRight: 6,
   },
   colCosto: {
-    width: 72,
+    width: 82,
     alignItems: "flex-end",
-    paddingRight: 4,
+    paddingRight: 6,
   },
   colHora: {
-    width: 56,
+    width: 64,
     alignItems: "flex-end",
   },
   // ─── Textos ─────────────────────────────────────────────────────────────────
   viajeNumero: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "700",
     color: colors.accent,
   },
   bancoTexto: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textPrimary,
     fontWeight: "500",
   },
@@ -414,22 +415,22 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   remisionTexto: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textSecondary,
     marginTop: 2,
   },
   metricTexto: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textPrimary,
     fontWeight: "500",
   },
   m3Texto: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textPrimary,
     fontWeight: "600",
   },
   costoTexto: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textPrimary,
     fontWeight: "600",
   },
@@ -442,21 +443,21 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   horaTexto: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textSecondary,
   },
   totalesLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "600",
     color: colors.textSecondary,
   },
   totalesValor: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: colors.textPrimary,
   },
   totalesCosto: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: colors.accent,
   },

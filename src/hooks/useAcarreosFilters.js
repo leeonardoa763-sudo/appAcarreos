@@ -99,7 +99,13 @@ export const useAcarreosFilters = (
 
           const esMismoDia = (fechaISO) => {
             if (!fechaISO) return false;
-            const fecha = new Date(fechaISO);
+            // Si viene solo fecha sin hora, construir en local para evitar bug UTC-6
+            const fecha = fechaISO.includes("T")
+              ? new Date(fechaISO)
+              : (() => {
+                  const [y, m, d] = fechaISO.split("-").map(Number);
+                  return new Date(y, m - 1, d);
+                })();
             return (
               fecha.getFullYear() === hoy.getFullYear() &&
               fecha.getMonth() === hoy.getMonth() &&
