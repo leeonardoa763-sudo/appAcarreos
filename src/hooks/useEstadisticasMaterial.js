@@ -21,15 +21,36 @@ export const useEstadisticasMaterial = (
 
     switch (periodo) {
       case "hoy":
-        fechaInicio = new Date(
-          hoy.getFullYear(),
-          hoy.getMonth(),
-          hoy.getDate(),
-          0,
-          0,
-          0,
-          0,
-        );
+        fechaInicio = new Date(hoy);
+        fechaInicio.setHours(0, 0, 0, 0);
+        fechaFin = new Date(hoy);
+        fechaFin.setHours(23, 59, 59, 999);
+        break;
+
+      case "ayer":
+        {
+          const ayer = new Date(hoy);
+          ayer.setDate(hoy.getDate() - 1);
+          fechaInicio = new Date(
+            ayer.getFullYear(),
+            ayer.getMonth(),
+            ayer.getDate(),
+            0,
+            0,
+            0,
+            0,
+          );
+          fechaFin = new Date(
+            ayer.getFullYear(),
+            ayer.getMonth(),
+            ayer.getDate(),
+            23,
+            59,
+            59,
+            999,
+          );
+          break;
+        }
         fechaFin = new Date(
           hoy.getFullYear(),
           hoy.getMonth(),

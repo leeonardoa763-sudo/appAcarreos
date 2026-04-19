@@ -24,6 +24,7 @@ import EstadisticasRentaTab from "../componets/stats/EstadisticasRentaTab";
 
 const PERIODOS = [
   { id: "hoy", label: "Hoy", icono: "calendar-today" },
+  { id: "ayer", label: "Ayer", icono: "calendar-arrow-left" },
   { id: "semana", label: "Semana", icono: "calendar-week" },
   { id: "mes", label: "Mes", icono: "calendar-month" },
   { id: "trimestre", label: "Trimestre", icono: "calendar-range" },
