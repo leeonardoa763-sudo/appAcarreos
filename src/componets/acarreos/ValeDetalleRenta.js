@@ -14,7 +14,6 @@ import { View, Alert, TouchableOpacity } from "react-native";
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
 import { useAuth } from "../../hooks/useAuth";
-import { useCatalogos } from "../../hooks/useCatalogos";
 import { useViajesRenta } from "../../hooks/useViajesRenta";
 import useEvidenciaVale from "../../hooks/useEvidenciaVale";
 import {
@@ -60,8 +59,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     onRefresh();
     onClose();
   });
-  const { operadores, vehiculos } = useCatalogos(["operadores", "vehiculos"]);
-
   const detalleRenta = vale?.vale_renta_detalle?.[0];
 
   const {
@@ -70,16 +67,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     marcarReimprimido,
   } = useReimprimirPDF(vale?.id_vale, userRole);
 
-  const sindicatoId = detalleRenta?.id_sindicato;
-
-  const operadoresFiltrados = operadores.filter(
-    (op) => !sindicatoId || op.id_sindicato === sindicatoId,
-  );
-  const vehiculosFiltrados = vehiculos.filter(
-    (v) => !sindicatoId || v.id_sindicato === sindicatoId,
-  );
-
-  const canComplete = vale?.estado === "en_proceso" && detalleRenta;
+  const tieneDatosPendientes = !vale?.id_operador || !vale?.id_vehiculo;
+  const canComplete = vale?.estado === "en_proceso" && detalleRenta && !tieneDatosPendientes;
   const preciosRenta = detalleRenta?.precios_renta;
   const obraData = vale?.obras || null;
 
@@ -94,17 +83,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   // --- Estados de guardado ---
   const [saving, setSaving] = useState(false);
   const [totalTicketsDescarga, setTotalTicketsDescarga] = useState(0);
-  const [savingDatos, setSavingDatos] = useState(false);
-  const [datosPendientesGuardados, setDatosPendientesGuardados] =
-    useState(false);
   const [valeLocal, setValeLocal] = useState(vale);
   const [detalleRentaLocal, setDetalleRentaLocal] = useState(detalleRenta);
-  const tieneDatosPendientes =
-    !valeLocal?.id_operador || !valeLocal?.id_vehiculo;
-
-  // --- Estados de datos pendientes ---
-  const [selectedOperador, setSelectedOperador] = useState(null);
-  const [selectedVehiculo, setSelectedVehiculo] = useState(null);
 
   // --- Estados de éxito y PDF ---
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -201,9 +181,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
 
     setValeLocal(vale);
     setDetalleRentaLocal(vale?.vale_renta_detalle?.[0] ?? detalleRenta);
-    setSelectedOperador(null);
-    setSelectedVehiculo(null);
-    setDatosPendientesGuardados(false);
     setHoraFin(null);
     setNumeroViajes(1);
     setEsRentaPorDia(false);
@@ -266,66 +243,9 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   }, []);
 
   // --- Handlers ---
-  const handleGuardarDatosPendientes = useCallback(async () => {
-    if (!selectedOperador || !selectedVehiculo) {
-      Alert.alert("Campos requeridos", "Selecciona operador y vehículo");
-      return;
-    }
-    try {
-      setSavingDatos(true);
-
-      const { error } = await supabase
-        .from("vales")
-        .update({
-          id_operador: selectedOperador.id_operador,
-          id_vehiculo: selectedVehiculo.id_vehiculo,
-        })
-        .eq("id_vale", vale.id_vale);
-
-      if (error) throw error;
-
-      if (selectedVehiculo.capacidad_m3) {
-        await supabase
-          .from("vale_renta_detalle")
-          .update({ capacidad_m3: selectedVehiculo.capacidad_m3 })
-          .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle);
-      }
-
-      setDatosPendientesGuardados(true);
-
-      // Actualizar el vale local para que TicketDescargaSection
-      // detecte inmediatamente que ya tiene operador y vehículo
-      setValeLocal({
-        ...vale,
-        id_operador: selectedOperador.id_operador,
-        id_vehiculo: selectedVehiculo.id_vehiculo,
-        operadores: { nombre_completo: selectedOperador.nombre_completo },
-        vehiculos: {
-          placas: selectedVehiculo.placas,
-          capacidad_m3: selectedVehiculo.capacidad_m3,
-        },
-      });
-      setDetalleRentaLocal((prev) => ({
-        ...prev,
-        capacidad_m3: selectedVehiculo.capacidad_m3 ?? prev?.capacidad_m3,
-      }));
-    } catch (error) {
-      Alert.alert("Error", "No se pudo guardar. Intenta de nuevo.");
-    } finally {
-      setSavingDatos(false);
-    }
-  }, [selectedOperador, selectedVehiculo, vale, detalleRenta, onRefresh]);
-
   const handleCompletar = useCallback(async () => {
     if (!canComplete) return;
 
-    if (tieneDatosPendientes && (!selectedOperador || !selectedVehiculo)) {
-      Alert.alert(
-        "Datos incompletos",
-        "Debes asignar operador y vehículo antes de completar",
-      );
-      return;
-    }
     if (totalViajes === 0) {
       Alert.alert(
         "Sin viajes registrados",
@@ -437,10 +357,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           estado: "emitido",
           id_persona_completador: userProfile.id_persona,
           fecha_completado: new Date().toISOString(),
-          ...(tieneDatosPendientes && {
-            id_operador: selectedOperador.id_operador,
-            id_vehiculo: selectedVehiculo.id_vehiculo,
-          }),
         })
         .eq("id_vale", vale.id_vale);
 
@@ -503,11 +419,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     preciosRenta,
     userProfile,
     notasAdicionales,
-    tieneDatosPendientes,
-    selectedOperador,
-    selectedVehiculo,
-    fotoUrl, // agregar
-    ubicacion, // agregar
+    fotoUrl,
+    ubicacion,
     distanciaObra,
   ]);
 
@@ -583,7 +496,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           detalleRenta={detalleRentaLocal}
           viajes={viajes}
           totalViajes={totalViajes}
-          datosPendientesGuardados={datosPendientesGuardados}
           onTotalTicketsChange={setTotalTicketsDescarga}
         />
 
@@ -596,19 +508,27 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           />
         )}
 
+        {tieneDatosPendientes && vale?.estado === "en_proceso" && (
+          <View style={styles.pendientesAviso}>
+            <MaterialCommunityIcons
+              name="truck-alert-outline"
+              size={22}
+              color={colors.textSecondary}
+            />
+            <View style={styles.pendientesAvisoTextos}>
+              <Text style={styles.pendientesAvisoTitulo}>
+                Sin operador ni vehiculo
+              </Text>
+              <Text style={styles.pendientesAvisoSubtitulo}>
+                Asigna un vehiculo desde la pantalla Vales
+              </Text>
+            </View>
+          </View>
+        )}
+
         {canComplete && (
           <SeccionCompletarVale
             vale={valeLocal}
-            tieneDatosPendientes={tieneDatosPendientes}
-            datosPendientesGuardados={datosPendientesGuardados}
-            operadoresFiltrados={operadoresFiltrados}
-            vehiculosFiltrados={vehiculosFiltrados}
-            selectedOperador={selectedOperador}
-            selectedVehiculo={selectedVehiculo}
-            onSelectOperador={setSelectedOperador}
-            onSelectVehiculo={setSelectedVehiculo}
-            onGuardarDatos={handleGuardarDatosPendientes}
-            savingDatos={savingDatos}
             viajes={viajes}
             loadingViajes={loadingViajes}
             registrando={registrando}

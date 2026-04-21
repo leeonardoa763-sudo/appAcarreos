@@ -203,6 +203,31 @@ export const rentaStyles = StyleSheet.create({
     color: "#F4A261",
     fontStyle: "italic",
   },
+  // Aviso datos pendientes
+  pendientesAviso: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    gap: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.textSecondary,
+  },
+  pendientesAvisoTextos: {
+    flex: 1,
+  },
+  pendientesAvisoTitulo: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  pendientesAvisoSubtitulo: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
   botonCancelar: {
     flexDirection: "row",
     alignItems: "center",

@@ -13,17 +13,6 @@
  *
  * PROPS:
  * - vale: object
- * - detalleRenta: object
- * - tieneDatosPendientes: boolean
- * - datosPendientesGuardados: boolean
- * - operadoresFiltrados: array
- * - vehiculosFiltrados: array
- * - selectedOperador: object | null
- * - selectedVehiculo: object | null
- * - onSelectOperador: function
- * - onSelectVehiculo: function
- * - onGuardarDatos: function
- * - savingDatos: boolean
  * - viajes: array
  * - loadingViajes: boolean
  * - registrando: boolean
@@ -50,7 +39,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../../config/colors";
 import { rentaStyles as styles } from "./rentaStyles";
 
-import DatosPendientesForm from "./DatosPendientesForm";
 import ViajesRentaSection from "../ViajesRentaSection";
 import FormCheckbox from "../../forms/FormCheckbox";
 import CustomTimePicker from "../../forms/CustomTimePicker";
@@ -60,16 +48,6 @@ import PrimaryButton from "../../common/PrimaryButton";
 
 const SeccionCompletarVale = ({
   vale,
-  tieneDatosPendientes,
-  datosPendientesGuardados,
-  operadoresFiltrados,
-  vehiculosFiltrados,
-  selectedOperador,
-  selectedVehiculo,
-  onSelectOperador,
-  onSelectVehiculo,
-  onGuardarDatos,
-  savingDatos,
   viajes,
   loadingViajes,
   registrando,
@@ -112,19 +90,6 @@ const SeccionCompletarVale = ({
       <Text style={styles.sectionSubtitle}>
         Captura los datos para completar el vale
       </Text>
-
-      {tieneDatosPendientes && !datosPendientesGuardados && (
-        <DatosPendientesForm
-          operadoresFiltrados={operadoresFiltrados}
-          vehiculosFiltrados={vehiculosFiltrados}
-          selectedOperador={selectedOperador}
-          selectedVehiculo={selectedVehiculo}
-          onSelectOperador={onSelectOperador}
-          onSelectVehiculo={onSelectVehiculo}
-          onGuardar={onGuardarDatos}
-          saving={savingDatos}
-        />
-      )}
 
       <ViajesRentaSection
         viajes={viajes}

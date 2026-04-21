@@ -94,7 +94,6 @@ const TicketDescargaSection = ({
   detalleRenta,
   viajes = [],
   totalViajes = 0,
-  datosPendientesGuardados = false,
   onTotalTicketsChange,
 }) => {
   const {
@@ -122,8 +121,7 @@ const TicketDescargaSection = ({
     return null;
   }
 
-  const tieneAsignacion =
-    datosPendientesGuardados || !!(vale?.id_operador && vale?.id_vehiculo);
+  const tieneAsignacion = !!(vale?.id_operador && vale?.id_vehiculo);
 
   const puedeGenerar =
     esMaterialDescarga &&
