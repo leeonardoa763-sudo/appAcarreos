@@ -325,6 +325,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.textPrimary,
   },
+  itemValeEmpresa: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontStyle: "italic",
+  },
 });
 
 export default styles;

@@ -132,9 +132,6 @@ const ModalImprimirTicketRenta = ({
 
       const dispositivos = await escanearImpresoras();
 
-      dispositivos.forEach((d) =>
-      );
-
       setImpresoras(dispositivos);
       setFase("lista");
     } catch (error) {

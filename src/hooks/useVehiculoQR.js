@@ -213,9 +213,11 @@ const useVehiculoQR = () => {
           id_operador,
           id_vehiculo,
           fecha_creacion,
-         obras ( obra, cc ),
+          empresas:id_empresa ( empresa, sufijo ),
+          obras ( obra, cc ),
           vale_material_detalles (
             id_sindicato,
+            banco:id_banco ( id_banco, banco ),
             material:id_material ( id_tipo_de_material, material )
           ),
           vale_renta_detalle (

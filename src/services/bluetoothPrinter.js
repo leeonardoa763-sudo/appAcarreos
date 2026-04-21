@@ -72,8 +72,6 @@ export const escanearImpresoras = async () => {
     if (!permisosOk) throw new Error("Permisos Bluetooth denegados");
 
     const dispositivos = await RNBluetoothClassic.getBondedDevices();
-    dispositivos.forEach((d) =>
-    );
 
     return dispositivos.map((d) => ({
       id: d.address,

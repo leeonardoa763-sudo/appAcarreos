@@ -78,7 +78,6 @@ const ValeMaterialScreen = () => {
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
   const [completarDespues, setCompletarDespues] = useState(false);
-  const [programarManana, setProgramarManana] = useState(false);
   // Hooks de formulario y lógica
   const {
     formData,
@@ -298,7 +297,7 @@ const ValeMaterialScreen = () => {
     try {
       if (cantidad > 1) {
         const { creados } = await crearValesEnLote(
-          { ...formData, completarDespues: true, programarManana },
+          { ...formData, completarDespues: true },
           obraDataParaFolio,
           userProfile,
           generateFolio,
@@ -312,7 +311,7 @@ const ValeMaterialScreen = () => {
         }
       } else {
         const { valeCompleto, folio } = await crearVale(
-          { ...formData, completarDespues, programarManana },
+          { ...formData, completarDespues },
           obraDataParaFolio,
           userProfile,
           generateFolio,
@@ -523,31 +522,6 @@ const ValeMaterialScreen = () => {
               onConfirmar={ejecutarCreacionVales}
             />
           )}
-
-          {/* Toggle: Programar para mañana */}
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleInfo}>
-              <MaterialCommunityIcons
-                name="calendar-arrow-right"
-                size={20}
-                color={
-                  programarManana ? colors.secondary : colors.textSecondary
-                }
-              />
-              <View style={styles.toggleTexts}>
-                <Text style={styles.toggleLabel}>Programar para mañana</Text>
-                <Text style={styles.toggleSubLabel}>
-                  El vale se podrá completar el día de mañana
-                </Text>
-              </View>
-            </View>
-            <Switch
-              value={programarManana}
-              onValueChange={(val) => setProgramarManana(val)}
-              trackColor={{ false: colors.border, true: colors.secondary }}
-              thumbColor={colors.surface}
-            />
-          </View>
 
           <DatosOperadorSection
             selectedOperador={formData.selectedOperador}

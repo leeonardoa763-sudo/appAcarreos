@@ -80,6 +80,7 @@ const ValeInfoGeneral = ({
           </Text>
         </View>
       )}
+
     </View>
   );
 };

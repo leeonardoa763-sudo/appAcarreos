@@ -210,9 +210,6 @@ export const useEstadisticasRentaTendencia = (
         true,
       );
 
-      data.forEach((v) =>
-      );
-
       setValesSemanal(data);
     } catch (err) {
       console.error("[Tendencia Renta Semanal] Error:", err.message);

@@ -308,6 +308,7 @@ export const useEstadisticasMaterial = (
         mapa[nombre] = { nombre, viajes: 0, vales: 0 };
       }
       mapa[nombre].vales += 1;
+      mapa[nombre].viajes += viajesDelVale;
     });
 
     const lista = Object.values(mapa)

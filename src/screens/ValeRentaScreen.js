@@ -24,9 +24,6 @@ import { useAuth } from "../hooks/useAuth";
 import { useCatalogos } from "../hooks/useCatalogos";
 import { useFolioGenerator } from "../hooks/useFolioGenerator";
 import { useObras } from "../hooks/useObras";
-// Agrega estas dos líneas a los imports locales
-import { useValeRentaPDF } from "../hooks/useValeRentaPDF";
-import QRCodeGenerator from "../componets/common/QRCodeGenerator";
 
 // Validaciones
 import {
@@ -89,14 +86,6 @@ const ValeRentaScreen = () => {
     notasAdicionales: "",
   });
 
-  const {
-    qrDataUrl,
-    compartirPDF,
-    handleQRGenerated,
-    navegarAcarreos,
-    resetPDFState,
-    setMounted,
-  } = useValeRentaPDF(navigation);
   // Estado del checkbox "completar después"
   const [completarDespues, setCompletarDespues] = useState(false);
 
@@ -108,7 +97,6 @@ const ValeRentaScreen = () => {
   const [valeCreado, setValeCreado] = useState(null);
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
-  const [triggerPDFRojo, setTriggerPDFRojo] = useState(false);
   // Agrega esto justo antes del return
   const sinCapacidad =
     formData.selectedVehiculo && !formData.selectedVehiculo.capacidad_m3;
@@ -120,12 +108,6 @@ const ValeRentaScreen = () => {
   const presupuestoAgotado =
     presupuestoRenta?.nivel === "blocked" ||
     presupuestoRenta?.sinConfigurar === true;
-
-  useEffect(() => {
-    return () => {
-      setMounted(false);
-    };
-  }, [setMounted]);
 
   useEffect(() => {
     return () => {
@@ -652,64 +634,26 @@ const ValeRentaScreen = () => {
           completarDespues
             ? "El operador y vehículo quedaron pendientes. Asígnalos desde Acarreos."
             : 'El vale quedó en "En Proceso". Complétalo desde Acarreos cuando el operador termine.'
-        }\n\nGenera la copia roja antes de continuar.`}
+        }`}
         primaryAction={{
-          text: "Generar Copia Roja",
-          icon: "file-pdf-box",
+          text: "Continuar",
+          icon: "check-circle",
           onPress: () => {
             setShowSuccessModal(false);
-            setTimeout(() => setTriggerPDFRojo(true), 100);
+            InteractionManager.runAfterInteractions(() => {
+              navigation.navigate("ValesMain");
+              requestAnimationFrame(() => {
+                const tabNavigator = navigation.getParent();
+                if (tabNavigator?.navigate) {
+                  tabNavigator.navigate("Acarreos");
+                }
+              });
+            });
           },
         }}
         onClose={() => {}}
       />
 
-      {/* QR Generator invisible — activa generación de copia roja */}
-      {triggerPDFRojo && valeCreado?.qr_verification_url && (
-        <View
-          style={{
-            position: "absolute",
-            left: -9999,
-            width: 1,
-            height: 1,
-            opacity: 0,
-          }}
-        >
-          <QRCodeGenerator
-            value={valeCreado.qr_verification_url}
-            onGenerated={(dataUrl) => {
-              if (!dataUrl) {
-                console.error("[ValeRentaScreen] dataUrl vacío, abortando");
-                setTriggerPDFRojo(false);
-                return;
-              }
-              handleQRGenerated(dataUrl);
-              compartirPDF(valeCreado, dataUrl)
-                .then(() => {
-                })
-                .catch((err) => {
-                  console.error(
-                    "[ValeRentaScreen] Error en compartirPDF:",
-                    err,
-                  );
-                  Alert.alert(
-                    "Error",
-                    "No se pudo generar el PDF: " + err.message,
-                  );
-                })
-                .finally(() => {
-                  setTriggerPDFRojo(false);
-                  resetPDFState();
-                });
-            }}
-            onError={() => {
-              Alert.alert("Error", "No se pudo generar el código QR.");
-              setTriggerPDFRojo(false);
-            }}
-            size={200}
-          />
-        </View>
-      )}
     </View>
   );
 };

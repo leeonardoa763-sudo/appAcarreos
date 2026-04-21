@@ -55,20 +55,15 @@ export const useValeMaterialLogic = (materiales) => {
     }
   }, [materialSeleccionado, materiales]);
 
-  // Función: Crear vale de material
-  const crearVale = async (
+  // Función interna: crea UN vale con un folio ya calculado
+  const _insertarVale = async (
     formData,
     obraData,
     userProfile,
-    generateFolio,
+    folio,
     materiales,
   ) => {
-    setSubmitting(true);
-
     try {
-      // PASO 1: Generar folio
-      const folio = await generateFolio(obraData);
-
       // PASO 2: Verificar folio único
       const { data: verificacion } = await supabase
         .from("vales")
@@ -117,18 +112,6 @@ export const useValeMaterialLogic = (materiales) => {
               : formData.selectedVehiculo?.id_vehiculo,
             estado: estadoInicial,
             qr_verification_url: verificationUrl,
-            // fecha_programada: solo si el Residente activó "Programar para mañana"
-            fecha_programada: formData.programarManana
-              ? (() => {
-                  const manana = new Date();
-                  manana.setDate(manana.getDate() + 1);
-                  // Usar fecha local, no UTC
-                  const y = manana.getFullYear();
-                  const m = String(manana.getMonth() + 1).padStart(2, "0");
-                  const d = String(manana.getDate()).padStart(2, "0");
-                  return `${y}-${m}-${d}`;
-                })()
-              : null,
             ...(esTipo3DirectFlow && {
               id_persona_completador: userProfile.id_persona,
               fecha_completado: new Date().toISOString(),
@@ -251,6 +234,58 @@ export const useValeMaterialLogic = (materiales) => {
       console.error("[useValeMaterialLogic] Error completo:", error);
       console.error("[useValeMaterialLogic] Stack:", error.stack);
       throw error;
+    }
+  };
+
+  // Función pública: crea UN vale (flujo original)
+  const crearVale = async (
+    formData,
+    obraData,
+    userProfile,
+    generateFolio,
+    materiales,
+  ) => {
+    setSubmitting(true);
+    try {
+      const folio = await generateFolio(obraData);
+      return await _insertarVale(formData, obraData, userProfile, folio, materiales);
+    } catch (error) {
+      throw error;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Función pública: crea N vales con folios consecutivos sin colisiones
+  const crearValesEnLote = async (
+    formData,
+    obraData,
+    userProfile,
+    generateFolio,
+    materiales,
+    cantidad,
+  ) => {
+    setSubmitting(true);
+    try {
+      const folioBase = await generateFolio(obraData);
+      const partes = folioBase.split("-");
+      const numeroBase = parseInt(partes[partes.length - 1], 10);
+      const prefijo = partes.slice(0, partes.length - 1).join("-") + "-";
+
+      const folios = Array.from({ length: cantidad }, (_, i) => {
+        const numero = numeroBase + i;
+        return `${prefijo}${String(numero).padStart(5, "0")}`;
+      });
+
+      let creados = 0;
+      for (const folio of folios) {
+        await _insertarVale(formData, obraData, userProfile, folio, materiales);
+        creados++;
+      }
+
+      return { creados };
+    } catch (error) {
+      throw error;
     } finally {
       setSubmitting(false);
     }
@@ -262,6 +297,7 @@ export const useValeMaterialLogic = (materiales) => {
     generarCopiaRoja,
     submitting,
     crearVale,
+    crearValesEnLote,
     tipoMaterialSeleccionado: materialSeleccionado?.id_tipo_de_material ?? null,
   };
 };

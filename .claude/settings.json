@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(wc:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(node --version:*)",
+      "Bash(npm list:*)",
+      "Bash(npx expo --version:*)"
+    ]
+  }
+}

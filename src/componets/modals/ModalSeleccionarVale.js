@@ -63,13 +63,22 @@ const getNombreMaterial = (vale) => {
   return vale.vale_renta_detalle?.[0]?.material?.material || "Sin material";
 };
 
+const getNombreBanco = (vale) => {
+  if (vale.tipo_vale !== "material") return null;
+  return vale.vale_material_detalles?.[0]?.bancos?.banco ?? null;
+};
+
+const getNombreEmpresa = (vale) =>
+  vale.obras?.empresas?.empresa ?? null;
+
 // ─── Subcomponente: tarjeta de vale ───────────────────────────────────────────
 
 const TarjetaVale = ({ vale, onSeleccionar }) => {
   const config = getTipoConfig(vale.tipo_vale);
   const nombreMaterial = getNombreMaterial(vale);
+  const banco = getNombreBanco(vale);
+  const empresa = getNombreEmpresa(vale);
   const nombreOperador = vale.operadores?.nombre_completo || "Sin operador";
-  const placas = vale.vehiculos?.placas || "";
 
   return (
     <TouchableOpacity
@@ -89,7 +98,7 @@ const TarjetaVale = ({ vale, onSeleccionar }) => {
       {/* Folio */}
       <Text style={[styles.folio, { color: config.color }]}>{vale.folio}</Text>
 
-      {/* Material — destacado visualmente */}
+      {/* Material + Banco */}
       <View style={styles.materialRow}>
         <MaterialCommunityIcons
           name="package-variant-closed"
@@ -97,9 +106,23 @@ const TarjetaVale = ({ vale, onSeleccionar }) => {
           color={config.color}
         />
         <Text style={styles.materialTexto} numberOfLines={2}>
-          {nombreMaterial}
+          {banco ? `${nombreMaterial} · ${banco}` : nombreMaterial}
         </Text>
       </View>
+
+      {/* Empresa */}
+      {empresa && (
+        <View style={styles.infoRow}>
+          <MaterialCommunityIcons
+            name="domain"
+            size={14}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.infoTexto} numberOfLines={1}>
+            {empresa}
+          </Text>
+        </View>
+      )}
 
       {/* Operador */}
       <View style={styles.infoRow}>
@@ -112,18 +135,6 @@ const TarjetaVale = ({ vale, onSeleccionar }) => {
           {nombreOperador}
         </Text>
       </View>
-
-      {/* Placas */}
-      {placas ? (
-        <View style={styles.infoRow}>
-          <MaterialCommunityIcons
-            name="card-text"
-            size={14}
-            color={colors.textSecondary}
-          />
-          <Text style={styles.infoTexto}>{placas}</Text>
-        </View>
-      ) : null}
 
       {/* Flecha de acción */}
       <View style={styles.accionRow}>

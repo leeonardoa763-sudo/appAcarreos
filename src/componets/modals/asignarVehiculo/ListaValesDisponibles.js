@@ -15,42 +15,22 @@ import styles from "./asignarStyles";
 
 const GRUPOS = [
   {
+    key: "material",
+    titulo: "Carga de Material",
+    icono: "package-variant",
+    color: colors.primary,
+    filtro: (vale) => vale.tipo_vale === "material",
+  },
+  {
     key: "renta",
     titulo: "Renta de Equipo",
     icono: "truck-cargo-container",
-    color: "#004E89",
+    color: colors.secondary,
     filtro: (vale) => vale.tipo_vale === "renta",
-  },
-  {
-    key: "material_1",
-    titulo: "Material — Tipo 1",
-    icono: "package-variant",
-    color: "#FF6B35",
-    filtro: (vale) =>
-      vale.tipo_vale === "material" &&
-      vale.vale_material_detalles?.[0]?.material?.id_tipo_de_material === 1,
-  },
-  {
-    key: "material_2",
-    titulo: "Material — Tipo 2",
-    icono: "package-variant-closed",
-    color: "#E67E22",
-    filtro: (vale) =>
-      vale.tipo_vale === "material" &&
-      vale.vale_material_detalles?.[0]?.material?.id_tipo_de_material === 2,
-  },
-  {
-    key: "material_3",
-    titulo: "Material — Tipo 3",
-    icono: "package-up",
-    color: "#1A936F",
-    filtro: (vale) =>
-      vale.tipo_vale === "material" &&
-      vale.vale_material_detalles?.[0]?.material?.id_tipo_de_material === 3,
   },
 ];
 
-// ─── Helper: extraer nombre del material ─────────────────────────────────────
+// ─── Helpers de datos ─────────────────────────────────────────────────────────
 
 const getMaterialNombre = (vale) => {
   if (vale.tipo_vale === "material") {
@@ -62,6 +42,19 @@ const getMaterialNombre = (vale) => {
   return null;
 };
 
+const getBanco = (vale) =>
+  vale.tipo_vale === "material"
+    ? vale.vale_material_detalles?.[0]?.banco?.banco ?? null
+    : null;
+
+const getEmpresa = (vale) => vale.empresas?.empresa ?? null;
+
+const sortByMaterial = (a, b) => {
+  const matA = getMaterialNombre(a) ?? "";
+  const matB = getMaterialNombre(b) ?? "";
+  return matA.localeCompare(matB, "es");
+};
+
 // ─── Modal de confirmación ────────────────────────────────────────────────────
 
 const ModalConfirmacion = ({ vale, onConfirmar, onCancelar }) => {
@@ -69,6 +62,8 @@ const ModalConfirmacion = ({ vale, onConfirmar, onCancelar }) => {
 
   const esMaterial = vale.tipo_vale === "material";
   const materialNombre = getMaterialNombre(vale);
+  const banco = getBanco(vale);
+  const empresa = getEmpresa(vale);
   const obra = vale.obras
     ? `${vale.obras.cc ? vale.obras.cc + " - " : ""}${vale.obras.obra}`
     : "Sin obra";
@@ -159,6 +154,22 @@ const ModalConfirmacion = ({ vale, onConfirmar, onCancelar }) => {
               </>
             )}
 
+            {/* Banco */}
+            {banco && (
+              <>
+                <View style={confirmStyles.separador} />
+                <View style={confirmStyles.fila}>
+                  <MaterialCommunityIcons
+                    name="bank-outline"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={confirmStyles.filaLabel}>Banco</Text>
+                  <Text style={confirmStyles.filaValor}>{banco}</Text>
+                </View>
+              </>
+            )}
+
             <View style={confirmStyles.separador} />
 
             {/* Obra */}
@@ -173,6 +184,24 @@ const ModalConfirmacion = ({ vale, onConfirmar, onCancelar }) => {
                 {obra}
               </Text>
             </View>
+
+            {/* Empresa */}
+            {empresa && (
+              <>
+                <View style={confirmStyles.separador} />
+                <View style={confirmStyles.fila}>
+                  <MaterialCommunityIcons
+                    name="domain"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={confirmStyles.filaLabel}>Empresa</Text>
+                  <Text style={confirmStyles.filaValor} numberOfLines={1}>
+                    {empresa}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
 
           {/* Botones */}
@@ -322,6 +351,8 @@ const confirmStyles = StyleSheet.create({
 const ItemVale = ({ vale, asignando, onSeleccionar }) => {
   const esMaterial = vale.tipo_vale === "material";
   const materialNombre = getMaterialNombre(vale);
+  const banco = getBanco(vale);
+  const empresa = getEmpresa(vale);
   const obra = vale.obras
     ? `${vale.obras.cc ? vale.obras.cc + " - " : ""}${vale.obras.obra}`
     : "Sin obra";
@@ -360,12 +391,17 @@ const ItemVale = ({ vale, asignando, onSeleccionar }) => {
         </View>
         {materialNombre && (
           <Text style={styles.itemValeMaterial} numberOfLines={1}>
-            {materialNombre}
+            {banco ? `${materialNombre} · ${banco}` : materialNombre}
           </Text>
         )}
         <Text style={styles.itemValeObra} numberOfLines={1}>
           {obra}
         </Text>
+        {empresa && (
+          <Text style={styles.itemValeEmpresa} numberOfLines={1}>
+            {empresa}
+          </Text>
+        )}
       </View>
       {asignando ? (
         <ActivityIndicator size="small" color={colors.accent} />
@@ -416,7 +452,7 @@ const ListaValesDisponibles = ({ vales, asignando, onSeleccionar }) => {
 
   const gruposConVales = GRUPOS.map((grupo) => ({
     ...grupo,
-    vales: vales.filter(grupo.filtro),
+    vales: vales.filter(grupo.filtro).sort(sortByMaterial),
   })).filter((grupo) => grupo.vales.length > 0);
 
   return (

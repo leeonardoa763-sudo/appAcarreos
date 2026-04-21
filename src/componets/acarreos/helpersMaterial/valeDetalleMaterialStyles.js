@@ -245,6 +245,30 @@ const styles = StyleSheet.create({
     flex: 1,
     textTransform: "capitalize",
   },
+  pendientesAviso: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border ?? "#E0E0E0",
+  },
+  pendientesAvisoTextos: {
+    flex: 1,
+  },
+  pendientesAvisoTitulo: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  pendientesAvisoSubtitulo: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   botonReimprimir: {
     flexDirection: "row",
     alignItems: "center",
