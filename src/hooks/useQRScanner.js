@@ -58,9 +58,6 @@ const useQRScanner = ({ onFolioDetected }) => {
     ({ data }) => {
       if (scanning) return;
 
-      console.log("[useQRScanner] QR detectado, data cruda:", data);
-      console.log("[useQRScanner] isValid:", isValidVerificationUrl(data));
-      console.log("[useQRScanner] folio extraido:", extractFolioFromUrl(data));
 
       setScanning(true);
 

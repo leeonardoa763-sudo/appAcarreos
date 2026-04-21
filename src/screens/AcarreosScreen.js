@@ -129,7 +129,6 @@ const AcarreosScreen = () => {
 
       // Si no hay obras asignadas, retornar vacío
       if (obrasIds.length === 0) {
-        console.log("[AcarreosScreen] No hay obras asignadas");
         if (isMounted.current) {
           setValesMaterial([]);
           setValesRenta([]);

@@ -133,16 +133,11 @@ const ModalImprimirTicketRenta = ({
       const dispositivos = await escanearImpresoras();
 
       dispositivos.forEach((d) =>
-        console.log(`[ModalImprimirTicketRenta]   - ${d.name} | ${d.address}`),
       );
 
       setImpresoras(dispositivos);
       setFase("lista");
     } catch (error) {
-      console.log(
-        "[ModalImprimirTicketRenta] Error al escanear:",
-        error.message,
-      );
       setFase("inicio");
       setErrorMensaje(
         "No se pudieron buscar impresoras. Verifica que el Bluetooth esté activo.",

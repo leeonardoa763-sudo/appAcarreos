@@ -43,12 +43,7 @@ export const usePresupuestoObra = ({ id_obra, id_material = null }) => {
     const fetch = async () => {
       try {
         setLoading(true);
-        console.log("[Presupuesto] Consultando material:", {
-          id_obra,
-          id_material,
-        });
         const data = await fetchPresupuestoMaterial(id_obra, id_material);
-        console.log("[Presupuesto] Resultado material:", data);
 
         if (!data) {
           setPresupuestoMaterial({ sinConfigurar: true });
@@ -70,7 +65,6 @@ export const usePresupuestoObra = ({ id_obra, id_material = null }) => {
       } finally {
         setLoading(false);
         setMaterialConsultado(true);
-        console.log("[Presupuesto] materialConsultado = true");
       }
     };
 

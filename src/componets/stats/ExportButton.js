@@ -26,7 +26,6 @@ const ExportButton = ({ onPress, loading = false, disabled = false }) => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (err) {
-      console.log("[ExportButton] Haptics no disponible");
     }
 
     onPress();

@@ -678,22 +678,14 @@ const ValeRentaScreen = () => {
           <QRCodeGenerator
             value={valeCreado.qr_verification_url}
             onGenerated={(dataUrl) => {
-              console.log(
-                "[ValeRentaScreen] QR onGenerated llamado, dataUrl:",
-                !!dataUrl,
-              );
               if (!dataUrl) {
                 console.error("[ValeRentaScreen] dataUrl vacío, abortando");
                 setTriggerPDFRojo(false);
                 return;
               }
               handleQRGenerated(dataUrl);
-              console.log("[ValeRentaScreen] Llamando compartirPDF...");
               compartirPDF(valeCreado, dataUrl)
                 .then(() => {
-                  console.log(
-                    "[ValeRentaScreen] compartirPDF terminó exitosamente",
-                  );
                 })
                 .catch((err) => {
                   console.error(

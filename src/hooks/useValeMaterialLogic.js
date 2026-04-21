@@ -63,13 +63,11 @@ export const useValeMaterialLogic = (materiales) => {
     generateFolio,
     materiales,
   ) => {
-    console.log("[useValeMaterialLogic] Iniciando creación de vale...");
     setSubmitting(true);
 
     try {
       // PASO 1: Generar folio
       const folio = await generateFolio(obraData);
-      console.log("[useValeMaterialLogic] Folio generado:", folio);
 
       // PASO 2: Verificar folio único
       const { data: verificacion } = await supabase
@@ -147,15 +145,10 @@ export const useValeMaterialLogic = (materiales) => {
         throw errorVale;
       }
 
-      console.log("[useValeMaterialLogic] Vale insertado:", valeNuevo.id_vale);
 
-      console.log("[useValeMaterialLogic] Vale insertado:", valeNuevo.id_vale);
 
       // PASO 5: NO calcular precio en creación inicial
       // Ahora TODOS los vales se completan después de creados
-      console.log(
-        "[useValeMaterialLogic] Creando vale sin precio - se completará después",
-      );
 
       // PASO 6: Insertar detalles
       const detalleInsert = {
@@ -187,7 +180,6 @@ export const useValeMaterialLogic = (materiales) => {
         throw errorDetalle;
       }
 
-      console.log("[useValeMaterialLogic] Detalles insertados correctamente");
 
       // PASO 7: Consultar vale completo
       const { data: valeCompleto, error: errorConsulta } = await supabase
@@ -253,7 +245,6 @@ export const useValeMaterialLogic = (materiales) => {
         throw new Error("El vale no tiene todos los datos necesarios");
       }
 
-      console.log("[useValeMaterialLogic] Vale creado exitosamente");
 
       return { valeCompleto, folio };
     } catch (error) {

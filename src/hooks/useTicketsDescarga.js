@@ -72,14 +72,10 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
       const tieneAsignacion =
         operadorYVehiculoGuardados || tieneOperadorYVehiculo;
       if (!tieneAsignacion) {
-        console.log(
-          "[useTicketsDescarga] No aplica: falta operador o vehículo",
-        );
         return false;
       }
 
       if (totalTickets === 0) {
-        console.log("[useTicketsDescarga] Primer ticket disponible");
         return true;
       }
 

@@ -71,31 +71,24 @@ const formatCosto = (costo) => {
 
 const debugTicketEnConsola = (vale, detalle, viaje) => {
   if (!generarTicketMaterialViaje) {
-    console.log("[TICKET DEBUG] Bluetooth deshabilitado, no se puede generar");
     return;
   }
   const lineas = generarTicketMaterialViaje(vale, detalle, viaje);
   const SEP_DOBLE = "══════════════════════════════════";
   const SEP_SIMPLE = "──────────────────────────────────";
 
-  console.log("\n" + SEP_DOBLE);
   lineas.forEach((linea) => {
     if (linea.tipo === "separador") {
-      console.log(SEP_SIMPLE);
     } else if (linea.tipo === "texto") {
       const contenido = linea.contenido.trimEnd();
       const bold = linea.opciones?.bold ? "★ " : "  ";
       const align = linea.opciones?.align;
       if (align === "center") {
-        console.log(`       ${bold}${contenido}`);
       } else {
-        console.log(`  ${bold}${contenido}`);
       }
     } else if (linea.tipo === "qr") {
-      console.log(`  [QR] ${linea.contenido}`);
     }
   });
-  console.log(SEP_DOBLE + "\n");
 
   // Resumen de campos para detectar N/A
   const detalleCampos = {
@@ -123,7 +116,6 @@ const debugTicketEnConsola = (vale, detalle, viaje) => {
   if (faltantes.length > 0) {
     console.warn("[TICKET DEBUG] Campos vacios/null:", faltantes.join(", "));
   } else {
-    console.log("[TICKET DEBUG] Todos los campos tienen valor");
   }
 };
 
@@ -317,20 +309,8 @@ const ViajesMaterialSection = ({
   // ─── Generar líneas del ticket por viaje ─────────────────────────────────
 
   const generarLineasTicketViaje = useCallback(() => {
-    console.log(
-      "[PREVIEW] vale:",
-      !!vale,
-      "detalle:",
-      !!detalle,
-      "viajeParaImprimir:",
-      !!viajeParaImprimir,
-      "generarFn:",
-      !!generarTicketMaterialViaje,
-    );
     if (!vale || !detalle || !viajeParaImprimir) return [];
     if (!generarTicketMaterialViaje) return [];
-    console.log("[PREVIEW] detalle.requisicion:", detalle?.requisicion);
-    console.log("[PREVIEW] detalle completo keys:", Object.keys(detalle));
   }, [vale, detalle, viajeParaImprimir]);
 
   // ─── Render ───────────────────────────────────────────────────────────────

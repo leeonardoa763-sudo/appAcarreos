@@ -80,14 +80,9 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   let costoTotal;
   if (esRentaPorDia && precioRenta.costo_dia) {
     costoTotal = `$${parseFloat(precioRenta.costo_dia).toFixed(2)} MXN`;
-    console.log("[pdfRentaGenerator] Costo calculado por día:", costoTotal);
   } else if (esRentaPorMedioDia && precioRenta.costo_dia) {
     const costo = parseFloat(precioRenta.costo_dia) / 2;
     costoTotal = `$${costo.toFixed(2)} MXN`;
-    console.log(
-      "[pdfRentaGenerator] Costo calculado por medio día:",
-      costoTotal,
-    );
   } else if (
     !esRentaPorDia &&
     !esRentaPorMedioDia &&
@@ -299,19 +294,6 @@ export const generateAndShareRentaRecibo = async (
     const html = generateValeRentaReciboHTML(valeData, colorCopia, qrDataUrl);
 
     // LOG TEMPORAL - medir altura real del contenido
-    console.log("[pdfRentaGeneratorRecibo] HTML length:", html.length);
-    console.log(
-      "[pdfRentaGeneratorRecibo] Tiene notas:",
-      !!valeData.vale_renta_detalle?.[0]?.notas_adicionales?.trim(),
-    );
-    console.log(
-      "[pdfRentaGeneratorRecibo] Es renta por día:",
-      valeData.vale_renta_detalle?.[0]?.es_renta_por_dia,
-    );
-    console.log(
-      "[pdfRentaGeneratorRecibo] Computador presente:",
-      !!valeData.persona_completador,
-    );
 
     const { uri } = await Print.printToFileAsync({
       html,
@@ -319,17 +301,12 @@ export const generateAndShareRentaRecibo = async (
       width: 189,
     });
 
-    console.log("[pdfRentaGeneratorRecibo] URI generado:", uri);
     const renamedUri = await renamePDFWithAutoName(
       uri,
       valeData.folio,
       colorCopia,
     );
 
-    console.log(
-      "[pdfRentaGeneratorRecibo] PDF generado exitosamente:",
-      renamedUri,
-    );
 
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(renamedUri, {

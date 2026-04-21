@@ -40,7 +40,6 @@ export const useUserProfile = () => {
     }
 
     if (!isMounted.current) {
-      console.log("[useUserProfile] Componente desmontado, abortando");
       return null;
     }
 

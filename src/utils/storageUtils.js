@@ -23,11 +23,6 @@ export const clearSupabaseStorage = async () => {
 
     if (supabaseKeys.length > 0) {
       await AsyncStorage.multiRemove(supabaseKeys);
-      console.log(
-        "[storageUtils] ✅ Storage limpiado:",
-        supabaseKeys.length,
-        "claves"
-      );
       return supabaseKeys.length;
     }
 
@@ -61,7 +56,6 @@ export const getSupabaseKeys = async () => {
 export const clearStorageKey = async (key) => {
   try {
     await AsyncStorage.removeItem(key);
-    console.log("[storageUtils] ✅ Clave eliminada:", key);
   } catch (error) {
     console.error("[storageUtils] ❌ Error eliminando clave:", error);
     throw error;

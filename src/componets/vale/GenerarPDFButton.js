@@ -36,7 +36,6 @@ const GenerarPDFButton = ({
   disabled = false,
   autoTrigger = false,
 }) => {
-  console.log("[GenerarPDFButton] Componente montado");
 
   const [generating, setGenerating] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState(null);
@@ -47,7 +46,6 @@ const GenerarPDFButton = ({
   // Auto-trigger al montar el componente
   useEffect(() => {
     if (autoTrigger && !generating && !isSharing.current) {
-      console.log("[GenerarPDFButton] Auto-trigger activado");
       setShouldGeneratePDF(true);
     }
   }, []);
@@ -55,7 +53,6 @@ const GenerarPDFButton = ({
   // Compartir PDF cuando el QR esté listo
   useEffect(() => {
     if (qrDataUrl && shouldGeneratePDF && !isSharing.current) {
-      console.log("[GenerarPDFButton] QR listo, iniciando compartir");
       compartirPDF(qrDataUrl);
     }
   }, [qrDataUrl, shouldGeneratePDF]);
@@ -123,12 +120,10 @@ const GenerarPDFButton = ({
 
   const compartirPDF = async (qrUrl) => {
     if (isSharing.current) {
-      console.log("[GenerarPDFButton] Ya compartiendo, abortando");
       return;
     }
 
     try {
-      console.log("[GenerarPDFButton] Iniciando compartir PDF");
       isSharing.current = true;
 
       // Validar datos
@@ -144,16 +139,9 @@ const GenerarPDFButton = ({
       const generarFn =
         tipoVale === "renta" ? generateAndSharePDFRenta : generateAndSharePDF;
 
-      console.log(
-        "[GenerarPDFButton] Llamando a",
-        tipoVale === "renta"
-          ? "generateAndSharePDFRenta"
-          : "generateAndSharePDF",
-      );
 
       const uri = await generarFn(valeData, colorCopia, qrUrl);
 
-      console.log("[GenerarPDFButton] PDF generado:", uri);
 
       Alert.alert(
         "PDF Compartido",

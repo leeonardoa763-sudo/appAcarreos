@@ -39,17 +39,14 @@ const QRCodeGenerator = ({
 
     // Si ya se generó, no volver a generar
     if (hasGenerated.current) {
-      console.log("[QRCodeGenerator] QR ya generado, ignorando");
       return;
     }
 
-    console.log("[QRCodeGenerator] Iniciando generación QR");
 
     // Esperar a que el componente se monte y el QR se renderice
     timeoutRef.current = setTimeout(() => {
       // Doble verificación
       if (hasGenerated.current) {
-        console.log("[QRCodeGenerator] Ya generado (en timeout), abortando");
         return;
       }
 
@@ -66,9 +63,6 @@ const QRCodeGenerator = ({
         qrRef.current.toDataURL((dataURL) => {
           // Triple verificación antes de llamar callback
           if (hasGenerated.current) {
-            console.log(
-              "[QRCodeGenerator] Ya generado (en callback), abortando"
-            );
             return;
           }
 
@@ -88,7 +82,6 @@ const QRCodeGenerator = ({
           // Marcar como generado ANTES de llamar al callback
           hasGenerated.current = true;
 
-          console.log("[QRCodeGenerator] ✅ QR generado exitosamente");
 
           // Llamar al callback con el QR en base64
           if (onGenerated) {

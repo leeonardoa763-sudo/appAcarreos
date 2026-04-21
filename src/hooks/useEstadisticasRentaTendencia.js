@@ -203,21 +203,6 @@ export const useEstadisticasRentaTendencia = (
       domingo.setHours(23, 59, 59, 999);
 
       // LOGS TEMPORALES
-      console.log("[Tendencia Renta] Hoy local:", new Date().toString());
-      console.log(
-        "[Tendencia Renta] Lunes calculado (local):",
-        lunes.toString(),
-      );
-      console.log(
-        "[Tendencia Renta] Domingo calculado (local):",
-        domingo.toString(),
-      );
-      console.log(
-        "[Tendencia Renta] Rango UTC enviado a Supabase:",
-        lunes.toISOString(),
-        "→",
-        domingo.toISOString(),
-      );
 
       const data = await fetchVales(
         lunes.toISOString(),
@@ -225,14 +210,7 @@ export const useEstadisticasRentaTendencia = (
         true,
       );
 
-      console.log("[Tendencia Renta] Vales recibidos:", data.length);
       data.forEach((v) =>
-        console.log(
-          "  Vale:",
-          v.id_vale,
-          "| fecha_creacion:",
-          v.fecha_creacion,
-        ),
       );
 
       setValesSemanal(data);

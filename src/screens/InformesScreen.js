@@ -81,9 +81,6 @@ const InformesScreen = () => {
 
       // Validar que tengamos obras disponibles
       if (!obras || obras.length === 0) {
-        console.log(
-          "[InformesScreen] No hay obras disponibles para cargar semanas",
-        );
         setWeeksOptions([]);
         setLoadingWeeks(false);
         return;

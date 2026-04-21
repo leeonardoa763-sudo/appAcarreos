@@ -257,38 +257,8 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const notas = detalle.notas_adicionales?.trim() || null;
 
   // ─── LOGS DE DIAGNÓSTICO ──────────────────────────────────────────────────
-  console.log("=== PDF MATERIAL GENERANDO ===");
-  console.log("[PDF] Folio:", valeData.folio);
-  console.log("[PDF] Color copia:", colorCopia);
-  console.log("[PDF] Estado:", valeData.estado);
-  console.log("[PDF] --- DETALLE ---");
-  console.log("[PDF] material:", detalle.material?.material);
-  console.log("[PDF] banco:", detalle.bancos?.banco);
-  console.log("[PDF] capacidad:", capacidad);
-  console.log("[PDF] distancia_km:", detalle.distancia_km);
-  console.log("[PDF] volumen_real_m3:", detalle.volumen_real_m3);
-  console.log("[PDF] peso_ton:", detalle.peso_ton);
-  console.log("[PDF] folio_banco:", detalle.folio_banco);
-  console.log("[PDF] factorPesoVolumetrico:", factorPesoVolumetrico);
-  console.log("[PDF] --- VIAJES ---");
-  console.log("[PDF] viajes.length:", viajes.length);
   viajes.forEach((v, i) => {
-    console.log(`[PDF] viaje[${i}]:`, {
-      numero: v.numero_viaje,
-      remision: v.folio_vale_fisico,
-      peso_ton: v.peso_ton,
-      volumen_m3: v.volumen_m3,
-      hora: v.hora_registro,
-    });
   });
-  console.log("[PDF] --- PERSONAS ---");
-  console.log("[PDF] creador:", creador);
-  console.log("[PDF] completador:", completador);
-  console.log("[PDF] --- OBRA ---");
-  console.log("[PDF] obra:", obra);
-  console.log("[PDF] operador:", operador);
-  console.log("[PDF] placas:", placas);
-  console.log("==============================");
   // ─────────────────────────────────────────────────────────────────────────
 
   return `

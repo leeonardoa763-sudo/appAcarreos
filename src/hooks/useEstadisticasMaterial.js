@@ -130,15 +130,6 @@ export const useEstadisticasMaterial = (
       const { fechaInicio, fechaFin } = calcularRangoFechas();
 
       // ── LOG: parametros de la query ──
-      //   console.log("[useEstadisticasMaterial] ====== INICIO FETCH ======");
-      //   console.log("[useEstadisticasMaterial] Periodo:", periodo);
-      //   console.log("[useEstadisticasMaterial] ResidenteId:", residenteId);
-      //   console.log(
-      //     "[useEstadisticasMaterial] ObraId:",
-      //     obraId ?? "null (todas las obras)",
-      //   );
-      //   console.log("[useEstadisticasMaterial] Fecha inicio:", fechaInicio);
-      //   console.log("[useEstadisticasMaterial] Fecha fin:  ", fechaFin);
 
       let query = supabase
         .from("vales")
@@ -195,21 +186,10 @@ export const useEstadisticasMaterial = (
       // ── LOG: resultado raw ──
 
       if (resultados.length > 0) {
-        // console.log("[useEstadisticasMaterial] Ejemplo primer vale:", {
-        //   folio: resultados[0].folio,
-        //   fecha: resultados[0].fecha_creacion,
-        //   obra: resultados[0].obras?.obra,
-        //   estado: resultados[0].estado,
-        //   detalle: resultados[0].vale_material_detalles?.[0],
-        // });
 
         const obrasEnResultado = [
           ...new Set(resultados.map((v) => v.obras?.obra).filter(Boolean)),
         ];
-        console.log(
-          "[useEstadisticasMaterial] Obras distintas en resultado:",
-          obrasEnResultado,
-        );
 
         const materialesEnResultado = [
           ...new Set(
@@ -306,15 +286,7 @@ export const useEstadisticasMaterial = (
 
     const lista = Object.values(mapa).sort((a, b) => b.m3Total - a.m3Total);
 
-    // console.log(
-    //   "[useEstadisticasMaterial] Materiales agrupados:",
-    //   lista.length,
-    //   "tipos",
-    // );
     // lista.forEach((m) =>
-    //   console.log(
-    //     `  [Material] ${m.nombre}: ${m.m3Total.toFixed(2)} m3 | ${m.viajes} viajes`,
-    //   ),
     // );
 
     return lista;

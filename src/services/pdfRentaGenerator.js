@@ -51,19 +51,11 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
     valeData.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3 ?? "Pendiente";
   const numeroViajes = detalle.numero_viajes || 1;
 
-  console.log("[pdfRentaGenerator] Generando PDF para vale:", valeData.folio);
-  console.log("[pdfRentaGenerator] Detalle:", {
-    es_renta_por_dia: detalle.es_renta_por_dia,
-    total_horas: detalle.total_horas,
-    total_dias: detalle.total_dias,
-    hora_fin: detalle.hora_fin,
-  });
 
   // ✅ SIMPLIFICADO: Usar campo booleano directo
   const esRentaPorDia = detalle.es_renta_por_dia === true;
   const esRentaPorMedioDia = detalle.total_dias === 0.5;
 
-  console.log("[pdfRentaGenerator] Es renta por día:", esRentaPorDia);
 
   // Formatear horas
   const horaInicio = detalle.hora_inicio
@@ -106,14 +98,9 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
   let costoTotal;
   if (esRentaPorDia && precioRenta.costo_dia) {
     costoTotal = `$${parseFloat(precioRenta.costo_dia).toFixed(2)} MXN`;
-    console.log("[pdfRentaGenerator] Costo calculado por día:", costoTotal);
   } else if (esRentaPorMedioDia && precioRenta.costo_dia) {
     const costo = parseFloat(precioRenta.costo_dia) / 2;
     costoTotal = `$${costo.toFixed(2)} MXN`;
-    console.log(
-      "[pdfRentaGenerator] Costo calculado por medio día:",
-      costoTotal,
-    );
   } else if (
     !esRentaPorDia &&
     !esRentaPorMedioDia &&
@@ -123,7 +110,6 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
     const costo =
       parseFloat(precioRenta.costo_hr) * parseFloat(detalle.total_horas);
     costoTotal = `$${costo.toFixed(2)} MXN`;
-    console.log("[pdfRentaGenerator] Costo calculado por hora:", costoTotal);
   } else if (detalle.costo_total) {
     costoTotal = `$${parseFloat(detalle.costo_total).toFixed(2)} MXN`;
   } else {

@@ -23,11 +23,6 @@ export const useStatsFilteredData = (data, filters) => {
 
     if (!hayFiltros) return base;
 
-    console.log("[useStatsFilteredData] Filtrando...");
-    console.log("  materialId:", filters.materialId);
-    console.log("  sindicatoId:", filters.sindicatoId);
-    console.log("  valesMaterial entrada:", base.valesMaterial?.length);
-    console.log("  valesRenta entrada:", base.valesRenta?.length);
 
     let valesMaterial = [...(base.valesMaterial || [])];
     let valesRenta = [...(base.valesRenta || [])];
@@ -56,8 +51,6 @@ export const useStatsFilteredData = (data, filters) => {
       );
     }
 
-    console.log("  valesMaterial resultado:", valesMaterial.length);
-    console.log("  valesRenta resultado:", valesRenta.length);
 
     // ── Recalcular totales ───────────────────────────────────────────────────
     let totalM3 = 0;
