@@ -74,7 +74,6 @@ export const getReceiptBaseCSS = (bgColor) => {
     }
 
     .receipt-container {
-      min-height: 400mm;
       width: 100%;
       max-width: 50mm;
       background-color: ${bgColor} !important;
@@ -82,8 +81,6 @@ export const getReceiptBaseCSS = (bgColor) => {
       margin: 0 auto;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-      page-break-inside: avoid;
-      break-inside: avoid;
     }
     
     .receipt-header {

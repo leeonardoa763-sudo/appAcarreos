@@ -61,6 +61,12 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
   // Notas adicionales
   const notas = detalle.notas_adicionales?.trim() || null;
 
+  // Fotos de viajes (página 2)
+  const viajes = detalle.vale_material_viajes || [];
+  const viajesConFoto = viajes
+    .filter((v) => v.foto_evidencia_url)
+    .sort((a, b) => (a.numero_viaje || 0) - (b.numero_viaje || 0));
+
   if (tienePrecio) {
   } else {
   }
@@ -286,6 +292,33 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
           </div>
         </div>
       </div>
+
+      ${
+        viajesConFoto.length > 0
+          ? `
+      <!-- PÁGINA 2 — EVIDENCIAS FOTOGRÁFICAS -->
+      <div class="fotos-pagina">
+        <div class="header">
+          <h1>${empresa}</h1>
+          <h2>EVIDENCIAS FOTOGRAFICAS — ${valeData.folio}</h2>
+        </div>
+        <div class="section-title">FOTOS POR VIAJE (${viajesConFoto.length})</div>
+        <div class="fotos-grid">
+          ${viajesConFoto
+            .map(
+              (v) => `
+            <div class="foto-item">
+              <img src="${v.foto_evidencia_url}" class="foto-viaje" alt="Viaje ${v.numero_viaje}">
+              <div class="foto-caption">VIAJE ${v.numero_viaje}</div>
+            </div>
+          `
+            )
+            .join("")}
+        </div>
+      </div>
+      `
+          : ""
+      }
     </body>
     </html>
   `;

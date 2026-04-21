@@ -186,7 +186,7 @@ export const generarTicketMaterial = (vale) => {
 
       if (esTipo3) {
         const bancoNombre =
-          viaje.banco_override?.banco ?? detalle.bancos?.banco ?? "--";
+          viaje.bancos_override?.banco ?? detalle.bancos?.banco ?? "--";
         const distanciaKm =
           viaje.distancia_km_override ?? detalle.distancia_km ?? "--";
         const bancoCorto =

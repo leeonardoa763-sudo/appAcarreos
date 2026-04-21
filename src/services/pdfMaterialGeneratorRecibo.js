@@ -48,6 +48,53 @@ const formatFechaCorta = (isoString) => {
   });
 };
 
+// ─── CSS adicional para fotos de evidencia ───────────────────────────────────
+
+const getFotosEvidenciaCSS = () => `
+  .fotos-pagina {
+    page-break-before: always;
+    break-before: page;
+    width: 100%;
+    padding: 2mm;
+  }
+  .fotos-pagina-titulo {
+    text-align: center;
+    font-weight: bold;
+    font-size: 7px;
+    border-bottom: 0.5px solid #000;
+    padding-bottom: 1mm;
+    margin-bottom: 2mm;
+    text-transform: uppercase;
+  }
+  .fotos-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2mm;
+  }
+  .foto-item {
+    text-align: center;
+  }
+  .foto-viaje {
+    width: 100%;
+    height: 20mm;
+    object-fit: cover;
+    border: 0.3px solid #000;
+    display: block;
+  }
+  .foto-caption {
+    font-size: 4.5px;
+    margin-top: 0.5mm;
+    font-weight: bold;
+    color: #000;
+  }
+  .foto-meta {
+    font-size: 4px;
+    color: #333;
+    margin-top: 0.3mm;
+    line-height: 1.3;
+  }
+`;
+
 // ─── CSS adicional para tabla de viajes ───────────────────────────────────────
 
 const getTablaViajesCSS = () => `
@@ -140,7 +187,7 @@ const generarFilasViajes = (viajes, esTipo3, bancoDefault) => {
 
   return viajes
     .map((v) => {
-      const banco = v.banco_override?.banco ?? bancoDefault ?? "--";
+      const banco = v.bancos_override?.banco ?? bancoDefault ?? "--";
       const remision = v.folio_vale_fisico || "--";
       const tonelaje = v.peso_ton ? parseFloat(v.peso_ton).toFixed(2) : "--";
       const m3 = v.volumen_m3 ? parseFloat(v.volumen_m3).toFixed(2) : "--";
@@ -244,6 +291,9 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
 
   // Viajes registrados (vienen en vale_material_detalles[0].vale_material_viajes)
   const viajes = detalle.vale_material_viajes || [];
+  const viajesConFoto = viajes
+    .filter((v) => v.foto_evidencia_url)
+    .sort((a, b) => (a.numero_viaje || 0) - (b.numero_viaje || 0));
 
   // Datos de obra y empresa
   const cc = valeData.obras?.cc || "";
@@ -291,6 +341,7 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
       <style>
         ${getReceiptBaseCSS(bgColor)}
         ${getTablaViajesCSS()}
+        ${getFotosEvidenciaCSS()}
       </style>
     </head>
     <body>
@@ -466,6 +517,37 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
         </div>
 
       </div>
+
+      ${
+        viajesConFoto.length > 0
+          ? `
+      <!-- PÁGINA 2 — EVIDENCIAS FOTOGRÁFICAS -->
+      <div class="fotos-pagina">
+        <div class="fotos-pagina-titulo">
+          Evidencias — ${valeData.folio} (${viajesConFoto.length} foto${viajesConFoto.length !== 1 ? "s" : ""})
+        </div>
+        <div class="fotos-grid">
+          ${viajesConFoto
+            .map((v) => {
+              const horaFoto = v.hora_registro ? formatHora(v.hora_registro) : null;
+              const tieneGPS = v.latitud_registro && v.longitud_registro;
+              const lat = tieneGPS ? parseFloat(v.latitud_registro).toFixed(5) : null;
+              const lng = tieneGPS ? parseFloat(v.longitud_registro).toFixed(5) : null;
+              return `
+            <div class="foto-item">
+              <img src="${v.foto_evidencia_url}" class="foto-viaje" alt="Viaje ${v.numero_viaje}">
+              <div class="foto-caption">VIAJE ${v.numero_viaje}</div>
+              ${horaFoto ? `<div class="foto-meta">${horaFoto}</div>` : ""}
+              ${tieneGPS ? `<div class="foto-meta">${lat}, ${lng}</div>` : ""}
+            </div>
+          `;
+            })
+            .join("")}
+        </div>
+      </div>
+      `
+          : ""
+      }
     </body>
     </html>
   `;
