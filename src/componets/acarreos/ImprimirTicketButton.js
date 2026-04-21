@@ -106,23 +106,16 @@ const ImprimirTicketButton = ({
     async (dispositivo) => {
       try {
         setImprimiendo(true);
-        console.log(
-          `[BTN] Conectando a: ${dispositivo.name} | ${dispositivo.address}`,
-        );
         const device = await conectarImpresora(dispositivo.address);
-        console.log("[BTN] Conexion exitosa, generando ticket...");
         const lineas =
           valeData.tipo_vale === "renta"
             ? generarTicketRenta(valeData)
             : generarTicketMaterial(valeData);
-        console.log(`[BTN] Ticket generado con ${lineas.length} lineas`);
         await imprimirTicket(device, lineas);
-        console.log("[BTN] Impresion exitosa");
         await descontarImpresion();
         setMostrarModal(false);
         onImpreso?.();
       } catch (error) {
-        console.log(`[BTN] Error: ${error.message}`);
         Alert.alert("Error al imprimir", error.message);
       } finally {
         setImprimiendo(false);

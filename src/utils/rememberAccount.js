@@ -36,7 +36,6 @@ export const saveCredentials = async (email, password) => {
     await SecureStore.setItemAsync(KEYS.PASSWORD, password);
     await SecureStore.setItemAsync(KEYS.REMEMBER_ENABLED, "true");
 
-    console.log("[RememberAccount] ✅ Credenciales guardadas");
     return true;
   } catch (error) {
     console.error("[RememberAccount] ❌ Error guardando credenciales:", error);
@@ -85,7 +84,6 @@ export const clearCredentials = async () => {
     await SecureStore.deleteItemAsync(KEYS.PASSWORD);
     await SecureStore.deleteItemAsync(KEYS.REMEMBER_ENABLED);
 
-    console.log("[RememberAccount] ✅ Credenciales borradas");
     return true;
   } catch (error) {
     console.error("[RememberAccount] ❌ Error borrando credenciales:", error);
@@ -128,11 +126,6 @@ export const setRememberEnabled = async (enabled) => {
       await clearCredentials();
     }
 
-    console.log(
-      `[RememberAccount] ✅ Remember ${
-        enabled ? "habilitado" : "deshabilitado"
-      }`
-    );
     return true;
   } catch (error) {
     console.error("[RememberAccount] ❌ Error actualizando remember:", error);

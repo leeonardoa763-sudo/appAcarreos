@@ -11,8 +11,8 @@
  * - Redirigir a Login cuando no hay sesión
  *
  * ESTADOS MANEJADOS:
- * - Checking Version: Verificando versión de la app
- * - Version Outdated: Versión obsoleta, bloquear acceso
+ * - Checking Version: Verificando versión de la app 🆕
+ * - Version Outdated: Versión obsoleta, bloquear acceso 🆕
  * - Loading: Cargando sesión inicial
  * - Timeout: Carga excedió límite de tiempo
  * - No Profile: Usuario sin registro en BD
@@ -20,7 +20,7 @@
  * - Authenticated: Sesión válida, mostrar app
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   ActivityIndicator,
@@ -32,13 +32,9 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../hooks/useAuth";
 import LoginScreen from "../screens/LoginScreen";
-import UpdateRequiredScreen from "../screens/UpdateRequiredScreen";
+import UpdateRequiredScreen from "../screens/UpdateRequiredScreen"; // 🆕
 import { colors } from "../config/colors";
-import { checkAppVersion } from "../utils/versionChecker";
-import ErrorReportable from "../componets/common/ErrorReportable";
-
-// Tiempo máximo de espera antes de mostrar pantalla de timeout
-const LOADING_TIMEOUT_MS = 12000;
+import { checkAppVersion } from "../utils/versionChecker"; // 🆕
 
 const AuthGuard = ({ children }) => {
   const { user, userProfile, loading, profileError, isAuthenticated, signOut } =
@@ -46,86 +42,81 @@ const AuthGuard = ({ children }) => {
 
   const [isRetrying, setIsRetrying] = useState(false);
   const [timeoutDetected, setTimeoutDetected] = useState(false);
-  const [timeoutCode, setTimeoutCode] = useState(null);
 
-  // Estados para verificación de versión
+  // 🆕 Estados para verificación de versión
   const [checkingVersion, setCheckingVersion] = useState(true);
   const [versionInfo, setVersionInfo] = useState(null);
 
-  const timeoutRef = useRef(null);
-
-  // Verificar versión al montar
+  // 🆕 Verificar versión al montar el componente
   useEffect(() => {
     verifyAppVersion();
   }, []);
 
+  /**
+   * 🆕 Verifica la versión de la app
+   */
   const verifyAppVersion = async () => {
     try {
-      console.log("[AuthGuard] Verificando version de la app...");
+
       const versionCheck = await checkAppVersion();
 
       if (versionCheck.needsUpdate) {
-        console.log("[AuthGuard] Actualizacion requerida");
         setVersionInfo(versionCheck);
       } else {
-        console.log("[AuthGuard] Version valida");
         setVersionInfo(null);
       }
     } catch (error) {
-      console.error("[AuthGuard] Error verificando version:", error);
+      console.error("[AuthGuard] ❌ Error verificando versión:", error);
       setVersionInfo(null);
     } finally {
       setCheckingVersion(false);
     }
   };
 
-  // Detectar timeout si la carga tarda más de LOADING_TIMEOUT_MS
-  useEffect(() => {
+  // Detectar timeout si carga tarda más de 15 segundos
+  React.useEffect(() => {
     if (loading) {
-      // Limpiar timer anterior si existía
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-
-      timeoutRef.current = setTimeout(() => {
+      const timeoutTimer = setTimeout(() => {
         if (loading) {
-          const codigo = `AG-${Date.now().toString(36).toUpperCase().slice(-5)}`;
-          console.warn("[AuthGuard] Timeout detectado, codigo:", codigo);
-          setTimeoutCode(codigo);
           setTimeoutDetected(true);
         }
-      }, LOADING_TIMEOUT_MS);
-    } else {
-      // Loading terminó — limpiar todo
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      setTimeoutDetected(false);
-      setTimeoutCode(null);
-    }
+      }, 5000); // 15 segundos
 
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
+      return () => clearTimeout(timeoutTimer);
+    } else {
+      setTimeoutDetected(false);
+    }
   }, [loading]);
 
   /**
-   * Cierra sesión limpiamente y deja que AuthContext reinicie el flujo.
-   * Es la única forma confiable de "reintentar" en mobile.
+   * Intenta recargar la aplicación
    */
   const handleRetry = async () => {
     setIsRetrying(true);
     setTimeoutDetected(false);
-    setTimeoutCode(null);
 
     try {
-      await signOut();
+      // Recargar la app forzando re-render
+      window.location?.reload?.(); // Para web
+      // Para mobile, el loading se reiniciará automáticamente
     } catch (error) {
       console.error("[AuthGuard] Error en retry:", error);
     } finally {
-      setIsRetrying(false);
+      setTimeout(() => {
+        setIsRetrying(false);
+      }, 1000);
     }
   };
 
+  /**
+   * Cierra sesión y limpia todo
+   */
   const handleSignOut = () => {
     Alert.alert("Cerrar Sesión", "¿Deseas cerrar sesión y empezar de nuevo?", [
-      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Cancelar",
+        style: "cancel",
+      },
       {
         text: "Cerrar Sesión",
         style: "destructive",
@@ -133,16 +124,14 @@ const AuthGuard = ({ children }) => {
           try {
             await signOut();
             setTimeoutDetected(false);
-            setTimeoutCode(null);
           } catch (error) {
-            console.error("[AuthGuard] Error cerrando sesion:", error);
+            console.error("[AuthGuard] Error cerrando sesión:", error);
           }
         },
       },
     ]);
   };
-
-  // ─── PRIORIDAD 1: Cargando ────────────────────────────────────────────────
+  // PRIORIDAD 1: Auth o versión cargando (agrupar ambos loadings)
   if (checkingVersion || loading) {
     return (
       <View style={styles.centerContainer}>
@@ -153,36 +142,76 @@ const AuthGuard = ({ children }) => {
     );
   }
 
-  // ─── PRIORIDAD 2: Versión obsoleta ────────────────────────────────────────
-  if (versionInfo?.needsUpdate) {
+  // PRIORIDAD 2: Versión obsoleta (bloquear acceso)
+  if (versionInfo && versionInfo.needsUpdate) {
     return <UpdateRequiredScreen versionInfo={versionInfo} />;
   }
 
-  // ─── PRIORIDAD 3: Timeout ─────────────────────────────────────────────────
+  // PRIORIDAD 3: Timeout detectado
   if (timeoutDetected) {
     return (
-      <ErrorReportable
-        codigo={timeoutCode}
-        titulo="Tiempo de Espera Agotado"
-        mensaje="La app tardó demasiado en verificar tu sesión. Puede deberse a conexión lenta o problemas con el servidor."
-        detalle="timeout en AuthGuard durante carga de sesión"
-        icono="clock-alert-outline"
-        colorIcono={colors.warning}
-        onReintentar={handleRetry}
-        onSalir={handleSignOut}
-        textoReintentar="Reintentar"
-        textoSalir="Cerrar Sesión"
-        cargando={isRetrying}
-      />
+      <View style={styles.errorContainer}>
+        <MaterialCommunityIcons
+          name="clock-alert-outline"
+          size={80}
+          color={colors.warning}
+        />
+        <Text style={styles.errorTitle}>Tiempo de Espera Agotado</Text>
+        <Text style={styles.errorMessage}>
+          La aplicación está tardando más de lo esperado en cargar tus datos.
+        </Text>
+        <View style={styles.timeoutInfoBox}>
+          <MaterialCommunityIcons
+            name="information-outline"
+            size={20}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.timeoutInfoText}>
+            Esto puede deberse a:{"\n"}• Conexión a internet lenta{"\n"}•
+            Problemas con el servidor{"\n"}• Datos móviles limitados
+          </Text>
+        </View>
+        <View style={styles.timeoutActions}>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={handleRetry}
+            disabled={isRetrying}
+          >
+            <MaterialCommunityIcons
+              name={isRetrying ? "loading" : "refresh"}
+              size={20}
+              color="white"
+            />
+            <Text style={styles.retryButtonText}>
+              {isRetrying ? "Reintentando..." : "Reintentar"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.signOutButton}
+            onPress={handleSignOut}
+            disabled={isRetrying}
+          >
+            <MaterialCommunityIcons
+              name="logout"
+              size={20}
+              color={colors.danger}
+            />
+            <Text style={styles.signOutButtonText}>Cerrar Sesión</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.helpText}>
+          Si el problema persiste, intenta cerrar sesión y volver a iniciar
+        </Text>
+      </View>
     );
   }
 
-  // ─── PRIORIDAD 4: No autenticado ──────────────────────────────────────────
+  // PRIORIDAD 4: No autenticado
   if (!isAuthenticated) {
     return <LoginScreen />;
   }
 
-  // ─── PRIORIDAD 5: Usuario inactivo ────────────────────────────────────────
+  // PRIORIDAD 5: Usuario inactivo
   if (profileError?.code === "USUARIO_INACTIVO") {
     return (
       <View style={styles.errorContainer}>
@@ -221,28 +250,46 @@ const AuthGuard = ({ children }) => {
     );
   }
 
-  // ─── PRIORIDAD 6: Sin perfil en BD ────────────────────────────────────────
+  // PRIORIDAD 6: Sin perfil en BD
   if (profileError) {
-    const codigoPerfil = `PF-${Date.now().toString(36).toUpperCase().slice(-5)}`;
     return (
-      <ErrorReportable
-        codigo={codigoPerfil}
-        titulo="Perfil No Encontrado"
-        mensaje={
-          profileError.code === "NO_PROFILE"
+      <View style={styles.errorContainer}>
+        <MaterialCommunityIcons
+          name="account-alert"
+          size={80}
+          color={colors.danger}
+        />
+        <Text style={styles.errorTitle}>Perfil No Encontrado</Text>
+        <Text style={styles.errorMessage}>
+          {profileError.code === "NO_PROFILE"
             ? profileError.message
-            : "No se pudo cargar tu perfil de usuario."
-        }
-        detalle={`profileError.code: ${profileError.code || "desconocido"} | user: ${user?.id || "null"}`}
-        icono="account-alert"
-        colorIcono={colors.danger}
-        onSalir={handleSignOut}
-        textoSalir="Cerrar Sesión"
-      />
+            : "No se pudo cargar tu perfil de usuario."}
+        </Text>
+        {user?.email && (
+          <View style={styles.userInfoBox}>
+            <Text style={styles.userInfoLabel}>Email de sesión:</Text>
+            <Text style={styles.userInfoValue}>{user.email}</Text>
+            <Text style={styles.userInfoLabel}>User ID:</Text>
+            <Text style={styles.userInfoValue}>{user.id}</Text>
+          </View>
+        )}
+        <Text style={styles.errorHelp}>
+          Contacta al administrador para que vincule tu usuario con un perfil de
+          residente o administrador.
+        </Text>
+        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+          <MaterialCommunityIcons
+            name="logout"
+            size={20}
+            color={colors.danger}
+          />
+          <Text style={styles.signOutButtonText}>Cerrar Sesión</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
-  // ─── Usuario autenticado con perfil — mostrar app ─────────────────────────
+  // Usuario autenticado con perfil - mostrar app
   return <>{children}</>;
 };
 
@@ -353,6 +400,18 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontStyle: "italic",
   },
+  troubleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 24,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  troubleText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginLeft: 6,
+  },
   userInfoBox: {
     backgroundColor: colors.surface,
     padding: 16,
@@ -377,28 +436,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 24,
     lineHeight: 20,
-  },
-  errorCodeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 10,
-  },
-  errorCodeLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  errorCodeValue: {
-    fontSize: 13,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-    letterSpacing: 1,
   },
 });
 

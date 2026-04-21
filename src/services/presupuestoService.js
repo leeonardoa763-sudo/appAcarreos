@@ -20,7 +20,6 @@ export const fetchPresupuestoMaterial = async (id_obra, id_material) => {
     .eq("activo", true)
     .maybeSingle();
 
-  console.log("[presupuestoService] data:", data, "error:", error);
 
   if (error) throw error;
   return data;

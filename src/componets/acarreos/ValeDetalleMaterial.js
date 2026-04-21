@@ -231,15 +231,6 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           .eq("id_detalle_material", detalleMaterial.id_detalle_material);
       }
 
-      console.log("[ValeDetalleMaterial] Guardado en Supabase OK");
-      console.log(
-        "[ValeDetalleMaterial] Operador guardado:",
-        selectedOperador?.nombre_completo,
-      );
-      console.log(
-        "[ValeDetalleMaterial] Placas guardadas:",
-        selectedVehiculo?.placas,
-      );
 
       setValeLocal({
         ...vale,
@@ -253,9 +244,6 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         },
       });
 
-      console.log(
-        "[ValeDetalleMaterial] valeLocal actualizado con operador y placas",
-      );
       setDatosPendientesGuardados(true);
     } catch (error) {
       console.error(

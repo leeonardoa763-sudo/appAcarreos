@@ -18,11 +18,9 @@ import { getWeekDateRange, getWeeksFromVales } from "../../utils/dateUtils";
 export const fetchWeeksWithVales = async (obrasIds) => {
   try {
     if (!obrasIds || obrasIds.length === 0) {
-      console.log("[valesQueries] No hay obras para buscar semanas");
       return [];
     }
 
-    console.log("[valesQueries] Buscando semanas para obras:", obrasIds);
 
     const { data, error } = await supabase
       .from("vales_con_semanas")
@@ -36,11 +34,9 @@ export const fetchWeeksWithVales = async (obrasIds) => {
     }
 
     if (!data || data.length === 0) {
-      console.log("[valesQueries] No se encontraron vales con semanas");
       return [];
     }
 
-    console.log("[valesQueries] ✅ Registros encontrados:", data.length);
 
     // Agrupar por semana
     const semanasUnicas = new Map();
@@ -54,10 +50,6 @@ export const fetchWeeksWithVales = async (obrasIds) => {
       }
     });
 
-    console.log(
-      "[valesQueries] ✅ Semanas únicas encontradas:",
-      semanasUnicas.size,
-    );
 
     return getWeeksFromVales(
       Array.from(semanasUnicas.values()).map((s) => ({

@@ -138,10 +138,6 @@ export const getVersionConfig = async () => {
 export const checkAppVersion = async () => {
   const currentVersion = getCurrentAppVersion();
 
-  console.log(
-    "[versionChecker] 🔍 Verificando versión actual:",
-    currentVersion,
-  );
 
   // Obtener configuración de versiones
   const config = await getVersionConfig();
@@ -176,12 +172,6 @@ export const checkAppVersion = async () => {
   // Verificar si hay versión más nueva disponible
   const isOutdated = compareVersions(currentVersion, version_actual) < 0;
 
-  console.log("[versionChecker] 📊 Resultado:");
-  console.log("  - Versión actual:", currentVersion);
-  console.log("  - Versión mínima:", version_minima);
-  console.log("  - Versión disponible:", version_actual);
-  console.log("  - Necesita actualización forzada:", needsUpdate);
-  console.log("  - Hay versión más nueva:", isOutdated);
 
   return {
     needsUpdate,

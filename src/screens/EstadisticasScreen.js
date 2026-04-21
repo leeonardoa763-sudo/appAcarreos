@@ -71,7 +71,6 @@ const EstadisticasScreen = () => {
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleSeleccionarObra = (id) => {
-    console.log("[EstadisticasScreen] Obra seleccionada:", id ?? "TODAS");
     setObraId(id);
     setModalObrasVisible(false);
   };

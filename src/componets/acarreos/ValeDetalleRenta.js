@@ -170,20 +170,12 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         {
           text: "Continuar",
           onPress: () => {
-            console.log(
-              "[ReimprimirPDF] Iniciando reimpresion con vale:",
-              vale?.folio,
-            );
             marcarReimprimido();
             // Usar vale directo si updatedVale no existe (modal reabierto)
             if (!updatedVale) {
-              console.log(
-                "[ReimprimirPDF] updatedVale vacio, usando vale prop",
-              );
               setUpdatedVale(vale);
             }
             setTimeout(() => {
-              console.log("[ReimprimirPDF] Activando triggerPDF");
               setTriggerPDF(true);
             }, 100);
           },
@@ -728,9 +720,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             colorCopia="blanco"
             autoTrigger={true}
             onSuccess={() => {
-              console.log(
-                "[ValeDetalleRenta] PDF compartido, abriendo modal de impresión",
-              );
               setTriggerPDF(false);
               setValeParaImpresion(updatedVale);
               setShowModalImpresion(true);
@@ -743,13 +732,11 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         visible={showModalImpresion}
         valeData={valeParaImpresion}
         onImpreso={() => {
-          console.log("[ValeDetalleRenta] Ticket impreso, cerrando flujo");
           setShowModalImpresion(false);
           setValeParaImpresion(null);
           handleCloseSuccess();
         }}
         onSinImpresora={() => {
-          console.log("[ValeDetalleRenta] Sin impresora, cerrando flujo");
           setShowModalImpresion(false);
           setValeParaImpresion(null);
           handleCloseSuccess();

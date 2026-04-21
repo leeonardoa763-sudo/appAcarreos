@@ -46,10 +46,8 @@ export const solicitarPermisos = async () => {
 export const verificarBluetooth = async () => {
   try {
     const habilitado = await RNBluetoothClassic.isBluetoothEnabled();
-    console.log(`[BT] Bluetooth habilitado: ${habilitado}`);
     return habilitado;
   } catch (error) {
-    console.log(`[BT] Error verificarBluetooth: ${error.message}`);
     throw new Error("No se pudo verificar el estado del Bluetooth");
   }
 };
@@ -69,16 +67,12 @@ const withTimeout = (
 
 export const escanearImpresoras = async () => {
   try {
-    console.log("[SCAN] Obteniendo dispositivos vinculados...");
 
     const permisosOk = await solicitarPermisos();
-    console.log(`[SCAN] Permisos Bluetooth: ${permisosOk}`);
     if (!permisosOk) throw new Error("Permisos Bluetooth denegados");
 
     const dispositivos = await RNBluetoothClassic.getBondedDevices();
-    console.log(`[SCAN] Dispositivos vinculados: ${dispositivos.length}`);
     dispositivos.forEach((d) =>
-      console.log(`[SCAN]   - ${d.name} | ${d.address}`),
     );
 
     return dispositivos.map((d) => ({
@@ -87,25 +81,19 @@ export const escanearImpresoras = async () => {
       name: d.name || "Impresora sin nombre",
     }));
   } catch (error) {
-    console.log(`[SCAN] Error: ${error.message}`);
     throw new Error("No se pudieron obtener los dispositivos vinculados");
   }
 };
 
 export const conectarImpresora = async (address) => {
   try {
-    console.log(`[CONNECT] Conectando a: ${address}`);
     const dispositivo = await withTimeout(
       RNBluetoothClassic.connectToDevice(address),
       12000,
       "La impresora no respondio. Verifica que este encendida y en rango.",
     );
-    console.log("[CONNECT] Conexion exitosa");
     return dispositivo;
   } catch (error) {
-    console.log(`[CONNECT] Error completo: ${JSON.stringify(error)}`);
-    console.log(`[CONNECT] Error message: ${error.message}`);
-    console.log(`[CONNECT] Error code: ${error.code}`);
     throw new Error(error.message || "No se pudo conectar a la impresora");
   }
 };
@@ -142,7 +130,6 @@ const formatearColumnas = (textos, anchos) => {
 
 export const imprimirTicket = async (dispositivo, lineas) => {
   try {
-    console.log("[PRINT] Generando buffer de impresion...");
     const buffer = [];
 
     buffer.push(...ESCPOS.INIT);
@@ -182,19 +169,15 @@ export const imprimirTicket = async (dispositivo, lineas) => {
     buffer.push(...ESCPOS.LINE_FEED);
     buffer.push(...ESCPOS.CUT);
 
-    console.log(`[PRINT] Enviando ${buffer.length} bytes...`);
     const base64 = btoa(String.fromCharCode(...buffer));
     await withTimeout(
       dispositivo.write(base64, "base64"),
       10000,
       "La impresora no respondio al enviar datos. Verifica que tenga papel y este lista.",
     );
-    console.log("[PRINT] Impresion completada");
 
     return true;
   } catch (error) {
-    console.log(`[PRINT] Error completo: ${JSON.stringify(error)}`);
-    console.log(`[PRINT] Error message: ${error.message}`);
     throw new Error(
       "Error al imprimir. Verifica la conexion con la impresora.",
     );

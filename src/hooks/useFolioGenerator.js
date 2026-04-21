@@ -8,7 +8,6 @@ import { supabase } from "../config/supabase";
 
 export const useFolioGenerator = () => {
   const generateFolio = async (obraData) => {
-    console.log("[useFolioGenerator] ========== INICIO ==========");
 
     try {
       // Validación de obra
@@ -26,11 +25,6 @@ export const useFolioGenerator = () => {
       const cc = obraData.cc;
       const idObra = obraData.id_obra;
 
-      console.log("[useFolioGenerator] Datos de obra:", {
-        sufijo,
-        cc,
-        idObra,
-      });
 
       if (!sufijo) {
         console.error("[useFolioGenerator] Sufijo no disponible");
@@ -48,10 +42,8 @@ export const useFolioGenerator = () => {
       }
 
       const prefijoFolio = `${sufijo}-${cc}-`;
-      console.log("[useFolioGenerator] Prefijo generado:", prefijoFolio);
 
       // Consultar último folio
-      console.log("[useFolioGenerator] Consultando último folio...");
 
       const { data, error } = await supabase
 
@@ -71,10 +63,6 @@ export const useFolioGenerator = () => {
 
       if (data && data.length > 0) {
         const ultimoFolio = data[0].folio;
-        console.log(
-          "[useFolioGenerator] Último folio encontrado:",
-          ultimoFolio,
-        );
 
         // Extraer el número del folio (última parte después del último guion)
         const partes = ultimoFolio.split("-");
@@ -82,26 +70,15 @@ export const useFolioGenerator = () => {
           const ultimoNumero = parseInt(partes[partes.length - 1], 10);
           if (!isNaN(ultimoNumero)) {
             nuevoNumero = ultimoNumero + 1;
-            console.log(
-              "[useFolioGenerator] Último número:",
-              ultimoNumero,
-              "→ Nuevo número:",
-              nuevoNumero,
-            );
           }
         }
       } else {
-        console.log(
-          "[useFolioGenerator] No hay folios previos, iniciando en 00001",
-        );
       }
 
       // Formatear número con 5 dígitos (padding con ceros)
       const numeroFormateado = String(nuevoNumero).padStart(5, "0");
       const folioGenerado = `${prefijoFolio}${numeroFormateado}`;
 
-      console.log("[useFolioGenerator] Folio generado:", folioGenerado);
-      console.log("[useFolioGenerator] ========== FIN ==========");
 
       return folioGenerado;
     } catch (error) {

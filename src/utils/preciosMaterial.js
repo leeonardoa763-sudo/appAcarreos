@@ -34,9 +34,6 @@ import { supabase } from "../config/supabase";
  * @returns {number} - Precio por m³ calculado
  */
 export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
-  console.log("[preciosMaterial] Iniciando cálculo de precio");
-  console.log("[preciosMaterial] Distancia:", distanciaKm, "km");
-  console.log("[preciosMaterial] Tarifa:", JSON.stringify(precioMaterial));
 
   const distancia = parseFloat(distanciaKm);
   const primerKm = parseFloat(precioMaterial.primer_km);
@@ -57,14 +54,9 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
   }
 
   let precioTotal = primerKm;
-  console.log("[preciosMaterial] Precio base (primer km):", precioTotal);
 
   // Si solo hay 1 km de distancia, devolver solo el primer km
   if (distancia === 1) {
-    console.log(
-      "[preciosMaterial] Distancia de 1km, precio final:",
-      precioTotal
-    );
     return precioTotal;
   }
 
@@ -75,14 +67,6 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
       ? parseFloat(precioMaterial.limite_int1)
       : null;
 
-    console.log(
-      "[preciosMaterial] Intervalo 1 - Tarifa subsecuente:",
-      kmSubInt1
-    );
-    console.log(
-      "[preciosMaterial] Intervalo 1 - Límite:",
-      limiteInt1 === null ? "SIN LÍMITE" : limiteInt1 + " km"
-    );
 
     if (isNaN(kmSubInt1)) {
       console.error(
@@ -95,16 +79,6 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
     if (limiteInt1 === null) {
       const kmAdicionales = distancia - 1;
       precioTotal += kmAdicionales * kmSubInt1;
-      console.log("[preciosMaterial] Intervalo 1 SIN LÍMITE aplicado");
-      console.log("[preciosMaterial] Km adicionales:", kmAdicionales);
-      console.log(
-        "[preciosMaterial] Costo adicional:",
-        (kmAdicionales * kmSubInt1).toFixed(2)
-      );
-      console.log(
-        "[preciosMaterial] Precio total final:",
-        precioTotal.toFixed(2)
-      );
       return precioTotal;
     }
 
@@ -113,29 +87,12 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
       // La distancia está dentro del intervalo 1
       const kmAdicionales = distancia - 1;
       precioTotal += kmAdicionales * kmSubInt1;
-      console.log("[preciosMaterial] Distancia dentro de límite intervalo 1");
-      console.log("[preciosMaterial] Km adicionales:", kmAdicionales);
-      console.log(
-        "[preciosMaterial] Costo adicional:",
-        (kmAdicionales * kmSubInt1).toFixed(2)
-      );
-      console.log(
-        "[preciosMaterial] Precio total final:",
-        precioTotal.toFixed(2)
-      );
       return precioTotal;
     } else {
       // La distancia supera el intervalo 1, aplicar completo
       const kmInt1 = limiteInt1 - 1;
       const costoInt1 = kmInt1 * kmSubInt1;
       precioTotal += costoInt1;
-      console.log("[preciosMaterial] Intervalo 1 completo aplicado");
-      console.log("[preciosMaterial] Km intervalo 1:", kmInt1);
-      console.log("[preciosMaterial] Costo intervalo 1:", costoInt1.toFixed(2));
-      console.log(
-        "[preciosMaterial] Subtotal después int1:",
-        precioTotal.toFixed(2)
-      );
     }
   }
 
@@ -147,14 +104,6 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
       ? parseFloat(precioMaterial.limite_int2)
       : null;
 
-    console.log(
-      "[preciosMaterial] Intervalo 2 - Tarifa subsecuente:",
-      kmSubInt2
-    );
-    console.log(
-      "[preciosMaterial] Intervalo 2 - Límite:",
-      limiteInt2 === null ? "SIN LÍMITE" : limiteInt2 + " km"
-    );
 
     if (isNaN(kmSubInt2)) {
       console.error(
@@ -167,16 +116,6 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
     if (limiteInt2 === null) {
       const kmAdicionales = distancia - limiteInt1;
       precioTotal += kmAdicionales * kmSubInt2;
-      console.log("[preciosMaterial] Intervalo 2 SIN LÍMITE aplicado");
-      console.log("[preciosMaterial] Km adicionales int2:", kmAdicionales);
-      console.log(
-        "[preciosMaterial] Costo adicional int2:",
-        (kmAdicionales * kmSubInt2).toFixed(2)
-      );
-      console.log(
-        "[preciosMaterial] Precio total final:",
-        precioTotal.toFixed(2)
-      );
       return precioTotal;
     }
 
@@ -185,42 +124,16 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
       // La distancia está dentro del intervalo 2
       const kmAdicionales = distancia - limiteInt1;
       precioTotal += kmAdicionales * kmSubInt2;
-      console.log("[preciosMaterial] Distancia dentro de límite intervalo 2");
-      console.log("[preciosMaterial] Km adicionales int2:", kmAdicionales);
-      console.log(
-        "[preciosMaterial] Costo adicional int2:",
-        (kmAdicionales * kmSubInt2).toFixed(2)
-      );
-      console.log(
-        "[preciosMaterial] Precio total final:",
-        precioTotal.toFixed(2)
-      );
       return precioTotal;
     } else {
       // La distancia supera el intervalo 2
       const kmInt2 = limiteInt2 - limiteInt1;
       const costoInt2 = kmInt2 * kmSubInt2;
       precioTotal += costoInt2;
-      console.log("[preciosMaterial] Intervalo 2 completo aplicado");
-      console.log("[preciosMaterial] Km intervalo 2:", kmInt2);
-      console.log("[preciosMaterial] Costo intervalo 2:", costoInt2.toFixed(2));
 
       // Distancia excede ambos límites, usar última tarifa
       const kmAdicionales = distancia - limiteInt2;
       precioTotal += kmAdicionales * kmSubInt2;
-      console.log("[preciosMaterial] Distancia excede todos los límites");
-      console.log(
-        "[preciosMaterial] Km adicionales después de int2:",
-        kmAdicionales
-      );
-      console.log(
-        "[preciosMaterial] Costo adicional (tarifa int2):",
-        (kmAdicionales * kmSubInt2).toFixed(2)
-      );
-      console.log(
-        "[preciosMaterial] Precio total final:",
-        precioTotal.toFixed(2)
-      );
     }
   }
 
@@ -235,9 +148,6 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
  * @returns {Promise<object|null>} - Objeto con datos de precios_material o null
  */
 export const obtenerTarifaMaterial = async (idTipoMaterial, idSindicato) => {
-  console.log("[preciosMaterial] Buscando tarifa en BD");
-  console.log("[preciosMaterial] Tipo material ID:", idTipoMaterial);
-  console.log("[preciosMaterial] Sindicato ID:", idSindicato);
 
   try {
     const { data, error } = await supabase
@@ -262,10 +172,6 @@ export const obtenerTarifaMaterial = async (idTipoMaterial, idSindicato) => {
       return null;
     }
 
-    console.log(
-      "[preciosMaterial] Tarifa encontrada ID:",
-      data.id_precios_material
-    );
     return data;
   } catch (error) {
     console.error("[preciosMaterial] Error obteniendo tarifa:", error.message);
@@ -287,13 +193,6 @@ export const calcularCostoValeMaterial = async (
   distanciaKm,
   cantidadM3
 ) => {
-  console.log("[preciosMaterial] ========================================");
-  console.log("[preciosMaterial] INICIANDO CALCULO DE COSTO VALE");
-  console.log("[preciosMaterial] Parámetros recibidos:");
-  console.log("[preciosMaterial] - Tipo Material ID:", idTipoMaterial);
-  console.log("[preciosMaterial] - Sindicato ID:", idSindicato);
-  console.log("[preciosMaterial] - Distancia:", distanciaKm, "km");
-  console.log("[preciosMaterial] - Cantidad:", cantidadM3, "m³");
 
   // Obtener tarifa
   const tarifa = await obtenerTarifaMaterial(idTipoMaterial, idSindicato);
@@ -327,23 +226,6 @@ export const calcularCostoValeMaterial = async (
     tarifaSubsecuente = tarifa.km_sub_int2;
   }
 
-  console.log("[preciosMaterial] ========================================");
-  console.log("[preciosMaterial] RESULTADO FINAL:");
-  console.log(
-    "[preciosMaterial] - Tarifa 1er km:",
-    "$" + parseFloat(tarifa.primer_km).toFixed(2)
-  );
-  console.log(
-    "[preciosMaterial] - Tarifa subsecuente:",
-    "$" + parseFloat(tarifaSubsecuente).toFixed(2)
-  );
-  console.log("[preciosMaterial] - Precio por m³:", "$" + precioM3.toFixed(2));
-  console.log("[preciosMaterial] - Costo total:", "$" + costoTotal.toFixed(2));
-  console.log(
-    "[preciosMaterial] - ID Tarifa usada:",
-    tarifa.id_precios_material
-  );
-  console.log("[preciosMaterial] ========================================");
 
   return {
     precioM3: parseFloat(precioM3.toFixed(2)),

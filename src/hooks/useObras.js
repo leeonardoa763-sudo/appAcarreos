@@ -18,7 +18,6 @@ export const useObras = (personaId) => {
    */
   const fetchObras = useCallback(async () => {
     if (!personaId) {
-      console.log("[useObras] No hay personaId disponible");
       setObras([]);
       setLoading(false);
       return;
@@ -28,7 +27,6 @@ export const useObras = (personaId) => {
       setLoading(true);
       setError(null);
 
-      console.log("[useObras] Obteniendo obras para persona:", personaId);
 
       // Obtener obras SOLO desde persona_obra con relaciones
       const { data: personaObrasData, error: personaObrasError } =
@@ -60,7 +58,6 @@ export const useObras = (personaId) => {
       }
 
       if (!personaObrasData || personaObrasData.length === 0) {
-        console.log("[useObras] No se encontraron obras asignadas");
         setObras([]);
         setLoading(false);
         return;
@@ -88,10 +85,6 @@ export const useObras = (personaId) => {
         })
         .filter(Boolean); // Eliminar valores null
 
-      console.log(
-        "[useObras] Obras obtenidas exitosamente:",
-        obrasFormateadas.length,
-      );
       setObras(obrasFormateadas);
     } catch (err) {
       console.error("[useObras] Error al obtener obras:", err);
@@ -113,7 +106,6 @@ export const useObras = (personaId) => {
    * Útil para pull-to-refresh o actualización tras cambios
    */
   const refetch = useCallback(() => {
-    console.log("[useObras] Recarga manual solicitada");
     return fetchObras();
   }, [fetchObras]);
 

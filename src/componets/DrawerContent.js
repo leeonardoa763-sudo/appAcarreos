@@ -55,9 +55,6 @@ const DrawerContent = (props) => {
                 [{ text: "Entendido" }],
               );
 
-              console.log(
-                "[DrawerContent] ✅ Credenciales borradas exitosamente",
-              );
             } catch (error) {
               console.error(
                 "[DrawerContent] ❌ Error borrando credenciales:",
@@ -87,9 +84,6 @@ const DrawerContent = (props) => {
         onPress: async () => {
           props.navigation.closeDrawer();
           await signOut();
-          console.log(
-            "[DrawerContent] Logout completado, AuthGuard redirigirá a Login",
-          );
         },
       },
     ]);

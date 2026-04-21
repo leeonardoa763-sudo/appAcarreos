@@ -62,8 +62,6 @@ export const useValesExport = (obrasAsignadas = []) => {
     }
 
     const ids = obrasAsignadas.map((obra) => obra.id).filter(Boolean);
-    console.log("[useValesExport] 🏗️ IDs de obras a exportar:", ids);
-    console.log("[useValesExport] 🏗️ Total de obras:", ids.length);
     return ids;
   };
 
@@ -81,7 +79,6 @@ export const useValesExport = (obrasAsignadas = []) => {
       return [];
     }
 
-    console.log("[useValesExport] Buscando semanas para obras:", obrasIds);
     return await fetchWeeksQuery(obrasIds);
   };
 
@@ -90,7 +87,6 @@ export const useValesExport = (obrasAsignadas = []) => {
    * MODIFICADO: Exporta de todas las obras asignadas
    */
   const exportMaterialCSV = async (weekNumber, year) => {
-    console.log("[useValesExport] === INICIO EXPORTACIÓN MATERIAL ===");
     try {
       setLoading(true);
       setError(null);
@@ -105,14 +101,10 @@ export const useValesExport = (obrasAsignadas = []) => {
         return false;
       }
 
-      console.log("[useValesExport] 1️⃣ Fetching vales de material...");
-      console.log("[useValesExport] Semana:", weekNumber, "Año:", year);
-      console.log("[useValesExport] Obras IDs:", obrasIds);
 
       const vales = await fetchValesMaterial(weekNumber, year, obrasIds);
 
       if (!vales || vales.length === 0) {
-        console.log("[useValesExport] ⚠️ No hay vales para exportar");
         Alert.alert(
           "Sin Datos",
           `No se encontraron vales de material emitidos para la Semana ${weekNumber} del ${year}`,
@@ -122,21 +114,13 @@ export const useValesExport = (obrasAsignadas = []) => {
         return false;
       }
 
-      console.log(
-        "[useValesExport] 2️⃣ Transformando",
-        vales.length,
-        "vales...",
-      );
       const transformedData = transformMaterialData(vales);
 
-      console.log("[useValesExport] 3️⃣ Convirtiendo a CSV...");
       const csvContent = convertToCSV(transformedData, MATERIAL_HEADERS);
 
-      console.log("[useValesExport] 4️⃣ Compartiendo CSV...");
       const filename = `vales_material_semana${weekNumber}_${year}.csv`;
       await saveAndShareCSV(csvContent, filename);
 
-      console.log("[useValesExport] ✅ Exportación completada");
 
       // Mostrar mensaje con cantidad de obras incluidas
       const obrasNombres = obrasAsignadas.map((o) => o.nombre).join(", ");
@@ -166,7 +150,6 @@ export const useValesExport = (obrasAsignadas = []) => {
       );
       return false;
     } finally {
-      console.log("[useValesExport] === FIN EXPORTACIÓN MATERIAL ===");
     }
   };
 
@@ -175,7 +158,6 @@ export const useValesExport = (obrasAsignadas = []) => {
    * MODIFICADO: Exporta de todas las obras asignadas
    */
   const exportRentaCSV = async (weekNumber, year) => {
-    console.log("[useValesExport] === INICIO EXPORTACIÓN RENTA ===");
     try {
       setLoading(true);
       setError(null);
@@ -190,14 +172,10 @@ export const useValesExport = (obrasAsignadas = []) => {
         return false;
       }
 
-      console.log("[useValesExport] 1️⃣ Fetching vales de renta...");
-      console.log("[useValesExport] Semana:", weekNumber, "Año:", year);
-      console.log("[useValesExport] Obras IDs:", obrasIds);
 
       const vales = await fetchValesRenta(weekNumber, year, obrasIds);
 
       if (!vales || vales.length === 0) {
-        console.log("[useValesExport] ⚠️ No hay vales para exportar");
         Alert.alert(
           "Sin Datos",
           `No se encontraron vales de renta emitidos para la Semana ${weekNumber} del ${year}`,
@@ -207,21 +185,13 @@ export const useValesExport = (obrasAsignadas = []) => {
         return false;
       }
 
-      console.log(
-        "[useValesExport] 2️⃣ Transformando",
-        vales.length,
-        "vales...",
-      );
       const transformedData = transformRentaData(vales);
 
-      console.log("[useValesExport] 3️⃣ Convirtiendo a CSV...");
       const csvContent = convertToCSV(transformedData, RENTA_HEADERS);
 
-      console.log("[useValesExport] 4️⃣ Compartiendo CSV...");
       const filename = `vales_renta_semana${weekNumber}_${year}.csv`;
       await saveAndShareCSV(csvContent, filename);
 
-      console.log("[useValesExport] ✅ Exportación completada");
 
       // Mostrar mensaje con cantidad de obras incluidas
       const obrasNombres = obrasAsignadas.map((o) => o.nombre).join(", ");
@@ -251,7 +221,6 @@ export const useValesExport = (obrasAsignadas = []) => {
       );
       return false;
     } finally {
-      console.log("[useValesExport] === FIN EXPORTACIÓN RENTA ===");
     }
   };
 

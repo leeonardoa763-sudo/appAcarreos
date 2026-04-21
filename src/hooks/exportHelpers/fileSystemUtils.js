@@ -5,7 +5,7 @@
  * Si FileSystem falla, usamos Print para inicializarlo
  */
 
-import * as FileSystem from "expo-file-system/legacy"; // ✅ CAMBIO AQUÍ
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
 
@@ -62,8 +62,6 @@ export const shareCSVFile = async (csvContent, filename) => {
     await FileSystem.writeAsStringAsync(fileUri, csvWithBOM, {
       encoding: FileSystem.EncodingType.UTF8,
     });
-
-    console.log("[fileSystemUtils] ✅ Archivo creado");
 
     // Verificar que existe
     const fileInfo = await FileSystem.getInfoAsync(fileUri);

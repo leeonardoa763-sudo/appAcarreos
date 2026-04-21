@@ -151,8 +151,6 @@ export const validateHoraInicioNoFutura = (hora) => {
   if (!hora) return "La hora de inicio es requerida";
 
   const ahora = new Date();
-  console.log("[ValidarHora] hora recibida:", hora.toISOString());
-  console.log("[ValidarHora] ahora:", ahora.toISOString());
 
   const fechaHora = new Date(
     hora.getFullYear(),
@@ -165,25 +163,12 @@ export const validateHoraInicioNoFutura = (hora) => {
     ahora.getDate(),
   );
   const diffDias = Math.round((fechaHora - fechaHoy) / (1000 * 60 * 60 * 24));
-  console.log("[ValidarHora] diffDias:", diffDias);
 
   if (diffDias < 0) return "No puedes crear vales con fecha pasada";
   if (diffDias > 0) return null;
 
   const minutosHora = hora.getHours() * 60 + hora.getMinutes();
   const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
-  console.log(
-    "[ValidarHora] minutosHora:",
-    minutosHora,
-    "| minutosAhora:",
-    minutosAhora,
-  );
-  console.log(
-    "[ValidarHora] limiteMax:",
-    minutosAhora + 10,
-    "| limiteMín:",
-    minutosAhora - 10,
-  );
 
   if (minutosHora < minutosAhora - TOLERANCIA_MINUTOS) {
     return "La hora de inicio no puede ser más de 60 minutos en el pasado";

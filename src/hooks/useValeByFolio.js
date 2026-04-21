@@ -28,6 +28,7 @@ const useValeByFolio = () => {
     try {
       setLoading(true);
 
+
       const { data, error } = await supabase
         .from("vales")
         .select(VALE_SELECT_COMPLETO)
@@ -37,6 +38,14 @@ const useValeByFolio = () => {
       if (error) throw error;
 
       if (!data) {
+        // Busqueda amplia para diagnostico
+        const { data: todosVales } = await supabase
+          .from("vales")
+          .select("id_vale, folio")
+          .limit(5)
+          .order("fecha_creacion", { ascending: false });
+
+
         Alert.alert(
           "Vale no encontrado",
           `Folio escaneado: "${folio}"\n\nVerifica que el QR corresponda a un vale de este sistema.`,
@@ -45,12 +54,15 @@ const useValeByFolio = () => {
         return null;
       }
 
+
+      if (data.vale_renta_detalle?.length > 0) {
+        const det = data.vale_renta_detalle[0];
+      }
+
       return data;
     } catch (error) {
-      console.error("[useValeByFolio] Error:", error.message);
-      Alert.alert("Error", `No se pudo buscar el vale. Intenta de nuevo.`, [
-        { text: "OK" },
-      ]);
+      console.error("[useValeByFolio] Error completo:", JSON.stringify(error));
+      Alert.alert("Error", `Detalle: ${error.message}`, [{ text: "OK" }]);
       return null;
     } finally {
       setLoading(false);

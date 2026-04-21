@@ -24,6 +24,9 @@ import { useAuth } from "../hooks/useAuth";
 import { useCatalogos } from "../hooks/useCatalogos";
 import { useFolioGenerator } from "../hooks/useFolioGenerator";
 import { useObras } from "../hooks/useObras";
+// Agrega estas dos líneas a los imports locales
+import { useValeRentaPDF } from "../hooks/useValeRentaPDF";
+import QRCodeGenerator from "../componets/common/QRCodeGenerator";
 
 // Validaciones
 import {
@@ -43,7 +46,6 @@ import FormInput from "../componets/forms/FormInput";
 import CustomModalPicker from "../componets/forms/CustomModalPicker";
 import CustomTimePicker from "../componets/forms/CustomTimePicker";
 import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
-import SelectorCantidadVales from "../componets/vale/SelectorCantidadVales";
 import SuccessModal from "../componets/common/SuccessModal";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
 import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
@@ -57,7 +59,6 @@ const ValeRentaScreen = () => {
   const { userProfile, userRole } = useAuth();
   const esChecador = userRole === "CHECADOR";
   const isMounted = useRef(true);
-  const selectorCantidadRef = useRef(null);
 
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
@@ -88,17 +89,27 @@ const ValeRentaScreen = () => {
     notasAdicionales: "",
   });
 
+  const {
+    qrDataUrl,
+    compartirPDF,
+    handleQRGenerated,
+    navegarAcarreos,
+    resetPDFState,
+    setMounted,
+  } = useValeRentaPDF(navigation);
+  // Estado del checkbox "completar después"
   const [completarDespues, setCompletarDespues] = useState(false);
+
   const [esTurnoNocturno, setEsTurnoNocturno] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [valeCreado, setValeCreado] = useState(null);
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
-  const [cantidadVales, setCantidadVales] = useState(1);
-  const [cantidadCreada, setCantidadCreada] = useState(0);
-
+  const [triggerPDFRojo, setTriggerPDFRojo] = useState(false);
+  // Agrega esto justo antes del return
   const sinCapacidad =
     formData.selectedVehiculo && !formData.selectedVehiculo.capacidad_m3;
 
@@ -109,6 +120,12 @@ const ValeRentaScreen = () => {
   const presupuestoAgotado =
     presupuestoRenta?.nivel === "blocked" ||
     presupuestoRenta?.sinConfigurar === true;
+
+  useEffect(() => {
+    return () => {
+      setMounted(false);
+    };
+  }, [setMounted]);
 
   useEffect(() => {
     return () => {
@@ -146,6 +163,7 @@ const ValeRentaScreen = () => {
     }
   }, [obraSeleccionada, obras]);
 
+  // Al activar "completar después", limpiar operador y vehículo
   const handleToggleCompletarDespues = () => {
     const nuevoValor = !completarDespues;
     setCompletarDespues(nuevoValor);
@@ -157,13 +175,11 @@ const ValeRentaScreen = () => {
         selectedVehiculo: null,
         capacidad: "",
       }));
+      // Limpiar errores de esos campos
       setErrors((prev) => {
         const { operadorId, vehiculoId, ...resto } = prev;
         return resto;
       });
-    } else {
-      // Al desactivar, resetear cantidad a 1
-      setCantidadVales(1);
     }
   };
 
@@ -179,6 +195,7 @@ const ValeRentaScreen = () => {
     const errorHora = validateHoraInicioNoFutura(formData.horaInicio);
     if (errorHora) newErrors.horaInicio = errorHora;
 
+    // Solo validar operador y vehículo si NO se eligió completar después
     if (!completarDespues) {
       const errorOperador = validateOperadorId(
         formData.selectedOperador?.id_operador,
@@ -200,8 +217,7 @@ const ValeRentaScreen = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Valida y decide si va al modal de confirmacion o directo a crear
-  const handleCrearVale = () => {
+  const handleCrearVale = async () => {
     if (!validateForm()) {
       Alert.alert(
         "Campos incompletos",
@@ -215,174 +231,130 @@ const ValeRentaScreen = () => {
       return;
     }
 
-    if (completarDespues && cantidadVales > 1) {
-      selectorCantidadRef.current?.pedirConfirmacion();
-      return;
-    }
-
-    ejecutarCreacionVales();
-  };
-
-  // Inserta UN vale con un folio ya calculado
-  const _insertarValeRenta = async (folio, precioRenta) => {
-    const { data: verificacion } = await supabase
-      .from("vales")
-      .select("folio")
-      .eq("folio", folio)
-      .maybeSingle();
-
-    if (verificacion) {
-      throw new Error(`El folio ${folio} ya existe en la base de datos`);
-    }
-
-    const { data: valeData, error: valeError } = await supabase
-      .from("vales")
-      .insert({
-        folio,
-        tipo_vale: "renta",
-        id_obra: obraDataParaFolio.id_obra,
-        id_empresa: obraDataParaFolio.empresas.id_empresa,
-        id_persona_creador: userProfile.id_persona,
-        id_operador: completarDespues
-          ? null
-          : formData.selectedOperador.id_operador,
-        id_vehiculo: completarDespues
-          ? null
-          : formData.selectedVehiculo.id_vehiculo,
-        estado: "en_proceso",
-        qr_verification_url: generateVerificationUrl(folio),
-      })
-      .select()
-      .single();
-
-    if (valeError) throw valeError;
-
-    const { error: detalleError } = await supabase
-      .from("vale_renta_detalle")
-      .insert({
-        id_vale: valeData.id_vale,
-        id_material: formData.materialId,
-        id_sindicato: formData.sindicatoId,
-        numero_viajes: 1,
-        hora_inicio: formData.horaInicio.toISOString(),
-        hora_fin: null,
-        id_precios_renta: precioRenta.id_precios_renta,
-        notas_adicionales: formData.notasAdicionales.trim() || null,
-        es_turno_nocturno: esTurnoNocturno,
-      });
-
-    if (detalleError) throw detalleError;
-
-    return valeData;
-  };
-
-  // Ejecuta la creacion real — individual o en lote
-  const ejecutarCreacionVales = async () => {
-    const precioRenta = preciosRenta.find(
-      (p) => p.id_sindicato === formData.sindicatoId,
-    );
-
-    if (!precioRenta) {
-      Alert.alert(
-        "Error",
-        "No se encontró precio para el sindicato seleccionado",
-      );
-      return;
-    }
-
-    const cantidad = completarDespues ? cantidadVales : 1;
-
     try {
       setSubmitting(true);
 
-      if (cantidad > 1) {
-        // Calcular todos los folios en memoria antes de insertar cualquiera
-        const folioBase = await generateFolio(obraDataParaFolio);
-        const partes = folioBase.split("-");
-        const numeroBase = parseInt(partes[partes.length - 1], 10);
-        const prefijo = partes.slice(0, partes.length - 1).join("-") + "-";
+      const folio = await generateFolio(obraDataParaFolio);
 
-        const folios = Array.from({ length: cantidad }, (_, i) => {
-          const numero = numeroBase + i;
-          return `${prefijo}${String(numero).padStart(5, "0")}`;
+      const { data: verificacion } = await supabase
+        .from("vales")
+        .select("folio")
+        .eq("folio", folio)
+        .maybeSingle();
+
+      if (verificacion) {
+        throw new Error(`El folio ${folio} ya existe en la base de datos`);
+      }
+
+      const { data: valeData, error: valeError } = await supabase
+        .from("vales")
+        .insert({
+          folio: folio,
+          tipo_vale: "renta",
+          id_obra: obraDataParaFolio.id_obra,
+          id_empresa: obraDataParaFolio.empresas.id_empresa,
+          id_persona_creador: userProfile.id_persona,
+          // null si se eligió completar después
+          id_operador: completarDespues
+            ? null
+            : formData.selectedOperador.id_operador,
+          id_vehiculo: completarDespues
+            ? null
+            : formData.selectedVehiculo.id_vehiculo,
+          estado: "en_proceso",
+          qr_verification_url: generateVerificationUrl(folio),
+        })
+        .select()
+        .single();
+
+      if (valeError) throw valeError;
+
+      const precioRenta = preciosRenta.find(
+        (p) => p.id_sindicato === formData.sindicatoId,
+      );
+
+      if (!precioRenta) {
+        throw new Error("No se encontró precio para el sindicato seleccionado");
+      }
+
+      const { error: detalleError } = await supabase
+        .from("vale_renta_detalle")
+        .insert({
+          id_vale: valeData.id_vale,
+          id_material: formData.materialId,
+          id_sindicato: formData.sindicatoId,
+
+          numero_viajes: 1,
+          hora_inicio: formData.horaInicio.toISOString(),
+          hora_fin: null,
+          id_precios_renta: precioRenta.id_precios_renta,
+          notas_adicionales: formData.notasAdicionales.trim() || null,
+          es_turno_nocturno: esTurnoNocturno,
         });
 
-        let creados = 0;
-        for (const folio of folios) {
-          await _insertarValeRenta(folio, precioRenta);
-          creados++;
-        }
+      if (detalleError) throw detalleError;
 
-        if (!isMounted.current) return;
-        setValeCreado(null);
-        setCantidadCreada(creados);
-        setShowSuccessModal(true);
-      } else {
-        // Flujo individual original
-        const folio = await generateFolio(obraDataParaFolio);
-        const valeData = await _insertarValeRenta(folio, precioRenta);
+      if (!isMounted.current) return;
 
-        if (!isMounted.current) return;
-
-        const valeParaPDF = {
-          ...valeData,
-          folio,
-          obras: {
-            obra: obraDataParaFolio.obra,
-            cc: obraDataParaFolio.cc,
-            empresas: obraDataParaFolio.empresas,
-          },
-          operadores: completarDespues
-            ? null
-            : formData.selectedOperador
-              ? { nombre_completo: formData.selectedOperador.nombre_completo }
-              : null,
-          vehiculos: completarDespues
-            ? null
-            : formData.selectedVehiculo
-              ? {
-                  placas: formData.selectedVehiculo.placas,
-                  capacidad_m3: formData.selectedVehiculo.capacidad_m3 ?? null,
-                  sindicatos: {
-                    sindicato:
-                      sindicatos.find(
-                        (s) => s.id_sindicato === formData.sindicatoId,
-                      )?.sindicato || "Pendiente",
-                  },
-                }
-              : null,
-          persona: {
-            nombre: userProfile.nombre,
-            primer_apellido: userProfile.primer_apellido,
-            segundo_apellido: userProfile.segundo_apellido,
-          },
-          vale_renta_detalle: [
-            {
-              material: {
-                material:
-                  materiales.find((m) => m.id_material === formData.materialId)
-                    ?.material || "N/A",
-              },
-              sindicatos: {
-                sindicato:
-                  sindicatos.find(
-                    (s) => s.id_sindicato === formData.sindicatoId,
-                  )?.sindicato || "Pendiente",
-              },
-              hora_inicio: formData.horaInicio.toISOString(),
-              hora_fin: null,
-              es_renta_por_dia: false,
-              total_horas: null,
-              total_dias: null,
-              notas_adicionales: formData.notasAdicionales.trim() || null,
-              precios_renta: precioRenta || {},
+      // Construir objeto con relaciones que necesita el recibo térmico
+      const valeParaPDF = {
+        ...valeData,
+        folio,
+        obras: {
+          obra: obraDataParaFolio.obra,
+          cc: obraDataParaFolio.cc,
+          empresas: obraDataParaFolio.empresas,
+        },
+        operadores: completarDespues
+          ? null
+          : formData.selectedOperador
+            ? { nombre_completo: formData.selectedOperador.nombre_completo }
+            : null,
+        vehiculos: completarDespues
+          ? null
+          : formData.selectedVehiculo
+            ? {
+                placas: formData.selectedVehiculo.placas,
+                capacidad_m3: formData.selectedVehiculo.capacidad_m3 ?? null, // <- agregar
+                sindicatos: {
+                  sindicato:
+                    sindicatos.find(
+                      (s) => s.id_sindicato === formData.sindicatoId,
+                    )?.sindicato || "Pendiente",
+                },
+              }
+            : null,
+        persona: {
+          nombre: userProfile.nombre,
+          primer_apellido: userProfile.primer_apellido,
+          segundo_apellido: userProfile.segundo_apellido,
+        },
+        vale_renta_detalle: [
+          {
+            material: {
+              material:
+                materiales.find((m) => m.id_material === formData.materialId)
+                  ?.material || "N/A",
             },
-          ],
-        };
+            sindicatos: {
+              sindicato:
+                sindicatos.find((s) => s.id_sindicato === formData.sindicatoId)
+                  ?.sindicato || "Pendiente",
+            },
 
-        setValeCreado(valeParaPDF);
-        setShowSuccessModal(true);
-      }
+            hora_inicio: formData.horaInicio.toISOString(),
+            hora_fin: null,
+            es_renta_por_dia: false,
+            total_horas: null,
+            total_dias: null,
+            notas_adicionales: formData.notasAdicionales.trim() || null,
+            precios_renta: precioRenta || {},
+          },
+        ],
+      };
+
+      setValeCreado(valeParaPDF);
+      setShowSuccessModal(true);
     } catch (error) {
       if (isMounted.current) {
         Alert.alert("Error", `No se pudo crear el vale: ${error.message}`);
@@ -428,7 +400,7 @@ const ValeRentaScreen = () => {
   };
 
   const calcularMaximumDate = () => {
-    if (!formData.horaInicio) return new Date();
+    if (!formData.horaInicio) return new Date(); // Sin fecha seleccionada, bloquear futuro
 
     const ahora = new Date();
     const fechaSeleccionada = formData.horaInicio;
@@ -620,16 +592,6 @@ const ValeRentaScreen = () => {
             </View>
           </TouchableOpacity>
 
-          {/* Selector de cantidad: solo visible si completarDespues esta activo */}
-          {completarDespues && (
-            <SelectorCantidadVales
-              ref={selectorCantidadRef}
-              cantidad={cantidadVales}
-              onCantidadChange={setCantidadVales}
-              onConfirmar={ejecutarCreacionVales}
-            />
-          )}
-
           <DatosOperadorSection
             selectedOperador={formData.selectedOperador}
             selectedVehiculo={formData.selectedVehiculo}
@@ -685,25 +647,69 @@ const ValeRentaScreen = () => {
 
       <SuccessModal
         visible={showSuccessModal}
-        title={
-          cantidadVales > 1 && completarDespues ? "Lote Creado" : "Vale Creado"
-        }
-        message={
-          cantidadVales > 1 && completarDespues
-            ? `${cantidadCreada} vales creados exitosamente.\n\nAsigna operador y vehículo a cada uno desde la pantalla de Acarreos.`
-            : `Vale ${valeCreado?.folio} creado exitosamente.\n\n${
-                completarDespues
-                  ? "El operador y vehículo quedaron pendientes. Asígnalos desde Acarreos."
-                  : 'El vale quedó en "En Proceso". Complétalo desde Acarreos cuando el operador termine.'
-              }`
-        }
+        title="Vale Creado"
+        message={`Vale ${valeCreado?.folio} creado exitosamente.\n\n${
+          completarDespues
+            ? "El operador y vehículo quedaron pendientes. Asígnalos desde Acarreos."
+            : 'El vale quedó en "En Proceso". Complétalo desde Acarreos cuando el operador termine.'
+        }\n\nGenera la copia roja antes de continuar.`}
         primaryAction={{
-          text: "Ir a Acarreos",
-          icon: "arrow-right-circle",
-          onPress: handleNavigateToAcarreos,
+          text: "Generar Copia Roja",
+          icon: "file-pdf-box",
+          onPress: () => {
+            setShowSuccessModal(false);
+            setTimeout(() => setTriggerPDFRojo(true), 100);
+          },
         }}
         onClose={() => {}}
       />
+
+      {/* QR Generator invisible — activa generación de copia roja */}
+      {triggerPDFRojo && valeCreado?.qr_verification_url && (
+        <View
+          style={{
+            position: "absolute",
+            left: -9999,
+            width: 1,
+            height: 1,
+            opacity: 0,
+          }}
+        >
+          <QRCodeGenerator
+            value={valeCreado.qr_verification_url}
+            onGenerated={(dataUrl) => {
+              if (!dataUrl) {
+                console.error("[ValeRentaScreen] dataUrl vacío, abortando");
+                setTriggerPDFRojo(false);
+                return;
+              }
+              handleQRGenerated(dataUrl);
+              compartirPDF(valeCreado, dataUrl)
+                .then(() => {
+                })
+                .catch((err) => {
+                  console.error(
+                    "[ValeRentaScreen] Error en compartirPDF:",
+                    err,
+                  );
+                  Alert.alert(
+                    "Error",
+                    "No se pudo generar el PDF: " + err.message,
+                  );
+                })
+                .finally(() => {
+                  setTriggerPDFRojo(false);
+                  resetPDFState();
+                });
+            }}
+            onError={() => {
+              Alert.alert("Error", "No se pudo generar el código QR.");
+              setTriggerPDFRojo(false);
+            }}
+            size={200}
+          />
+        </View>
+      )}
     </View>
   );
 };
@@ -712,11 +718,6 @@ export default ValeRentaScreen;
 
 const styles = {
   ...commonStyles,
-  presupuestoFijo: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    backgroundColor: colors.background,
-  },
   checkboxRow: {
     flexDirection: "row",
     alignItems: "center",

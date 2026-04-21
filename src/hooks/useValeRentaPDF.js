@@ -54,11 +54,6 @@ export const useValeRentaPDF = (navigation) => {
   // Compartir PDF rojo de renta
   const compartirPDF = useCallback(
     async (valeData, qrUrl) => {
-      console.log("[useValeRentaPDF] compartirPDF llamado");
-      console.log("[useValeRentaPDF] valeData?.folio:", valeData?.folio);
-      console.log("[useValeRentaPDF] qrUrl recibido:", !!qrUrl);
-      console.log("[useValeRentaPDF] isSharing:", isSharing.current);
-      console.log("[useValeRentaPDF] isMounted:", isMounted.current);
 
       if (isSharing.current) {
         console.warn("[useValeRentaPDF] Ya compartiendo, abortando");
@@ -80,11 +75,7 @@ export const useValeRentaPDF = (navigation) => {
         isSharing.current = true;
         if (isMounted.current) setGeneratingPDF(true);
 
-        console.log(
-          "[useValeRentaPDF] Llamando generateAndShareRentaRecibo...",
-        );
         await generateAndShareRentaRecibo(valeData, "roja", qrUrl);
-        console.log("[useValeRentaPDF] PDF generado y compartido exitosamente");
 
         await new Promise((resolve) => setTimeout(resolve, 500));
         if (isMounted.current) navegarAcarreos();
