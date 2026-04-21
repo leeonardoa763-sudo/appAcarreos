@@ -2,57 +2,32 @@ import React from "react";
 import { View, Text } from "react-native";
 import { colors } from "../../../config/colors";
 import styles from "./valeDetalleMaterialStyles";
-import EvidenciaCaptura from "../../vale/EvidenciaCaptura";
 import PrimaryButton from "../../common/PrimaryButton";
+import FormInput from "../../forms/FormInput";
 
 const ValeFormCompletarNormal = ({
   savingToneladas,
   onCompletar,
-  evidenciaLista,
-  obraTieneCoordenadas,
-  dentroDelRadio,
-  foto,
-  fotoUrl,
-  ubicacion,
-  distanciaObra,
-  radioConfigurado,
-  loadingFoto,
-  loadingUbicacion,
-  errorFoto,
-  errorUbicacion,
-  onTomarFoto,
-  onCapturarUbicacion,
-  folioVale,
+  notasAdicionales,
+  onChangeNotas,
 }) => {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Completar Vale</Text>
-      <Text style={styles.sectionSubtitle}>
-        Captura la evidencia para completar el vale
-      </Text>
 
-      <EvidenciaCaptura
-        folioVale={folioVale}
-        foto={foto}
-        fotoUrl={fotoUrl}
-        ubicacion={ubicacion}
-        distanciaObra={distanciaObra}
-        dentroDelRadio={dentroDelRadio}
-        obraTieneCoordenadas={obraTieneCoordenadas}
-        radioConfigurado={radioConfigurado}
-        loadingFoto={loadingFoto}
-        loadingUbicacion={loadingUbicacion}
-        errorFoto={errorFoto}
-        errorUbicacion={errorUbicacion}
-        onTomarFoto={onTomarFoto}
-        onCapturarUbicacion={onCapturarUbicacion}
+      <FormInput
+        label="Notas (opcional)"
+        value={notasAdicionales}
+        onChangeText={onChangeNotas}
+        placeholder=""
+        multiline
+        maxLength={200}
       />
 
       <PrimaryButton
         title="Completar Vale"
         onPress={onCompletar}
         loading={savingToneladas}
-        disabled={!evidenciaLista}
         icon="check-circle"
         backgroundColor={colors.accent}
       />

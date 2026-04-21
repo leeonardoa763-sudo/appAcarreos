@@ -74,6 +74,10 @@ export const VALE_SELECT_COMPLETO = `
       distancia_km_override,
       precio_m3_override,
       costo_viaje_override,
+      foto_evidencia_url,
+      latitud_registro,
+      longitud_registro,
+      distancia_obra_metros,
       bancos_override:id_banco_override (
         id_banco,
         banco

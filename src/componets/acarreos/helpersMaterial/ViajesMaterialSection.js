@@ -41,6 +41,7 @@ import { BLUETOOTH_ENABLED } from "../../../config/features";
 import FormInput from "../../forms/FormInput";
 import ModalImprimirTicketRenta from "../rentaHelpers/ModalImprimirTicketRenta";
 import ValeFormCompletarNormal from "./ValeFormCompletarNormal";
+import ModalEvidenciaViaje from "./ModalEvidenciaViaje";
 
 // 6. Imports condicionales Bluetooth
 let generarTicketMaterialViaje;
@@ -121,7 +122,7 @@ const debugTicketEnConsola = (vale, detalle, viaje) => {
 
 // ─── ViajeItem ────────────────────────────────────────────────────────────────
 
-const ViajeItem = ({ viaje, detalle, esTipo3, esChecador }) => {
+const ViajeItem = ({ viaje, detalle, esTipo3, esChecador, onTomarFoto }) => {
   // Resolver valores efectivos: override tiene prioridad
   const bancoEfectivo =
     viaje.bancos_override?.banco ?? detalle?.bancos?.banco ?? "—";
@@ -164,6 +165,21 @@ const ViajeItem = ({ viaje, detalle, esTipo3, esChecador }) => {
           <Text style={styles.viajeCosto}>{formatCosto(costoEfectivo)}</Text>
         )}
       </View>
+
+      {/* Botón fallback: solo visible cuando el viaje no tiene foto */}
+      {onTomarFoto && !viaje.foto_evidencia_url && (
+        <TouchableOpacity
+          style={styles.botonFotoFallback}
+          onPress={onTomarFoto}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name="camera-plus"
+            size={18}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -237,11 +253,8 @@ const ViajesMaterialSection = ({
   tipoMaterial,
   onCompletar,
   saving,
-  evidenciaProps,
-  pesoToneladas,
-  setPesoToneladas,
-  folioBanco,
-  setFolioBanco,
+  obraData,
+  actualizarFotoViaje,
   notasAdicionales,
   setNotasAdicionales,
   cantidadConfirmada,
@@ -263,6 +276,7 @@ const ViajesMaterialSection = ({
 
   const [valores, setValores] = useState(valorInicialForm);
   const [viajeParaImprimir, setViajeParaImprimir] = useState(null);
+  const [viajeParaFoto, setViajeParaFoto] = useState(null);
 
   // ─── Validar formulario antes de registrar ────────────────────────────────
 
@@ -315,8 +329,25 @@ const ViajesMaterialSection = ({
         folioValeFisico: "",
       });
       debugTicketEnConsola(vale, detalle, resultado);
+      setViajeParaFoto(resultado);
     }
   }, [validarFormulario, onRegistrarViaje, esTipo3, valores]);
+
+  const handleFotoGuardada = useCallback(
+    async (idViaje, fotoUrl, ubicacion, distanciaObra) => {
+      setViajeParaFoto(null);
+      if (fotoUrl && actualizarFotoViaje) {
+        await actualizarFotoViaje(
+          idViaje,
+          fotoUrl,
+          ubicacion?.latitud ?? null,
+          ubicacion?.longitud ?? null,
+          distanciaObra ?? null,
+        );
+      }
+    },
+    [actualizarFotoViaje],
+  );
 
   // ─── Generar líneas del ticket por viaje ─────────────────────────────────
 
@@ -381,6 +412,11 @@ const ViajesMaterialSection = ({
                 detalle={detalle}
                 esTipo3={esTipo3}
                 esChecador={esChecador}
+                onTomarFoto={
+                  actualizarFotoViaje
+                    ? () => setViajeParaFoto(viaje)
+                    : undefined
+                }
               />
             ))}
           </View>
@@ -436,57 +472,34 @@ const ViajesMaterialSection = ({
           </>
         )}
       </TouchableOpacity>
-      {/* Formulario de completar — tipo 1/2 con peso y folio */}
+      {/* Formulario de completar — tipo 1/2 */}
       {!esTipo3 && (
         <ValeFormCompletarNormal
-          pesoToneladas={pesoToneladas}
-          setPesoToneladas={setPesoToneladas}
-          folioBanco={folioBanco}
-          setFolioBanco={setFolioBanco}
           notasAdicionales={notasAdicionales}
-          setNotasAdicionales={setNotasAdicionales}
+          onChangeNotas={setNotasAdicionales}
           savingToneladas={saving}
           onCompletar={onCompletar}
-          evidenciaLista={evidenciaProps?.evidenciaLista}
-          obraTieneCoordenadas={evidenciaProps?.obraTieneCoordenadas}
-          dentroDelRadio={evidenciaProps?.dentroDelRadio}
-          foto={evidenciaProps?.foto}
-          fotoUrl={evidenciaProps?.fotoUrl}
-          ubicacion={evidenciaProps?.ubicacion}
-          distanciaObra={evidenciaProps?.distanciaObra}
-          radioConfigurado={evidenciaProps?.radioConfigurado}
-          loadingFoto={evidenciaProps?.loadingFoto}
-          loadingUbicacion={evidenciaProps?.loadingUbicacion}
-          errorFoto={evidenciaProps?.errorFoto}
-          errorUbicacion={evidenciaProps?.errorUbicacion}
-          onTomarFoto={evidenciaProps?.onTomarFoto}
-          onCapturarUbicacion={evidenciaProps?.onCapturarUbicacion}
-          folioVale={vale?.folio}
         />
       )}
 
-      {/* Completar vale — tipo 3, solo evidencia */}
+      {/* Completar vale — tipo 3 */}
       {esTipo3 && (
         <ValeFormCompletarNormal
+          notasAdicionales={notasAdicionales}
+          onChangeNotas={setNotasAdicionales}
           savingToneladas={saving}
           onCompletar={onCompletar}
-          evidenciaLista={evidenciaProps?.evidenciaLista}
-          obraTieneCoordenadas={evidenciaProps?.obraTieneCoordenadas}
-          dentroDelRadio={evidenciaProps?.dentroDelRadio}
-          foto={evidenciaProps?.foto}
-          fotoUrl={evidenciaProps?.fotoUrl}
-          ubicacion={evidenciaProps?.ubicacion}
-          distanciaObra={evidenciaProps?.distanciaObra}
-          radioConfigurado={evidenciaProps?.radioConfigurado}
-          loadingFoto={evidenciaProps?.loadingFoto}
-          loadingUbicacion={evidenciaProps?.loadingUbicacion}
-          errorFoto={evidenciaProps?.errorFoto}
-          errorUbicacion={evidenciaProps?.errorUbicacion}
-          onTomarFoto={evidenciaProps?.onTomarFoto}
-          onCapturarUbicacion={evidenciaProps?.onCapturarUbicacion}
-          folioVale={vale?.folio}
         />
       )}
+
+      {/* Modal de foto obligatoria por viaje */}
+      <ModalEvidenciaViaje
+        visible={!!viajeParaFoto}
+        viaje={viajeParaFoto}
+        folioVale={vale?.folio}
+        obraData={obraData}
+        onFotoGuardada={handleFotoGuardada}
+      />
     </View>
   );
 };
@@ -644,6 +657,14 @@ const styles = StyleSheet.create({
     marginTop: -8,
     marginLeft: 2,
     fontStyle: "italic",
+  },
+  botonFotoFallback: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#FFF0EA",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 

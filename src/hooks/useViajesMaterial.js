@@ -76,6 +76,10 @@ export const useViajesMaterial = (
           distancia_km_override,
           precio_m3_override,
           costo_viaje_override,
+          foto_evidencia_url,
+          latitud_registro,
+          longitud_registro,
+          distancia_obra_metros,
           banco_override:id_banco_override (id_banco, banco),
           persona:id_persona_registro (
             nombre,
@@ -296,6 +300,10 @@ export const useViajesMaterial = (
                         precio_m3,
                         costo_viaje,
                         folio_vale_fisico,
+                        foto_evidencia_url,
+                        latitud_registro,
+                        longitud_registro,
+                        distancia_obra_metros,
                         persona:id_persona_registro (
                           nombre,
                           primer_apellido
@@ -379,7 +387,7 @@ export const useViajesMaterial = (
   // ─── Completar vale ───────────────────────────────────────────────────────
 
   const completarVale = useCallback(
-    async ({ fotoUrl, ubicacion, distanciaObra, idPersona } = {}) => {
+    async ({ idPersona, notasAdicionales } = {}) => {
       try {
         setSaving(true);
 
@@ -394,17 +402,14 @@ export const useViajesMaterial = (
 
         if (error) throw error;
 
-        const { error: errorEvidencia } = await supabase
+        const { error: errorNotas } = await supabase
           .from("vale_material_detalles")
           .update({
-            foto_evidencia_url: fotoUrl ?? null,
-            latitud_completado: ubicacion?.latitud ?? null,
-            longitud_completado: ubicacion?.longitud ?? null,
-            distancia_obra_metros: distanciaObra ?? null,
+            notas_adicionales: notasAdicionales ?? null,
           })
           .eq("id_detalle_material", idDetalleMaterial);
 
-        if (errorEvidencia) throw errorEvidencia;
+        if (errorNotas) throw errorNotas;
 
         const { data: valeCompleto, error: errorConsulta } = await supabase
           .from("vales")
@@ -434,6 +439,10 @@ export const useViajesMaterial = (
                 distancia_km_override,
                 precio_m3_override,
                 costo_viaje_override,
+                foto_evidencia_url,
+                latitud_registro,
+                longitud_registro,
+                distancia_obra_metros,
                 banco_override:id_banco_override (id_banco, banco)
               )
             )
@@ -453,6 +462,50 @@ export const useViajesMaterial = (
       }
     },
     [idVale, idDetalleMaterial],
+  );
+
+  // ─── Actualizar foto de un viaje ─────────────────────────────────────────
+
+  const actualizarFotoViaje = useCallback(
+    async (idViaje, fotoUrl, latitud, longitud, distanciaObra) => {
+      try {
+        const { error } = await supabase
+          .from("vale_material_viajes")
+          .update({
+            foto_evidencia_url: fotoUrl,
+            latitud_registro: latitud ?? null,
+            longitud_registro: longitud ?? null,
+            distancia_obra_metros: distanciaObra ?? null,
+          })
+          .eq("id_viaje", idViaje);
+
+        if (error) throw error;
+
+        setViajes((prev) =>
+          prev.map((v) =>
+            v.id_viaje === idViaje
+              ? {
+                  ...v,
+                  foto_evidencia_url: fotoUrl,
+                  latitud_registro: latitud ?? null,
+                  longitud_registro: longitud ?? null,
+                  distancia_obra_metros: distanciaObra ?? null,
+                }
+              : v,
+          ),
+        );
+
+        return true;
+      } catch (error) {
+        console.error(
+          "[useViajesMaterial] Error actualizando foto viaje:",
+          error,
+        );
+        Alert.alert("Error", "No se pudo guardar la foto del viaje.");
+        return false;
+      }
+    },
+    [],
   );
 
   // ─── Effects ──────────────────────────────────────────────────────────────
@@ -487,6 +540,7 @@ export const useViajesMaterial = (
     minutosRestantes,
     registrarViaje,
     completarVale,
+    actualizarFotoViaje,
     recargarViajes: cargarViajes,
   };
 };

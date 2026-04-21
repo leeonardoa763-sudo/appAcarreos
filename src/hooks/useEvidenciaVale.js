@@ -2,7 +2,7 @@
 import { useState, useCallback } from "react";
 
 // 2. React Native
-import { Alert, Platform } from "react-native";
+import { Alert } from "react-native";
 
 // 3. Third party
 import * as ImagePicker from "expo-image-picker";
@@ -117,7 +117,7 @@ const useEvidenciaVale = (obraData = null) => {
    * Se ejecuta en paralelo con la captura de GPS para ahorrar tiempo
    */
   const tomarFoto = useCallback(
-    async (folioVale) => {
+    async (folioVale, carpeta = null) => {
       try {
         setErrorFoto(null);
 
@@ -126,7 +126,7 @@ const useEvidenciaVale = (obraData = null) => {
         if (!tienePermiso) return false;
 
         const resultado = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ["images"],
           quality: 0.4,
           allowsEditing: false,
           exif: false,
@@ -139,7 +139,7 @@ const useEvidenciaVale = (obraData = null) => {
         setFoto(uri);
         setLoadingFoto(true);
 
-        const url = await subirFotoStorage(uri, folioVale);
+        const url = await subirFotoStorage(uri, folioVale, carpeta);
 
         if (!url) {
           setLoadingFoto(false);
@@ -212,10 +212,12 @@ const useEvidenciaVale = (obraData = null) => {
    * Sube la foto al bucket 'evidencias-vales' en Supabase Storage
    * Ruta: evidencias-vales/{folio}/{timestamp}.jpg
    */
-  const subirFotoStorage = async (uri, folioVale) => {
+  const subirFotoStorage = async (uri, folioVale, carpeta = null) => {
     try {
       const timestamp = Date.now();
-      const nombreArchivo = `${folioVale}/${timestamp}.jpg`;
+      const nombreArchivo = carpeta
+        ? `${folioVale}/${carpeta}/${timestamp}.jpg`
+        : `${folioVale}/${timestamp}.jpg`;
 
       const response = await fetch(uri);
 
@@ -233,7 +235,7 @@ const useEvidenciaVale = (obraData = null) => {
         reader.readAsArrayBuffer(blob);
       });
 
-      const { data: uploadData, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from("evidencias-vales")
         .upload(nombreArchivo, arrayBuffer, {
           contentType: "image/jpeg",

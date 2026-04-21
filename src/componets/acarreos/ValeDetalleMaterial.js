@@ -7,7 +7,6 @@
  * SUBCOMPONENTES (helpersMaterial/):
  * - ValeInfoGeneral      → Sección info general
  * - ValeInfoDetalles     → Sección detalles material + precios
- * - ValeDatosPendientes  → Formulario operador/vehículo
  * - ViajesMaterialSection → Registro de viajes + completar vale
  */
 
@@ -15,7 +14,6 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import { View, Text, Alert, TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
-import { supabase } from "../../config/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import { BLUETOOTH_ENABLED } from "../../config/features";
 
@@ -24,7 +22,6 @@ import StatusBadge from "../common/StatusBadge";
 import SuccessModal from "../common/SuccessModal";
 import GenerarPDFButton from "../vale/GenerarPDFButton";
 
-import { useCatalogos } from "../../hooks/useCatalogos";
 import { useCancelarVale } from "../../hooks/useCancelarVale";
 import { useViajesMaterial } from "../../hooks/useViajesMaterial";
 
@@ -34,10 +31,8 @@ import ViajesMaterialSection from "./helpersMaterial/ViajesMaterialSection";
 import styles from "./helpersMaterial/valeDetalleMaterialStyles";
 import ValeInfoGeneral from "./helpersMaterial/ValeInfoGeneral";
 import ValeInfoDetalles from "./helpersMaterial/ValeInfoDetalles";
-import ValeDatosPendientes from "./helpersMaterial/ValeDatosPendientes";
 import TicketsMaterialSection from "./helpersMaterial/TicketsMaterialSection";
 import SeccionViajesMaterialCompletado from "./helpersMaterial/SeccionViajesMaterialCompletado";
-import useEvidenciaVale from "../../hooks/useEvidenciaVale";
 import { useReimprimirPDF } from "../../hooks/useReimprimirPDF";
 import ModalImprimirTicketRenta from "./rentaHelpers/ModalImprimirTicketRenta";
 
@@ -73,20 +68,14 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     onClose();
   });
 
-  const { operadores, vehiculos } = useCatalogos(["operadores", "vehiculos"]);
-
   // ─── Estados ──────────────────────────────────────────────────────────────
-  const [selectedOperador, setSelectedOperador] = useState(null);
-  const [selectedVehiculo, setSelectedVehiculo] = useState(null);
-  const [savingDatos, setSavingDatos] = useState(false);
-  const [datosPendientesGuardados, setDatosPendientesGuardados] =
-    useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successData, setSuccessData] = useState(null);
   const [updatedVale, setUpdatedVale] = useState(null);
   const [triggerPDF, setTriggerPDF] = useState(false);
   const [showModalImpresion, setShowModalImpresion] = useState(false);
   const [valeParaImpresion, setValeParaImpresion] = useState(null);
+  const [notasAdicionales, setNotasAdicionales] = useState("");
 
   const [valeLocal, setValeLocal] = useState(vale);
 
@@ -103,14 +92,6 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const esTipo3 = detalleMaterial?.material?.id_tipo_de_material === 3;
   const tipoMaterial = detalleMaterial?.material?.id_tipo_de_material ?? null;
 
-  const sindicatoId = detalleMaterial?.id_sindicato;
-  const operadoresFiltrados = operadores.filter(
-    (op) => !sindicatoId || op.id_sindicato === sindicatoId,
-  );
-  const vehiculosFiltrados = vehiculos.filter(
-    (v) => !sindicatoId || v.id_sindicato === sindicatoId,
-  );
-
   // ─── Lógica de fecha operacional ──────────────────────────────────────────
   const ahora = new Date();
   const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
@@ -126,7 +107,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const canComplete =
     vale?.estado === "en_proceso" &&
     detalleMaterial &&
-    (!tieneDatosPendientes || datosPendientesGuardados);
+    !tieneDatosPendientes;
 
   // ─── Hook de viajes ───────────────────────────────────────────────────────
   const {
@@ -139,6 +120,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     minutosRestantes,
     registrarViaje,
     completarVale,
+    actualizarFotoViaje,
   } = useViajesMaterial(
     detalleMaterial?.id_detalle_material,
     vale?.id_vale,
@@ -149,41 +131,6 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const [totalTickets, setTotalTickets] = useState(0);
 
   const obraData = vale?.obras ?? null;
-
-  const {
-    foto,
-    fotoUrl,
-    ubicacion,
-    distanciaObra,
-    evidenciaLista,
-    dentroDelRadio,
-    obraTieneCoordenadas,
-    radioConfigurado,
-    loadingFoto,
-    loadingUbicacion,
-    errorFoto,
-    errorUbicacion,
-    tomarFoto,
-    capturarUbicacion,
-    resetEvidencia,
-  } = useEvidenciaVale(obraData);
-
-  const evidenciaProps = {
-    foto,
-    fotoUrl,
-    ubicacion,
-    distanciaObra,
-    evidenciaLista,
-    dentroDelRadio,
-    obraTieneCoordenadas,
-    radioConfigurado,
-    loadingFoto,
-    loadingUbicacion,
-    errorFoto,
-    errorUbicacion,
-    onTomarFoto: tomarFoto,
-    onCapturarUbicacion: capturarUbicacion,
-  };
 
   // ─── Cleanup al desmontar ─────────────────────────────────────────────────
   useEffect(() => {
@@ -204,58 +151,6 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     });
   }, []);
 
-  // ─── Guardar datos pendientes (operador/vehículo) ─────────────────────────
-  const handleGuardarDatosPendientes = useCallback(async () => {
-    if (!selectedOperador || !selectedVehiculo) {
-      Alert.alert("Campos requeridos", "Selecciona operador y vehículo");
-      return;
-    }
-
-    try {
-      setSavingDatos(true);
-
-      const { error } = await supabase
-        .from("vales")
-        .update({
-          id_operador: selectedOperador.id_operador,
-          id_vehiculo: selectedVehiculo.id_vehiculo,
-        })
-        .eq("id_vale", vale.id_vale);
-
-      if (error) throw error;
-
-      if (selectedVehiculo.capacidad_m3) {
-        await supabase
-          .from("vale_material_detalles")
-          .update({ capacidad_m3: selectedVehiculo.capacidad_m3 })
-          .eq("id_detalle_material", detalleMaterial.id_detalle_material);
-      }
-
-
-      setValeLocal({
-        ...vale,
-        id_operador: selectedOperador.id_operador,
-        id_vehiculo: selectedVehiculo.id_vehiculo,
-        operadores: { nombre_completo: selectedOperador.nombre_completo },
-        vehiculos: {
-          placas: selectedVehiculo.placas,
-          capacidad_m3: selectedVehiculo.capacidad_m3,
-          sindicatos: selectedVehiculo.sindicatos ?? null,
-        },
-      });
-
-      setDatosPendientesGuardados(true);
-    } catch (error) {
-      console.error(
-        "[ValeDetalleMaterial] Error guardando datos pendientes:",
-        error,
-      );
-      Alert.alert("Error", "No se pudo guardar. Intenta de nuevo.");
-    } finally {
-      setSavingDatos(false);
-    }
-  }, [selectedOperador, selectedVehiculo, vale, detalleMaterial]);
-
   // ─── Completar vale ───────────────────────────────────────────────────────
   const handleCompletar = useCallback(async () => {
     if (totalTickets > 0 && totalViajes !== totalTickets) {
@@ -268,10 +163,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     }
 
     const valeCompletado = await completarVale({
-      fotoUrl,
-      ubicacion,
-      distanciaObra,
       idPersona: userProfile?.id_persona,
+      notasAdicionales: notasAdicionales.trim() || null,
     });
     if (!valeCompletado) return;
 
@@ -287,15 +180,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
     setSuccessData({ totalViajes: totalViajesNum, totalVolumen, totalCosto });
     setShowSuccessModal(true);
-  }, [
-    completarVale,
-    fotoUrl,
-    ubicacion,
-    distanciaObra,
-    userProfile,
-    totalTickets,
-    totalViajes,
-  ]);
+  }, [completarVale, userProfile, totalTickets, totalViajes]);
 
   const handleReimprimirPDF = useCallback(() => {
     Alert.alert(
@@ -394,28 +279,31 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           />
         )}
 
-        {/* Asignar operador/vehículo si faltan */}
-        {tieneDatosPendientes &&
-          !datosPendientesGuardados &&
-          vale?.estado === "en_proceso" && (
-            <ValeDatosPendientes
-              selectedOperador={selectedOperador}
-              setSelectedOperador={setSelectedOperador}
-              selectedVehiculo={selectedVehiculo}
-              setSelectedVehiculo={setSelectedVehiculo}
-              operadoresFiltrados={operadoresFiltrados}
-              vehiculosFiltrados={vehiculosFiltrados}
-              savingDatos={savingDatos}
-              onGuardar={handleGuardarDatosPendientes}
+        {/* Aviso: operador/vehículo pendientes */}
+        {tieneDatosPendientes && vale?.estado === "en_proceso" && (
+          <View style={styles.pendientesAviso}>
+            <MaterialCommunityIcons
+              name="truck-alert-outline"
+              size={22}
+              color={colors.textSecondary}
             />
-          )}
-        {/* Tickets de material — visible en_proceso con operador asignado */}
+            <View style={styles.pendientesAvisoTextos}>
+              <Text style={styles.pendientesAvisoTitulo}>
+                Sin operador ni vehiculo
+              </Text>
+              <Text style={styles.pendientesAvisoSubtitulo}>
+                Asigna un vehiculo desde la pantalla Vales
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Tickets de material — visible siempre en_proceso (primer ticket no requiere operador) */}
         {valeLocal?.estado === "en_proceso" && detalleMaterial && (
           <TicketsMaterialSection
             vale={valeLocal}
             detalle={detalleMaterial}
             totalViajes={totalViajes}
-            operadorYVehiculoGuardados={datosPendientesGuardados}
             onTotalTicketsChange={setTotalTickets}
             esTipo3={esTipo3}
             ultimoIdViaje={viajes[viajes.length - 1]?.id_viaje ?? null}
@@ -437,8 +325,11 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             tipoMaterial={tipoMaterial}
             onCompletar={handleCompletar}
             saving={saving}
-            evidenciaProps={evidenciaProps}
+            obraData={obraData}
+            actualizarFotoViaje={actualizarFotoViaje}
             esChecador={esChecador}
+            notasAdicionales={notasAdicionales}
+            setNotasAdicionales={setNotasAdicionales}
           />
         )}
         {/* Botón reimprimir PDF — solo en emitido, una sola vez */}
