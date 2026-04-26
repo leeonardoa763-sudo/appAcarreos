@@ -81,7 +81,7 @@ const LineChartCard = ({
       strokeWidth: 0.8,
     },
     propsForLabels: {
-      fontSize: 11,
+      fontSize: 9,
     },
     propsForDots: {
       r: "4",

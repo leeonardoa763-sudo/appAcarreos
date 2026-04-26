@@ -2,20 +2,23 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../config/supabase";
 
-/**
- * Hook para obtener las obras asignadas a un residente
- * Usa SOLO la tabla persona_obra (nueva estructura)
- * Retorna lista de obras para selector de filtros
- */
-export const useObras = (personaId) => {
+const OBRAS_SELECT = `
+  id_obra,
+  obra,
+  cc,
+  id_empresa,
+  empresas:id_empresa (
+    empresa,
+    sufijo,
+    logo
+  )
+`;
+
+export const useObras = (personaId, esAdmin = false) => {
   const [obras, setObras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  /**
-   * Función para obtener obras desde la base de datos
-   * Extraída con useCallback para poder llamarla manualmente (refetch)
-   */
   const fetchObras = useCallback(async () => {
     if (!personaId) {
       setObras([]);
@@ -27,65 +30,71 @@ export const useObras = (personaId) => {
       setLoading(true);
       setError(null);
 
+      let obrasRaw = [];
 
-      // Obtener obras SOLO desde persona_obra con relaciones
-      const { data: personaObrasData, error: personaObrasError } =
-        await supabase
-          .from("persona_obra")
-          .select(
-            `
-            id,
-            persona_id,
-            obra_id,
-            obras!obra_id (
-              id_obra,
-              obra,
-              cc,
-              id_empresa,
-              empresas:id_empresa (
-                empresa,
-                sufijo,
-                logo 
-              )
+      if (esAdmin) {
+        // Admin ve todas las obras (excepto la de prueba 888)
+        const { data, error: obrasError } = await supabase
+          .from("obras")
+          .select(OBRAS_SELECT)
+          .neq("id_obra", 888)
+          .order("id_obra", { ascending: true });
+
+        console.log("[useObras] admin - obras encontradas:", data?.length, "error:", obrasError?.message);
+        if (obrasError) throw obrasError;
+
+        obrasRaw = (data || []).map((obra, index) => ({
+          id: obra.id_obra,
+          nombre: obra.obra,
+          cc: obra.cc,
+          id_empresa: obra.id_empresa,
+          empresa: obra.empresas?.empresa || "Sin empresa",
+          sufijo: obra.empresas?.sufijo || "",
+          logo: obra.empresas?.logo || null,
+          esPrincipal: index === 0,
+        }));
+      } else {
+        // Obtener obras SOLO desde persona_obra con relaciones
+        const { data: personaObrasData, error: personaObrasError } =
+          await supabase
+            .from("persona_obra")
+            .select(
+              `
+              id,
+              persona_id,
+              obra_id,
+              obras!obra_id (${OBRAS_SELECT})
+            `,
             )
-          `,
-          )
-          .eq("persona_id", personaId)
-          .order("created_at", { ascending: true }); // La primera insertada es la "principal"
+            .eq("persona_id", personaId)
+            .order("created_at", { ascending: true });
 
-      if (personaObrasError) {
-        throw personaObrasError;
+        if (personaObrasError) throw personaObrasError;
+
+        if (!personaObrasData || personaObrasData.length === 0) {
+          setObras([]);
+          setLoading(false);
+          return;
+        }
+
+        obrasRaw = personaObrasData
+          .map((item, index) => {
+            if (!item.obras) return null;
+            return {
+              id: item.obras.id_obra,
+              nombre: item.obras.obra,
+              cc: item.obras.cc,
+              id_empresa: item.obras.id_empresa,
+              empresa: item.obras.empresas?.empresa || "Sin empresa",
+              sufijo: item.obras.empresas?.sufijo || "",
+              logo: item.obras.empresas?.logo || null,
+              esPrincipal: index === 0,
+            };
+          })
+          .filter(Boolean);
       }
 
-      if (!personaObrasData || personaObrasData.length === 0) {
-        setObras([]);
-        setLoading(false);
-        return;
-      }
-
-      // Formatear obras obtenidas para uso en la aplicación
-      const obrasFormateadas = personaObrasData
-        .map((item, index) => {
-          if (!item.obras) {
-            return null;
-          }
-
-          const obraFormateada = {
-            id: item.obras.id_obra,
-            nombre: item.obras.obra,
-            cc: item.obras.cc,
-            id_empresa: item.obras.id_empresa,
-            empresa: item.obras.empresas?.empresa || "Sin empresa",
-            sufijo: item.obras.empresas?.sufijo || "",
-            logo: item.obras.empresas?.logo || null,
-            esPrincipal: index === 0,
-          };
-
-          return obraFormateada;
-        })
-        .filter(Boolean); // Eliminar valores null
-
-      setObras(obrasFormateadas);
+      setObras(obrasRaw);
     } catch (err) {
       console.error("[useObras] Error al obtener obras:", err);
       console.error("[useObras] Mensaje de error:", err.message);
@@ -94,7 +103,7 @@ export const useObras = (personaId) => {
     } finally {
       setLoading(false);
     }
-  }, [personaId]);
+  }, [personaId, esAdmin]);
 
   // Ejecutar fetch automáticamente al montar o cambiar personaId
   useEffect(() => {

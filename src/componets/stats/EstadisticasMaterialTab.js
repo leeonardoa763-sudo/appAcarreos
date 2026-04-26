@@ -177,7 +177,11 @@ const EstadisticasMaterialTab = ({
       <View style={styles.seccion}>
         <LineChartCard
           title="Tendencia por Periodo"
-          subtitle="M³ por semana ISO"
+          subtitle={
+            ["hoy", "ayer", "semana"].includes(periodo)
+              ? "M³ por día"
+              : "M³ por semana ISO"
+          }
           icon="chart-line-variant"
           iconColor={colors.primary}
           labels={tendenciaPeriodo.labels}

@@ -175,7 +175,7 @@ const useEvidenciaVale = (obraData = null) => {
       }
 
       const posicion = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Balanced,
         timeInterval: 5000,
         distanceInterval: 0,
       });

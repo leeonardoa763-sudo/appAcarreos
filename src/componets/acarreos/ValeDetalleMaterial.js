@@ -332,8 +332,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             setNotasAdicionales={setNotasAdicionales}
           />
         )}
-        {/* Botón reimprimir PDF — solo en emitido, una sola vez */}
-        {vale?.estado === "emitido" &&
+        {/* Botón reimprimir PDF — todos los estados excepto en_proceso */}
+        {vale?.estado !== "en_proceso" &&
           !loadingReimpresion &&
           (yaReimprimio ? (
             <View style={styles.reimprimirAgotado}>

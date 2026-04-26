@@ -20,7 +20,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
-import { VALE_SELECT_COMPLETO } from "../hooks/queries/valesSelect";
+import { VALE_SELECT_LISTA } from "../hooks/queries/valesSelect";
 import { useAuth } from "../hooks/useAuth";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { useObras } from "../hooks/useObras";
@@ -43,7 +43,7 @@ const AcarreosScreen = () => {
   const esChecador = userRole === "CHECADOR";
   const esAdministrador = userRole === "Administrador";
 
-  const { obras, loading: obrasLoading } = useObras(userProfile?.id_persona);
+  const { obras, loading: obrasLoading } = useObras(userProfile?.id_persona, esAdministrador);
 
   const [valesMaterial, setValesMaterial] = useState([]);
   const [valesRenta, setValesRenta] = useState([]);
@@ -54,6 +54,16 @@ const AcarreosScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [modalPruebaVisible, setModalPruebaVisible] = useState(false);
+
+  const hoyInit = new Date();
+  const [mesSeleccionado, setMesSeleccionado] = useState({
+    mes: hoyInit.getMonth() + 1,
+    anio: hoyInit.getFullYear(),
+  });
+  const mesSeleccionadoRef = useRef(mesSeleccionado);
+  useEffect(() => {
+    mesSeleccionadoRef.current = mesSeleccionado;
+  }, [mesSeleccionado]);
 
   const { materiales, sindicatos, operadores, vehiculos } = useCatalogos([
     "materiales",
@@ -67,6 +77,12 @@ const AcarreosScreen = () => {
 
   const isMounted = useRef(true);
   const isFetching = useRef(false);
+  const lastFetchRef = useRef(0);
+  // Ref para evitar stale closure: userRole llega en render separado a userProfile.id_persona
+  const esAdministradorRef = useRef(esAdministrador);
+  useEffect(() => {
+    esAdministradorRef.current = esAdministrador;
+  }, [esAdministrador]);
 
   useEffect(() => {
     return () => {
@@ -85,8 +101,27 @@ const AcarreosScreen = () => {
       ) {
         fetchVales();
       }
-    }, [userProfile?.id_persona, obras, obrasLoading]),
+    }, [userProfile?.id_persona, obras, obrasLoading, esAdministrador]),
   );
+
+  // Si esAdministrador carga después del primer fetch (stale closure), fuerza re-fetch
+  useEffect(() => {
+    if (esAdministrador && obras.length > 0 && !obrasLoading) {
+      fetchVales(true, true);
+    }
+  }, [esAdministrador]);
+
+  // Re-fetch al cambiar mes (solo admin)
+  useEffect(() => {
+    if (esAdministradorRef.current && obras.length > 0 && !obrasLoading) {
+      fetchVales(false, true);
+    }
+  }, [mesSeleccionado]);
+
+  const handleMesChange = (nuevoMes) => {
+    setMesSeleccionado(nuevoMes);
+    setSearchQuery("");
+  };
 
   // Abrir modal automáticamente si viene un vale escaneado desde ValesScreen
   useEffect(() => {
@@ -105,9 +140,10 @@ const AcarreosScreen = () => {
 
   // ─── Fetch ────────────────────────────────────────────────────────────────
 
-  const fetchVales = async (silent = false) => {
+  const fetchVales = async (silent = false, force = false) => {
     if (!userProfile?.id_persona) return;
     if (isFetching.current) return;
+    if (!force && Date.now() - lastFetchRef.current < 30000) return;
 
     try {
       isFetching.current = true;
@@ -129,23 +165,45 @@ const AcarreosScreen = () => {
         return;
       }
 
-      let queryVales = supabase
+      const esAdmin = esAdministradorRef.current;
+      const { mes, anio } = mesSeleccionadoRef.current;
+
+      let queryBase = supabase
         .from("vales")
-        .select(VALE_SELECT_COMPLETO)
+        .select(VALE_SELECT_LISTA)
         .in("id_obra", obrasIds)
         .order("fecha_creacion", { ascending: false });
 
-      if (!esAdministrador) {
-        queryVales = queryVales.not(
-          "estado",
-          "in",
-          '("verificado","conciliado")',
-        );
+      let valesData;
+
+      if (esAdmin) {
+        // Admin: solo el mes seleccionado, todos los estados, sin límite artificial
+        const mesStr = String(mes).padStart(2, "0");
+        const inicioMes = `${anio}-${mesStr}-01`;
+        const finMes =
+          mes === 12
+            ? `${anio + 1}-01-01`
+            : `${anio}-${String(mes + 1).padStart(2, "0")}-01`;
+
+        const { data, error } = await queryBase
+          .gte("fecha_creacion", inicioMes)
+          .lt("fecha_creacion", finMes);
+
+        if (error) throw error;
+        valesData = data || [];
+      } else {
+        const fechaLimite = new Date();
+        fechaLimite.setDate(fechaLimite.getDate() - 60);
+        const fechaLimiteStr = `${fechaLimite.getFullYear()}-${String(fechaLimite.getMonth() + 1).padStart(2, "0")}-${String(fechaLimite.getDate()).padStart(2, "0")}`;
+
+        const { data, error } = await queryBase
+          .gte("fecha_creacion", fechaLimiteStr)
+          .not("estado", "in", '("verificado","conciliado")')
+          .limit(1000);
+
+        if (error) throw error;
+        valesData = data || [];
       }
-
-      const { data: valesData, error: valesError } = await queryVales;
-
-      if (valesError) throw valesError;
 
       const material = valesData.filter((v) => v.tipo_vale === "material");
       const renta = valesData.filter((v) => v.tipo_vale === "renta");
@@ -153,6 +211,7 @@ const AcarreosScreen = () => {
       if (isMounted.current) {
         setValesMaterial(material);
         setValesRenta(renta);
+        lastFetchRef.current = Date.now();
       }
     } catch (error) {
       console.error("[AcarreosScreen] Error fetchVales:", error.message);
@@ -172,7 +231,7 @@ const AcarreosScreen = () => {
 
   const onRefresh = async () => {
     if (isMounted.current) setRefreshing(true);
-    await fetchVales();
+    await fetchVales(false, true);
     if (isMounted.current) setRefreshing(false);
   };
 
@@ -380,6 +439,9 @@ const AcarreosScreen = () => {
         operadores={operadores}
         vehiculos={vehiculos}
         esChecador={esChecador}
+        esAdministrador={esAdministrador}
+        mesSeleccionado={mesSeleccionado}
+        onMesChange={handleMesChange}
       />
 
       <ScrollView
@@ -422,6 +484,7 @@ const AcarreosScreen = () => {
             icon="check-circle"
             count={materialSeparado.emitidos.length}
             defaultCollapsed={true}
+            forceExpanded={!!searchQuery.trim()}
             iconColor={colors.accent}
             badgeColor={colors.accent}
           >
@@ -442,6 +505,7 @@ const AcarreosScreen = () => {
               icon="check-decagram"
               count={materialSeparado.verificados.length}
               defaultCollapsed={true}
+              forceExpanded={!!searchQuery.trim()}
               iconColor={colors.info}
               badgeColor={colors.info}
             >
@@ -463,6 +527,7 @@ const AcarreosScreen = () => {
               icon="currency-usd"
               count={materialSeparado.conciliados.length}
               defaultCollapsed={true}
+              forceExpanded={!!searchQuery.trim()}
               iconColor={colors.success}
               badgeColor={colors.success}
             >
@@ -484,6 +549,7 @@ const AcarreosScreen = () => {
               icon="cancel"
               count={materialSeparado.cancelados.length}
               defaultCollapsed={true}
+              forceExpanded={!!searchQuery.trim()}
               iconColor={colors.danger}
               badgeColor={colors.danger}
             >
@@ -528,6 +594,7 @@ const AcarreosScreen = () => {
             icon="check-circle"
             count={rentaSeparado.emitidos.length}
             defaultCollapsed={true}
+            forceExpanded={!!searchQuery.trim()}
             iconColor={colors.accent}
             badgeColor={colors.accent}
           >
@@ -548,6 +615,7 @@ const AcarreosScreen = () => {
               icon="check-decagram"
               count={rentaSeparado.verificados.length}
               defaultCollapsed={true}
+              forceExpanded={!!searchQuery.trim()}
               iconColor={colors.info}
               badgeColor={colors.info}
             >
@@ -569,6 +637,7 @@ const AcarreosScreen = () => {
               icon="currency-usd"
               count={rentaSeparado.conciliados.length}
               defaultCollapsed={true}
+              forceExpanded={!!searchQuery.trim()}
               iconColor={colors.success}
               badgeColor={colors.success}
             >
@@ -590,6 +659,7 @@ const AcarreosScreen = () => {
               icon="cancel"
               count={rentaSeparado.cancelados.length}
               defaultCollapsed={true}
+              forceExpanded={!!searchQuery.trim()}
               iconColor={colors.danger}
               badgeColor={colors.danger}
             >
@@ -610,7 +680,7 @@ const AcarreosScreen = () => {
         visible={modalVisible}
         vale={selectedVale}
         onClose={handleCloseModal}
-        onRefresh={() => fetchVales(true)}
+        onRefresh={() => fetchVales(true, true)}
       />
     </>
   );

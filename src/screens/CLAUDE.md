@@ -65,6 +65,30 @@ const esSindicato = userRole === "Sindicato";
 
 ---
 
+## AcarreosScreen — comportamiento por rol
+
+### No-admin (Residente, Checador, etc.)
+- Carga vales de los últimos **60 días** (desde `fecha_creacion`).
+- Excluye estados `verificado` y `conciliado` de la lista.
+- Límite: 1000 filas.
+
+### Administrador
+- Recibe **todas las obras** via `useObras(id, true)` — no filtradas por `persona_obra`.
+- La lista usa un **selector de mes** (`MesSelectorRow` en FilterBar) — solo el mes seleccionado, todos los estados.
+- No hay límite de filas.
+
+### Fetch throttle
+`fetchVales` tiene un cooldown de 30 segundos entre llamadas automáticas. Usar `force = true` para saltarlo (refresh manual, cierre de modal, cambio de mes).
+
+```javascript
+fetchVales(false, true); // force — ignora cooldown
+```
+
+### forceExpanded en búsqueda
+Cuando `searchQuery` tiene texto, todos los `CollapsibleSection` se expanden forzosamente via el prop `forceExpanded`.
+
+---
+
 ## Navegación QR de vehículos
 
 Al escanear QR de un camión (`VH-{PLACAS}`):

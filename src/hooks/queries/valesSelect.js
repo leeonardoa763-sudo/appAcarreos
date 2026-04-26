@@ -7,6 +7,37 @@
  * desincronización de campos como es_material_descarga.
  */
 
+/**
+ * Select ligero para la lista — solo campos que muestra ValeCard y usan los filtros.
+ * No incluye vale_material_viajes ni precios_renta (se cargan al abrir el detalle).
+ */
+export const VALE_SELECT_LISTA = `
+  *,
+  operadores:id_operador (
+    nombre_completo
+  ),
+  vehiculos:id_vehiculo (
+    placas
+  ),
+  persona_completador:id_persona_completador (
+    nombre,
+    primer_apellido,
+    segundo_apellido
+  ),
+  vale_material_detalles (
+    requisicion,
+    folio_vale_fisico,
+    material:id_material (
+      id_material,
+      material
+    )
+  ),
+  vale_renta_detalle (
+    hora_inicio,
+    hora_fin
+  )
+`;
+
 export const VALE_SELECT_COMPLETO = `
   *,
   obras (

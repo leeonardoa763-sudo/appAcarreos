@@ -4,17 +4,23 @@ Hooks de lógica de negocio. Un hook = una responsabilidad.
 
 ---
 
-## VALE_SELECT_COMPLETO — OBLIGATORIO
+## Selects de vales — dos constantes
 
-Toda query que lea detalle de un vale DEBE usar esta constante. Nunca duplicar el select manualmente.
+Hay dos constantes en `queries/valesSelect.js`. Usar la correcta según el contexto:
+
+| Constante | Cuándo usar |
+|---|---|
+| `VALE_SELECT_LISTA` | Lista/scroll — solo campos visibles en ValeCard y filtros. Sin `vale_material_viajes` ni `precios_renta`. |
+| `VALE_SELECT_COMPLETO` | Detalle de un vale individual — incluye todos los subtablas. |
 
 ```javascript
-import { VALE_SELECT_COMPLETO } from "./queries/valesSelect";
+import { VALE_SELECT_LISTA, VALE_SELECT_COMPLETO } from "./queries/valesSelect";
 
-const { data, error } = await supabase
-  .from("vales")
-  .select(VALE_SELECT_COMPLETO)
-  .eq("id_vale", id);
+// Lista → ligero
+const { data } = await supabase.from("vales").select(VALE_SELECT_LISTA).in("id_obra", ids);
+
+// Detalle → completo
+const { data } = await supabase.from("vales").select(VALE_SELECT_COMPLETO).eq("id_vale", id).maybeSingle();
 ```
 
 Si agregas un campo nuevo a la query, agrégalo en `queries/valesSelect.js` — no en el hook.
@@ -66,8 +72,8 @@ const fechaStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, 
 ```
 
 **Campos de fecha en vales:**
-- `fecha_creacion` — timestamp financiero inmutable. NO usar para filtrar estadísticas.
-- `fecha_completado` — fecha operacional. USAR para estadísticas y agrupaciones.
+- `fecha_creacion` — timestamp de creación. USAR para filtrar listas y estadísticas (`useEstadisticasMaterial`, `useEstadisticasMaterialTendencia`).
+- `fecha_completado` — fecha en que se completó/emitió el vale. Puede ser `null` en `en_proceso`. Para agrupaciones usar `fecha_completado ?? fecha_creacion`.
 
 ---
 
@@ -130,6 +136,27 @@ PostgREST puede lanzar "cannot coerce to single JSON object" aunque haya una sol
 | `operadores` | `nombre_completo` es columna GENERADA — INSERT solo `nombre`, `primer_apellido`, `segundo_apellido` |
 | `distancias_banco_obra` | Distancias precargadas banco→obra |
 | `conciliaciones` | Agrupación de vales para pago |
+
+---
+
+## useObras — parámetro esAdmin
+
+`useObras(personaId, esAdmin)` tiene dos modos:
+
+- `esAdmin = false` (default): query a `persona_obra` — devuelve solo las obras asignadas.
+- `esAdmin = true`: query directa a `obras` — devuelve todas excepto la 888 (prueba).
+
+```javascript
+const { obras } = useObras(userProfile?.id_persona, esAdministrador);
+```
+
+---
+
+## Estadísticas — estados y periodo
+
+`useEstadisticasMaterial` y `useEstadisticasMaterialTendencia` incluyen el estado `en_proceso` en sus filtros. Los periodos soportados son: `hoy`, `ayer`, `semana`, `mes`, `trimestre`, `anio`.
+
+Periodos cortos (`hoy`, `ayer`, `semana`) agrupan por **día**; los demás agrupan por **semana ISO**.
 
 ---
 

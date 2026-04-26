@@ -80,6 +80,16 @@ export const useEstadisticasMaterialTendencia = (
         fechaFin.setHours(23, 59, 59, 999);
         break;
 
+      case "ayer": {
+        const ayer = new Date(hoy);
+        ayer.setDate(hoy.getDate() - 1);
+        fechaInicio = new Date(ayer);
+        fechaInicio.setHours(0, 0, 0, 0);
+        fechaFin = new Date(ayer);
+        fechaFin.setHours(23, 59, 59, 999);
+        break;
+      }
+
       case "semana": {
         const diaSemana = (hoy.getDay() + 6) % 7;
         fechaInicio = new Date(hoy);
@@ -168,9 +178,9 @@ export const useEstadisticasMaterialTendencia = (
       `,
         )
         .eq("tipo_vale", "material")
-        .in("estado", ["emitido", "verificado", "conciliado"])
-        .gte("fecha_completado", fechaInicio)
-        .lte("fecha_completado", fechaFin);
+        .in("estado", ["en_proceso", "emitido", "verificado", "conciliado"])
+        .gte("fecha_creacion", fechaInicio)
+        .lte("fecha_creacion", fechaFin);
 
       if (filtrarPorObra && obraId) {
         query = query.eq("id_obra", obraId);
@@ -178,7 +188,7 @@ export const useEstadisticasMaterialTendencia = (
         query = query.eq("id_persona_creador", residenteId);
       }
 
-      query = query.order("fecha_completado", { ascending: true });
+      query = query.order("fecha_creacion", { ascending: true });
 
       const { data, error } = await query;
       if (error) throw error;
@@ -399,10 +409,11 @@ export const useEstadisticasMaterialTendencia = (
   }, [valesSemanal, materialIdFiltroSemanal, procesarVales]);
 
   const datosPeriodo = useMemo(() => {
-    const resultado = procesarVales(valesPeriodo, "semana", materialIdFiltro);
-
-    return resultado;
-  }, [valesPeriodo, materialIdFiltro, procesarVales]);
+    const agrupacion = ["hoy", "ayer", "semana"].includes(periodo)
+      ? "dia"
+      : "semana";
+    return procesarVales(valesPeriodo, agrupacion, materialIdFiltro);
+  }, [valesPeriodo, materialIdFiltro, periodo, procesarVales]);
 
   // ─── Lista de materiales disponibles para el selector de grafica 2 ─────────
 

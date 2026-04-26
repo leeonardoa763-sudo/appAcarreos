@@ -18,17 +18,22 @@
  * - AcarreosScreen
  */
 
-import React, { useEffect, useMemo } from "react";
-import { View, Text, Modal, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { View, Text, Modal, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { useAuth } from "../../hooks/useAuth";
+import { supabase } from "../../config/supabase";
+import { VALE_SELECT_COMPLETO } from "../../hooks/queries/valesSelect";
 
 import ValeDetalleMaterial from "./ValeDetalleMaterial";
 import ValeDetalleRenta from "./ValeDetalleRenta";
 
 const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
   const { userProfile } = useAuth();
+  const [valeCompleto, setValeCompleto] = useState(null);
+  const [loadingVale, setLoadingVale] = useState(false);
+
   // Determinar tipo de vale
   const tipoVale = useMemo(() => {
     if (!vale) return null;
@@ -38,12 +43,45 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
   const isMaterial = tipoVale === "material";
   const isRenta = tipoVale === "renta";
 
-  // Cleanup al cerrar
+  // Cargar datos completos al abrir — la lista usa un select ligero
   useEffect(() => {
-    if (!visible) {
-      // Reset se maneja dentro de cada componente hijo
+    if (!visible || !vale?.id_vale) {
+      setValeCompleto(null);
+      return;
     }
-  }, [visible]);
+    let activo = true;
+    const fetchCompleto = async () => {
+      setLoadingVale(true);
+      try {
+        const { data, error } = await supabase
+          .from("vales")
+          .select(VALE_SELECT_COMPLETO)
+          .eq("id_vale", vale.id_vale)
+          .maybeSingle();
+        if (error) throw error;
+        if (activo) setValeCompleto(data);
+      } catch (err) {
+        console.error("[ValeDetalleModal] Error fetchCompleto:", err.message);
+      } finally {
+        if (activo) setLoadingVale(false);
+      }
+    };
+    fetchCompleto();
+    return () => { activo = false; };
+  }, [visible, vale?.id_vale]);
+
+  // Al refrescar desde el hijo, actualiza el vale completo y notifica a la lista
+  const handleRefresh = useCallback(async () => {
+    if (vale?.id_vale) {
+      const { data } = await supabase
+        .from("vales")
+        .select(VALE_SELECT_COMPLETO)
+        .eq("id_vale", vale.id_vale)
+        .maybeSingle();
+      if (data) setValeCompleto(data);
+    }
+    onRefresh?.();
+  }, [vale?.id_vale, onRefresh]);
 
   // Early return DESPUÉS de todos los hooks
   if (!vale || !tipoVale) {
@@ -85,21 +123,28 @@ const ValeDetalleModal = ({ visible, vale, onClose, onRefresh }) => {
             </TouchableOpacity>
           </View>
 
+          {/* Spinner mientras cargan los datos completos */}
+          {loadingVale && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={isMaterial ? colors.primary : colors.secondary} />
+            </View>
+          )}
+
           {/* Contenido dinámico según tipo */}
-          {isMaterial && (
+          {!loadingVale && valeCompleto && isMaterial && (
             <ValeDetalleMaterial
-              vale={vale}
+              vale={valeCompleto}
               onClose={onClose}
-              onRefresh={onRefresh}
+              onRefresh={handleRefresh}
               userProfile={userProfile}
             />
           )}
 
-          {isRenta && (
+          {!loadingVale && valeCompleto && isRenta && (
             <ValeDetalleRenta
-              vale={vale}
+              vale={valeCompleto}
               onClose={onClose}
-              onRefresh={onRefresh}
+              onRefresh={handleRefresh}
               userProfile={userProfile}
             />
           )}
@@ -160,5 +205,10 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

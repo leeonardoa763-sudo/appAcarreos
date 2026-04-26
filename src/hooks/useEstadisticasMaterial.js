@@ -42,6 +42,16 @@ export const useEstadisticasMaterial = (
         fechaFin.setHours(23, 59, 59, 999);
         break;
 
+      case "ayer": {
+        const ayer = new Date(hoy);
+        ayer.setDate(hoy.getDate() - 1);
+        fechaInicio = new Date(ayer);
+        fechaInicio.setHours(0, 0, 0, 0);
+        fechaFin = new Date(ayer);
+        fechaFin.setHours(23, 59, 59, 999);
+        break;
+      }
+
       case "semana": {
         const diaSemana = (hoy.getDay() + 6) % 7; // Lunes = 0
         fechaInicio = new Date(hoy);
@@ -162,9 +172,9 @@ export const useEstadisticasMaterial = (
         `,
         )
         .eq("tipo_vale", "material")
-        .in("estado", ["emitido", "verificado", "conciliado"])
-        .gte("fecha_completado", fechaInicio)
-        .lte("fecha_completado", fechaFin);
+        .in("estado", ["en_proceso", "emitido", "verificado", "conciliado"])
+        .gte("fecha_creacion", fechaInicio)
+        .lte("fecha_creacion", fechaFin);
 
       // ── Filtro de obra: una sola fuente de verdad ──
       if (obraId) {
@@ -206,7 +216,7 @@ export const useEstadisticasMaterial = (
         console.warn("  - obraId no tiene vales en este periodo:", obraId);
         console.warn("  - El rango de fechas no coincide con vales existentes");
         console.warn(
-          "  - Los estados de los vales no incluyen emitido/verificado/conciliado",
+          "  - Los estados de los vales no incluyen en_proceso/emitido/verificado/conciliado",
         );
       }
 
@@ -348,7 +358,7 @@ export const useEstadisticasMaterial = (
       const diaStr = dia.toISOString().split("T")[0];
 
       const viajesDelDia = vales.reduce((acc, vale) => {
-        const fechaRaw = vale.fecha_completado;
+        const fechaRaw = vale.fecha_completado ?? vale.fecha_creacion;
         if (!fechaRaw) return acc;
         const fechaLocal = new Date(fechaRaw);
         const fechaStr = `${fechaLocal.getFullYear()}-${String(fechaLocal.getMonth() + 1).padStart(2, "0")}-${String(fechaLocal.getDate()).padStart(2, "0")}`;

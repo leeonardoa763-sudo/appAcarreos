@@ -59,11 +59,14 @@ const CollapsibleSection = ({
   icon,
   count = 0,
   defaultCollapsed = true,
+  forceExpanded = false,
   iconColor = colors.primary,
   badgeColor = colors.primary,
   children,
 }) => {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+  const isCollapsed = forceExpanded ? false : collapsed;
 
   const toggleCollapse = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -85,13 +88,13 @@ const CollapsibleSection = ({
           </View>
         </View>
         <MaterialCommunityIcons
-          name={collapsed ? "chevron-down" : "chevron-up"}
+          name={isCollapsed ? "chevron-down" : "chevron-up"}
           size={24}
           color={colors.textSecondary}
         />
       </TouchableOpacity>
 
-      {!collapsed && <View style={styles.content}>{children}</View>}
+      {!isCollapsed && <View style={styles.content}>{children}</View>}
     </View>
   );
 };

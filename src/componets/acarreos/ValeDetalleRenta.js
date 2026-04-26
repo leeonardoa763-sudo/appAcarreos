@@ -571,8 +571,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
 
         <View style={{ height: 40 }} />
 
-        {/* Boton reimprimir PDF — solo emitido, solo una vez */}
-        {vale?.estado === "emitido" && !loadingReimpresion && (
+        {/* Boton reimprimir PDF — todos los estados excepto en_proceso */}
+        {vale?.estado !== "en_proceso" && !loadingReimpresion && (
           <View style={styles.reimprimirContainer}>
             {yaReimprimio ? (
               <View style={styles.reimprimirAgotado}>

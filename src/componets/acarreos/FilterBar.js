@@ -263,6 +263,67 @@ const PlacasDropdown = ({ value, onSelect, vehiculos }) => {
   );
 };
 
+// ─── Selector de mes (solo admin) ─────────────────────────────────────────────
+
+const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+const MesSelectorRow = ({ mesSeleccionado, onMesChange }) => {
+  const hoy = new Date();
+  const esMesActual =
+    mesSeleccionado.mes === hoy.getMonth() + 1 &&
+    mesSeleccionado.anio === hoy.getFullYear();
+
+  const irMesAnterior = () => {
+    const { mes, anio } = mesSeleccionado;
+    if (mes === 1) {
+      onMesChange({ mes: 12, anio: anio - 1 });
+    } else {
+      onMesChange({ mes: mes - 1, anio });
+    }
+  };
+
+  const irMesSiguiente = () => {
+    if (esMesActual) return;
+    const { mes, anio } = mesSeleccionado;
+    if (mes === 12) {
+      onMesChange({ mes: 1, anio: anio + 1 });
+    } else {
+      onMesChange({ mes: mes + 1, anio });
+    }
+  };
+
+  return (
+    <View style={styles.mesSelectorRow}>
+      <TouchableOpacity
+        onPress={irMesAnterior}
+        style={styles.mesFlechaBtn}
+        activeOpacity={0.7}
+      >
+        <MaterialCommunityIcons name="chevron-left" size={22} color={colors.secondary} />
+      </TouchableOpacity>
+
+      <Text style={styles.mesTexto}>
+        {MESES[mesSeleccionado.mes - 1]} {mesSeleccionado.anio}
+      </Text>
+
+      <TouchableOpacity
+        onPress={irMesSiguiente}
+        style={[styles.mesFlechaBtn, esMesActual && styles.mesFlechaBtnDisabled]}
+        activeOpacity={esMesActual ? 1 : 0.7}
+      >
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={22}
+          color={esMesActual ? colors.textSecondary : colors.secondary}
+        />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 // ─── Componente principal ──────────────────────────────────────────────────────
 
 const FilterBar = ({
@@ -278,6 +339,9 @@ const FilterBar = ({
   operadores = [],
   vehiculos = [],
   esChecador = false,
+  esAdministrador = false,
+  mesSeleccionado = null,
+  onMesChange = null,
 }) => {
   // Controla qué dropdown está abierto. Solo uno a la vez.
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -428,6 +492,11 @@ const FilterBar = ({
           </TouchableOpacity>
         )}
       </View>
+
+      {/* ── Selector de mes (solo admin) ─────────────────────────────────── */}
+      {esAdministrador && mesSeleccionado && onMesChange && (
+        <MesSelectorRow mesSeleccionado={mesSeleccionado} onMesChange={onMesChange} />
+      )}
 
       {/* ── Chips scrolleables ───────────────────────────────────────────── */}
       <ScrollView
@@ -583,6 +652,28 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontSize: 13,
     fontWeight: "700",
+  },
+
+  // Selector de mes
+  mesSelectorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    gap: 8,
+  },
+  mesFlechaBtn: {
+    padding: 4,
+  },
+  mesFlechaBtnDisabled: {
+    opacity: 0.35,
+  },
+  mesTexto: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.secondary,
+    minWidth: 140,
+    textAlign: "center",
   },
 
   // Chips

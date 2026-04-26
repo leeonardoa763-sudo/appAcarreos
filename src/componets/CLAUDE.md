@@ -80,6 +80,30 @@ const styles = StyleSheet.create({
 
 ---
 
+## ValeDetalleModal — carga lazy del detalle
+
+La lista (`AcarreosScreen`) usa `VALE_SELECT_LISTA` (ligero). Al abrir el modal, `ValeDetalleModal` hace un fetch adicional con `VALE_SELECT_COMPLETO` y muestra un spinner mientras carga. Los componentes hijos (`ValeDetalleMaterial`, `ValeDetalleRenta`) reciben el `valeCompleto` — nunca el objeto ligero de la lista.
+
+No pasar el vale de la lista directamente a los hijos del modal.
+
+---
+
+## CollapsibleSection — prop forceExpanded
+
+`forceExpanded={true}` fuerza la sección abierta sin modificar el estado interno. Usar cuando el padre necesita expandir todas las secciones temporalmente (ej. búsqueda activa).
+
+```javascript
+<CollapsibleSection forceExpanded={!!searchQuery.trim()} ...>
+```
+
+---
+
+## Reimprimir PDF
+
+El botón de reimpresión en `ValeDetalleMaterial` y `ValeDetalleRenta` se muestra para **todos los estados excepto `en_proceso`** (antes solo en `emitido`).
+
+---
+
 ## Subcarpetas
 
 | Carpeta | Contenido |
