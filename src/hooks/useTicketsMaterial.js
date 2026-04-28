@@ -191,21 +191,12 @@ export const useTicketsMaterial = (vale) => {
   const actualizarBancoViaje = useCallback(
     async (idViaje, bancoOverride) => {
       try {
-        console.log("[actualizarBancoViaje] idViaje:", idViaje);
-        console.log("[actualizarBancoViaje] vale.id_vale:", vale?.id_vale);
-        console.log("[actualizarBancoViaje] bancoOverride:", bancoOverride);
-
         const { data: valeData, error: errorVale } = await supabase
           .from("vales")
           .select("id_vehiculo, vale_material_detalles!inner(id_material)")
           .eq("id_vale", vale.id_vale)
           .single();
-        console.log(
-          "[actualizarBancoViaje] valeData:",
-          valeData,
-          "errorVale:",
-          errorVale,
-        );
+
         if (errorVale || !valeData)
           throw new Error("No se pudo obtener el vale");
 
@@ -214,12 +205,7 @@ export const useTicketsMaterial = (vale) => {
           .select("id_sindicato")
           .eq("id_vehiculo", valeData.id_vehiculo)
           .single();
-        console.log(
-          "[actualizarBancoViaje] vehiculoData:",
-          vehiculoData,
-          "errorVehiculo:",
-          errorVehiculo,
-        );
+
         if (errorVehiculo || !vehiculoData)
           throw new Error("No se pudo obtener el sindicato del vehiculo");
 
@@ -228,12 +214,7 @@ export const useTicketsMaterial = (vale) => {
           .select("id_tipo_de_material")
           .eq("id_material", valeData.vale_material_detalles[0].id_material)
           .single();
-        console.log(
-          "[actualizarBancoViaje] materialData:",
-          materialData,
-          "errorMaterial:",
-          errorMaterial,
-        );
+
         if (errorMaterial || !materialData)
           throw new Error("No se pudo obtener el tipo de material");
 
@@ -242,12 +223,7 @@ export const useTicketsMaterial = (vale) => {
           .select("volumen_m3")
           .eq("id_viaje", idViaje)
           .single();
-        console.log(
-          "[actualizarBancoViaje] viajeData:",
-          viajeData,
-          "errorViaje:",
-          errorViaje,
-        );
+
         if (errorViaje || !viajeData)
           throw new Error("No se pudo obtener el viaje");
 
@@ -270,7 +246,6 @@ export const useTicketsMaterial = (vale) => {
             costo_viaje_override: costos.costoTotal,
           })
           .eq("id_viaje", idViaje);
-        console.log("[actualizarBancoViaje] errorUpdate:", errorUpdate);
 
         if (errorUpdate) throw errorUpdate;
 
@@ -281,10 +256,6 @@ export const useTicketsMaterial = (vale) => {
           costo_viaje: costos.costoTotal,
         };
       } catch (error) {
-        console.error(
-          "[useTicketsMaterial] Error actualizando banco viaje:",
-          error,
-        );
         Alert.alert(
           "Error",
           `No se pudo actualizar el banco del viaje: ${error.message}`,

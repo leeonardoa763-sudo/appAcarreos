@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { View, Text, Alert, TouchableOpacity } from "react-native";
+import { View, Text, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { useAuth } from "../../hooks/useAuth";
@@ -319,6 +319,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             loading={loadingViajes}
             registrando={registrando}
             totalViajes={totalViajes}
+            totalTickets={totalTickets}
             onRegistrarViaje={registrarViaje}
             puedeRegistrar={puedeRegistrar}
             minutosRestantes={minutosRestantes}
@@ -414,6 +415,14 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
               setShowModalImpresion(true);
             }}
           />
+        </View>
+      )}
+
+      {/* Overlay de generación de PDF */}
+      {triggerPDF && (
+        <View style={styles.pdfLoadingOverlay}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={styles.pdfLoadingTexto}>Generando PDF...</Text>
         </View>
       )}
 

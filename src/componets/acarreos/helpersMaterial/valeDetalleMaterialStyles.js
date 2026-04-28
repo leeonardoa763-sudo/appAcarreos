@@ -300,6 +300,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
   },
+  pdfLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 14,
+    zIndex: 999,
+  },
+  pdfLoadingTexto: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 });
 
 export default styles;

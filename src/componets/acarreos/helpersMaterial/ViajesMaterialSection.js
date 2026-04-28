@@ -247,6 +247,7 @@ const ViajesMaterialSection = ({
   loading,
   registrando,
   totalViajes,
+  totalTickets = 0,
   onRegistrarViaje,
   puedeRegistrar,
   minutosRestantes,
@@ -311,9 +312,19 @@ const ViajesMaterialSection = ({
     return true;
   }, [esTipo3, valores]);
 
+  const tieneTicketPendiente = totalTickets > totalViajes;
+
   // ─── Manejar registro de viaje ────────────────────────────────────────────
 
   const handleRegistrar = useCallback(async () => {
+    if (!tieneTicketPendiente) {
+      Alert.alert(
+        "Ticket requerido",
+        "Debes imprimir el ticket antes de registrar el viaje.",
+        [{ text: "Entendido" }],
+      );
+      return;
+    }
     if (!validarFormulario()) return;
 
     const resultado = await onRegistrarViaje({
@@ -331,7 +342,7 @@ const ViajesMaterialSection = ({
       debugTicketEnConsola(vale, detalle, resultado);
       setViajeParaFoto(resultado);
     }
-  }, [validarFormulario, onRegistrarViaje, esTipo3, valores]);
+  }, [validarFormulario, onRegistrarViaje, esTipo3, valores, tieneTicketPendiente]);
 
   const handleFotoGuardada = useCallback(
     async (idViaje, fotoUrl, ubicacion, distanciaObra) => {
@@ -433,45 +444,54 @@ const ViajesMaterialSection = ({
       />
 
       {/* Botón registrar */}
-      <TouchableOpacity
-        style={[
-          styles.botonRegistrar,
-          (!puedeRegistrar || registrando) && styles.botonDeshabilitado,
-        ]}
-        onPress={handleRegistrar}
-        disabled={!puedeRegistrar || registrando}
-        activeOpacity={0.8}
-      >
-        {registrando ? (
-          <ActivityIndicator size="small" color={colors.surface} />
-        ) : !puedeRegistrar ? (
-          <>
-            <MaterialCommunityIcons
-              name="plus-circle"
-              size={20}
-              color={colors.textSecondary}
-            />
-            <Text style={[styles.botonTexto, { color: colors.textSecondary }]}>
-              {totalViajes === 0
-                ? "Registrar Primer Viaje"
-                : `Registrar Viaje ${totalViajes + 1}`}
-            </Text>
-          </>
-        ) : (
-          <>
-            <MaterialCommunityIcons
-              name="plus-circle"
-              size={20}
-              color={colors.surface}
-            />
-            <Text style={styles.botonTexto}>
-              {totalViajes === 0
-                ? "Registrar Primer Viaje"
-                : `Registrar Viaje ${totalViajes + 1}`}
-            </Text>
-          </>
-        )}
-      </TouchableOpacity>
+      {(() => {
+        const botonActivo = puedeRegistrar && tieneTicketPendiente && !registrando;
+        const labelViaje =
+          totalViajes === 0
+            ? "Registrar Primer Viaje"
+            : `Registrar Viaje ${totalViajes + 1}`;
+        return (
+          <TouchableOpacity
+            style={[
+              styles.botonRegistrar,
+              !botonActivo && styles.botonDeshabilitado,
+            ]}
+            onPress={handleRegistrar}
+            disabled={registrando}
+            activeOpacity={0.8}
+          >
+            {registrando ? (
+              <ActivityIndicator size="small" color={colors.surface} />
+            ) : (
+              <>
+                <MaterialCommunityIcons
+                  name="plus-circle"
+                  size={20}
+                  color={botonActivo ? colors.surface : colors.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.botonTexto,
+                    !botonActivo && { color: colors.textSecondary },
+                  ]}
+                >
+                  {labelViaje}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        );
+      })()}
+      {!tieneTicketPendiente && (
+        <Text style={styles.avisoTicket}>
+          Imprime el ticket antes de registrar el siguiente viaje
+        </Text>
+      )}
+      {tieneTicketPendiente && !puedeRegistrar && (
+        <Text style={styles.avisoTicket}>
+          Espera {minutosRestantes} min antes del siguiente viaje
+        </Text>
+      )}
       {/* Formulario de completar — tipo 1/2 */}
       {!esTipo3 && (
         <ValeFormCompletarNormal
@@ -665,6 +685,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF0EA",
     alignItems: "center",
     justifyContent: "center",
+  },
+  avisoTicket: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginTop: 8,
+    fontStyle: "italic",
   },
 });
 

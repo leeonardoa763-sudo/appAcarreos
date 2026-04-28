@@ -11,6 +11,26 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export const getCached = async (key, ttlMs) => {
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > ttlMs) return null;
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+export const setCached = async (key, data) => {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
+  } catch {
+    // ignorar errores de escritura en caché
+  }
+};
+
 /**
  * Limpia todas las claves de Supabase del AsyncStorage
  *

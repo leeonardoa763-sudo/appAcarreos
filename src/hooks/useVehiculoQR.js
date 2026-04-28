@@ -73,8 +73,6 @@ const useVehiculoQR = () => {
         return;
       }
 
-      console.log("[useVehiculoQR] Buscando vehículo con qr_uid:", qrUid);
-
       try {
         setCargando(true);
         setError(null);
@@ -125,13 +123,6 @@ const useVehiculoQR = () => {
           return;
         }
 
-        console.log(
-          "[useVehiculoQR] Vehículo encontrado:",
-          vehiculoData.placas,
-          "| operador sugerido:",
-          vehiculoData.operador_sugerido?.nombre_completo ?? "sin asignar",
-        );
-
         // ── Paso B: cuántos vales activos tiene desde la vista ───────────────
         const { data: vistaData, error: errorVista } = await supabase
           .from("vehiculos_vales_activos")
@@ -150,10 +141,9 @@ const useVehiculoQR = () => {
         }
 
         const totalActivos = vistaData?.vales_activos ?? 0;
-        console.log("[useVehiculoQR] Vales activos actuales:", totalActivos);
+
         const folios = vistaData?.folios_activos ?? [];
         setFoliosActivos(Array.isArray(folios) ? folios : []);
-        console.log("[useVehiculoQR] Folios activos del vehículo:", folios);
 
         setVehiculo(vehiculoData);
         setValesActivos(totalActivos);
@@ -196,11 +186,6 @@ const useVehiculoQR = () => {
    * Se filtra por id_obra del usuario activo (RLS lo maneja automáticamente).
    */
   const _cargarValesDisponibles = useCallback(async (idSindicato) => {
-    console.log(
-      "[useVehiculoQR] Cargando vales disponibles para sindicato:",
-      idSindicato,
-    );
-
     try {
       const { data, error: errorVales } = await supabase
         .from("vales")
@@ -248,12 +233,6 @@ const useVehiculoQR = () => {
         return false;
       });
 
-      console.log(
-        "[useVehiculoQR] Vales totales:",
-        data?.length ?? 0,
-        "| del sindicato:",
-        valesFiltrados.length,
-      );
       setValesDisponibles(valesFiltrados);
     } catch (err) {
       console.error(
@@ -286,13 +265,6 @@ const useVehiculoQR = () => {
         Alert.alert("Error", "Selecciona un vale antes de asignar.");
         return false;
       }
-
-      console.log(
-        "[useVehiculoQR] Iniciando asignación — vale:",
-        idVale,
-        "| vehículo:",
-        vehiculo.placas,
-      );
 
       try {
         setAsignando(true);
@@ -338,8 +310,6 @@ const useVehiculoQR = () => {
           id_operador: vehiculo.id_operador_sugerido ?? null,
         };
 
-        console.log("[useVehiculoQR] Payload asignación:", payload);
-
         const { error: errorUpdate } = await supabase
           .from("vales")
           .update(payload)
@@ -354,8 +324,6 @@ const useVehiculoQR = () => {
           );
           throw new Error(`Error BD al asignar: ${errorUpdate.message}`);
         }
-
-        console.log("[useVehiculoQR] Asignación exitosa — vale:", idVale);
 
         // Refrescar el conteo de activos en estado local
         setValesActivos(activosActuales + 1);

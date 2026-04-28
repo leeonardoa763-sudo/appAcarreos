@@ -167,19 +167,6 @@ export const useViajesMaterial = (
     [detalle?.id_material, detalle?.id_banco],
   );
 
-  // ─── Obtener sindicato del vehículo ───────────────────────────────────────
-
-  const obtenerSindicatoVehiculo = useCallback(async (idVehiculo) => {
-    const { data, error } = await supabase
-      .from("vehiculos")
-      .select("id_sindicato")
-      .eq("id_vehiculo", idVehiculo)
-      .single();
-
-    if (error || !data)
-      throw new Error("No se pudo obtener el sindicato del vehículo");
-    return data.id_sindicato;
-  }, []);
 
   // ─── Registrar viaje ──────────────────────────────────────────────────────
 
@@ -239,11 +226,14 @@ export const useViajesMaterial = (
                     throw new Error("El volumen calculado no es válido");
                   }
 
-                  // PASO 2: Obtener sindicato del vehículo y calcular costo
+                  // PASO 2: Obtener sindicato y tipo de material en una sola query
                   const { data: valeData, error: errorVale } = await supabase
                     .from("vales")
                     .select(
-                      "id_vehiculo, vale_material_detalles!inner(id_tipo_de_material:id_material(id_tipo_de_material))",
+                      `vehiculos:id_vehiculo(id_sindicato),
+                      vale_material_detalles!inner(
+                        id_tipo_de_material:id_material(id_tipo_de_material)
+                      )`,
                     )
                     .eq("id_vale", idVale)
                     .single();
@@ -251,22 +241,19 @@ export const useViajesMaterial = (
                   if (errorVale || !valeData)
                     throw new Error("No se pudo obtener datos del vale");
 
-                  const idSindicato = await obtenerSindicatoVehiculo(
-                    valeData.id_vehiculo,
-                  );
+                  const idSindicato = valeData.vehiculos?.id_sindicato;
+                  const idTipoDeMaterial =
+                    valeData.vale_material_detalles?.[0]?.id_tipo_de_material;
 
-                  const { data: materialData, error: errorMaterial } =
-                    await supabase
-                      .from("material")
-                      .select("id_tipo_de_material")
-                      .eq("id_material", detalle.id_material)
-                      .single();
-
-                  if (errorMaterial || !materialData)
+                  if (!idSindicato)
+                    throw new Error(
+                      "No se pudo obtener el sindicato del vehículo",
+                    );
+                  if (!idTipoDeMaterial)
                     throw new Error("No se pudo obtener el tipo de material");
 
                   const costos = await calcularCostoValeMaterial(
-                    materialData.id_tipo_de_material,
+                    idTipoDeMaterial,
                     idSindicato,
                     detalle.distancia_km,
                     volumenM3,
@@ -379,7 +366,6 @@ export const useViajesMaterial = (
       detalle,
       userProfile,
       calcularVolumenDesdeTomeladas,
-      obtenerSindicatoVehiculo,
       iniciarCuentaRegresiva,
     ],
   );
@@ -388,29 +374,33 @@ export const useViajesMaterial = (
 
   const completarVale = useCallback(
     async ({ idPersona, notasAdicionales } = {}) => {
+      const t0 = Date.now();
       try {
         setSaving(true);
 
-        const { error } = await supabase
-          .from("vales")
-          .update({
-            estado: "emitido",
-            id_persona_completador: idPersona,
-            fecha_completado: new Date().toISOString(),
-          })
-          .eq("id_vale", idVale);
+        const tUpdates = Date.now();
+        const [{ error }, { error: errorNotas }] = await Promise.all([
+          supabase
+            .from("vales")
+            .update({
+              estado: "emitido",
+              id_persona_completador: idPersona,
+              fecha_completado: new Date().toISOString(),
+            })
+            .eq("id_vale", idVale),
+          supabase
+            .from("vale_material_detalles")
+            .update({
+              notas_adicionales: notasAdicionales ?? null,
+            })
+            .eq("id_detalle_material", idDetalleMaterial),
+        ]);
 
         if (error) throw error;
-
-        const { error: errorNotas } = await supabase
-          .from("vale_material_detalles")
-          .update({
-            notas_adicionales: notasAdicionales ?? null,
-          })
-          .eq("id_detalle_material", idDetalleMaterial);
-
         if (errorNotas) throw errorNotas;
+        console.log(`[PERF][completar] updates BD (paralelo): ${Date.now() - tUpdates}ms`);
 
+        const tQuery = Date.now();
         const { data: valeCompleto, error: errorConsulta } = await supabase
           .from("vales")
           .select(
@@ -452,6 +442,8 @@ export const useViajesMaterial = (
           .single();
 
         if (errorConsulta) throw errorConsulta;
+        console.log(`[PERF][completar] query valeCompleto: ${Date.now() - tQuery}ms`);
+        console.log(`[PERF][completar] total completarVale: ${Date.now() - t0}ms`);
         return valeCompleto;
       } catch (error) {
         console.error("[useViajesMaterial] Error completando vale:", error);

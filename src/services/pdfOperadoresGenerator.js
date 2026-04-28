@@ -193,7 +193,6 @@ const generarYCompartir = async (html, nombreArchivo) => {
  * @param {object} operador - { nombre_completo, qr_uid, placas, sindicato }
  */
 export const generarPDFOperadorIndividual = async (operador) => {
-  console.log("[PDF individual] operador recibido:", JSON.stringify(operador));
   const operadorConSindicato = {
     ...operador,
     sindicato: operador.sindicato ?? "",

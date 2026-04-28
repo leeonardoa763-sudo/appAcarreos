@@ -23,7 +23,7 @@
  * />
  */
 
-import React from "react";
+import React, { useCallback } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
@@ -89,6 +89,7 @@ const ValeCard = ({ vale, onPress }) => {
   const materialInfo = getMaterialInfo(vale);
   const rentaInfo = getRentaInfo(vale);
   const estadoActual = vale.estado;
+  const handlePress = useCallback(() => onPress(vale), [onPress, vale]);
   return (
     <TouchableOpacity
       style={[
@@ -96,7 +97,7 @@ const ValeCard = ({ vale, onPress }) => {
         isMaterial && styles.cardMaterial,
         isRenta && styles.cardRenta,
       ]}
-      onPress={onPress}
+      onPress={handlePress}
       activeOpacity={0.7}
     >
       {/* Header con folio y estado */}
@@ -211,7 +212,7 @@ const ValeCard = ({ vale, onPress }) => {
             isMaterial && styles.buttonMaterial,
             isRenta && styles.buttonRenta,
           ]}
-          onPress={onPress}
+          onPress={handlePress}
         >
           <Text style={styles.buttonText}>Abrir</Text>
           <MaterialCommunityIcons
@@ -225,7 +226,7 @@ const ValeCard = ({ vale, onPress }) => {
   );
 };
 
-export default ValeCard;
+export default React.memo(ValeCard);
 
 const styles = StyleSheet.create({
   card: {

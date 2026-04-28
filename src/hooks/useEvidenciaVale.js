@@ -125,12 +125,16 @@ const useEvidenciaVale = (obraData = null) => {
 
         if (!tienePermiso) return false;
 
+        const tCamara = Date.now();
         const resultado = await ImagePicker.launchCameraAsync({
           mediaTypes: ["images"],
           quality: 0.4,
           allowsEditing: false,
           exif: false,
+          maxWidth: 1280,
+          maxHeight: 960,
         });
+        console.log(`[PERF][foto] launchCamera+compresion: ${Date.now() - tCamara}ms`);
 
         if (resultado.canceled) return false;
 
@@ -213,6 +217,7 @@ const useEvidenciaVale = (obraData = null) => {
    * Ruta: evidencias-vales/{folio}/{timestamp}.jpg
    */
   const subirFotoStorage = async (uri, folioVale, carpeta = null) => {
+    const t0 = Date.now();
     try {
       const timestamp = Date.now();
       const nombreArchivo = carpeta
@@ -220,27 +225,18 @@ const useEvidenciaVale = (obraData = null) => {
         : `${folioVale}/${timestamp}.jpg`;
 
       const response = await fetch(uri);
-
       const blob = await response.blob();
+      console.log(`[PERF][foto] fetch+blob: ${Date.now() - t0}ms | size: ${blob.size} bytes (~${Math.round(blob.size / 1024)}KB)`);
 
-      const arrayBuffer = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          resolve(reader.result);
-        };
-        reader.onerror = (e) => {
-          console.error("[useEvidenciaVale] Error FileReader:", e);
-          reject(e);
-        };
-        reader.readAsArrayBuffer(blob);
-      });
-
+      const tUpload = Date.now();
       const { error } = await supabase.storage
         .from("evidencias-vales")
-        .upload(nombreArchivo, arrayBuffer, {
+        .upload(nombreArchivo, blob, {
           contentType: "image/jpeg",
           upsert: false,
         });
+      console.log(`[PERF][foto] upload Storage: ${Date.now() - tUpload}ms`);
+      console.log(`[PERF][foto] total subirFotoStorage: ${Date.now() - t0}ms`);
 
       if (error) throw error;
 

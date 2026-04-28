@@ -8,7 +8,7 @@
  * - Reset de paginación al cambiar búsqueda o filtros
  */
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -235,12 +235,12 @@ const AcarreosScreen = () => {
     if (isMounted.current) setRefreshing(false);
   };
 
-  const handleOpenVale = (vale) => {
+  const handleOpenVale = useCallback((vale) => {
     if (isMounted.current) {
       setSelectedVale(vale);
       setModalVisible(true);
     }
-  };
+  }, []);
 
   const handleCloseModal = () => {
     if (isMounted.current) {
@@ -340,9 +340,9 @@ const AcarreosScreen = () => {
 
   // ─── Render helpers ───────────────────────────────────────────────────────
 
-  const renderValeItem = ({ item }) => (
-    <ValeCard vale={item} onPress={() => handleOpenVale(item)} />
-  );
+  const renderValeItem = useCallback(({ item }) => (
+    <ValeCard vale={item} onPress={handleOpenVale} />
+  ), [handleOpenVale]);
 
   const EmptyState = ({ icon, text }) => (
     <View style={styles.emptyState}>
@@ -355,36 +355,27 @@ const AcarreosScreen = () => {
     </View>
   );
 
-  /**
-   * Renderiza FlatList + BotonVerMas para una sección paginada.
-   * Si hay búsqueda o filtro activo muestra todos los resultados sin paginar.
-   */
-  const renderSeccion = (seccionPag, seccionCompleta, emptyIcon, emptyText) => {
-    const hayFiltroActivo = searchQuery.trim() || activeCount > 0;
-    const dataAMostrar = hayFiltroActivo ? seccionCompleta : seccionPag.items;
-
-    return (
-      <>
-        <FlatList
-          data={dataAMostrar}
-          renderItem={renderValeItem}
-          keyExtractor={(item) => item.id_vale.toString()}
-          ListEmptyComponent={() => (
-            <EmptyState icon={emptyIcon} text={emptyText} />
-          )}
-          scrollEnabled={false}
-          showsVerticalScrollIndicator={false}
-        />
-        {!hayFiltroActivo && seccionPag.hayMas && (
-          <BotonVerMas
-            onPress={seccionPag.cargarMas}
-            totalMostrados={seccionPag.items.length}
-            total={seccionPag.total}
-          />
+  const renderSeccion = (seccionPag, _seccionCompleta, emptyIcon, emptyText) => (
+    <>
+      <FlatList
+        data={seccionPag.items}
+        renderItem={renderValeItem}
+        keyExtractor={(item) => item.id_vale.toString()}
+        ListEmptyComponent={() => (
+          <EmptyState icon={emptyIcon} text={emptyText} />
         )}
-      </>
-    );
-  };
+        scrollEnabled={false}
+        showsVerticalScrollIndicator={false}
+      />
+      {seccionPag.hayMas && (
+        <BotonVerMas
+          onPress={seccionPag.cargarMas}
+          totalMostrados={seccionPag.items.length}
+          total={seccionPag.total}
+        />
+      )}
+    </>
+  );
 
   // ─── Guards ───────────────────────────────────────────────────────────────
 

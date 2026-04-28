@@ -60,16 +60,15 @@ const ModalEvidenciaViaje = ({
   } = useEvidenciaVale(obraData);
 
   useEffect(() => {
-    if (!visible) {
+    if (visible) {
+      capturarUbicacion();
+    } else {
       resetEvidencia();
     }
   }, [visible]);
 
   const handleTomarFoto = async () => {
-    await Promise.all([
-      tomarFoto(folioVale, "viajes"),
-      capturarUbicacion(),
-    ]);
+    await tomarFoto(folioVale, "viajes");
   };
 
   const handleConfirmar = async () => {

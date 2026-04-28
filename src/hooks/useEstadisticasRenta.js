@@ -150,9 +150,6 @@ export const useEstadisticasRenta = (
       setError(null);
 
       const { fechaInicio, fechaFin } = calcularRangoFechas();
-      // LOG TEMPORAL
-      console.log("[StatsRenta] Periodo:", periodo);
-      console.log("[StatsRenta] Rango:", fechaInicio, "→", fechaFin);
 
       let query = supabase
         .from("vales")
@@ -216,17 +213,6 @@ export const useEstadisticasRenta = (
       if (supabaseError) throw supabaseError;
 
       const resultados = data || [];
-
-      // LOG TEMPORAL - borrar después de verificar
-      console.log("[StatsRenta] Total vales encontrados:", resultados.length);
-      resultados.forEach((vale) => {
-        const detalle = vale.vale_renta_detalle?.[0];
-        console.log(
-          `[StatsRenta] Vale: ${vale.folio} | Obra: ${vale.id_obra} | Estado: ${vale.estado} | ` +
-            `Material: ${detalle?.material?.material} | Viajes: ${detalle?.numero_viajes ?? 0} | ` +
-            `Horas: ${detalle?.total_horas ?? 0}`,
-        );
-      });
 
       setVales(resultados);
     } catch (err) {

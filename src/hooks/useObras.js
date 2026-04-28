@@ -40,7 +40,6 @@ export const useObras = (personaId, esAdmin = false) => {
           .neq("id_obra", 888)
           .order("id_obra", { ascending: true });
 
-        console.log("[useObras] admin - obras encontradas:", data?.length, "error:", obrasError?.message);
         if (obrasError) throw obrasError;
 
         obrasRaw = (data || []).map((obra, index) => ({
