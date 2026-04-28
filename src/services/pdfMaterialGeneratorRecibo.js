@@ -48,6 +48,28 @@ const formatFechaCorta = (isoString) => {
   });
 };
 
+// ─── Descarga foto remota y la convierte a base64 para incrustar en HTML ─────
+// blob.arrayBuffer() no está disponible en Hermes (React Native).
+// Se usa expo-file-system: descarga a caché y lee como base64.
+
+const fotoABase64 = async (idViaje, url) => {
+  const FileSystem = require("expo-file-system/legacy");
+  try {
+    const tempPath = `${FileSystem.cacheDirectory}foto_viaje_${idViaje}.jpg`;
+    const { status } = await FileSystem.downloadAsync(url, tempPath);
+    if (status !== 200) return null;
+    const base64 = await FileSystem.readAsStringAsync(tempPath, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    // Un JPEG real pesa al menos 1KB; si es menos, el archivo está corrupto/vacío
+    if (!base64 || base64.length < 500) return null;
+    return `data:image/jpeg;base64,${base64}`;
+  } catch (err) {
+    console.error(`[pdfMaterial] Error foto viaje ${idViaje}:`, err?.message ?? err);
+    return null;
+  }
+};
+
 // ─── CSS adicional para fotos de evidencia ───────────────────────────────────
 
 const getFotosEvidenciaCSS = () => `
@@ -192,10 +214,6 @@ const generarFilasViajes = (viajes, esTipo3, bancoDefault) => {
       const tonelaje = v.peso_ton ? parseFloat(v.peso_ton).toFixed(2) : "--";
       const m3 = v.volumen_m3 ? parseFloat(v.volumen_m3).toFixed(2) : "--";
       const hora = formatHora(v.hora_registro);
-      const costoReal = v.costo_viaje_override ?? v.costo_viaje;
-      const costo = costoReal
-        ? `$${parseFloat(costoReal).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
-        : "--";
 
       return `
       <tr>
@@ -218,14 +236,6 @@ const generarTotalesViajes = (viajes, esTipo3, volumenRealTotal, pesoTotal) => {
     : "--";
   const totalTon =
     !esTipo3 && pesoTotal ? `${parseFloat(pesoTotal).toFixed(2)} Ton` : "--";
-  const totalCosto = viajes?.reduce(
-    (acc, v) => acc + parseFloat(v.costo_viaje_override ?? v.costo_viaje ?? 0),
-    0,
-  );
-  const totalCostoFormateado = totalCosto
-    ? `$${totalCosto.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
-    : "--";
-
   return `
     <div class="viajes-totales">
       <div class="viajes-totales-item">
@@ -253,7 +263,7 @@ const generarTotalesViajes = (viajes, esTipo3, volumenRealTotal, pesoTotal) => {
 
 // ─── HTML principal ───────────────────────────────────────────────────────────
 
-const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
+const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl, fotosBase64 = {}) => {
   const { bgColor, destinatario } = getCopiaInfoRecibo(colorCopia);
 
   // Fechas
@@ -325,11 +335,6 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
     : null;
 
   const notas = detalle.notas_adicionales?.trim() || null;
-
-  // ─── LOGS DE DIAGNÓSTICO ──────────────────────────────────────────────────
-  viajes.forEach((v, i) => {
-  });
-  // ─────────────────────────────────────────────────────────────────────────
 
   return `
     <!DOCTYPE html>
@@ -535,7 +540,7 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
               const lng = tieneGPS ? parseFloat(v.longitud_registro).toFixed(5) : null;
               return `
             <div class="foto-item">
-              <img src="${v.foto_evidencia_url}" class="foto-viaje" alt="Viaje ${v.numero_viaje}">
+              <img src="${fotosBase64[v.id_viaje] ?? v.foto_evidencia_url}" class="foto-viaje" alt="Viaje ${v.numero_viaje}">
               <div class="foto-caption">VIAJE ${v.numero_viaje}</div>
               ${horaFoto ? `<div class="foto-meta">${horaFoto}</div>` : ""}
               ${tieneGPS ? `<div class="foto-meta">${lat}, ${lng}</div>` : ""}
@@ -564,10 +569,30 @@ export const generateAndShareMaterialRecibo = async (
   qrDataUrl,
 ) => {
   try {
+    const detalle = valeData.vale_material_detalles?.[0] || {};
+    const viajes = detalle.vale_material_viajes || [];
+    const viajesConFoto = viajes.filter((v) => v.foto_evidencia_url);
+
+    const fotosBase64 = {};
+    await Promise.all(
+      viajesConFoto.map(async (v) => {
+        console.log(`[pdfMaterial] Descargando foto viaje ${v.numero_viaje}: ${v.foto_evidencia_url}`);
+        const b64 = await fotoABase64(v.id_viaje, v.foto_evidencia_url);
+        if (b64) {
+          fotosBase64[v.id_viaje] = b64;
+          console.log(`[pdfMaterial] Foto viaje ${v.numero_viaje} OK (${Math.round(b64.length / 1024)}KB)`);
+        } else {
+          console.warn(`[pdfMaterial] Foto viaje ${v.numero_viaje} FALLO — se omitira del PDF`);
+        }
+      }),
+    );
+    console.log(`[pdfMaterial] Fotos OK: ${Object.keys(fotosBase64).length}/${viajesConFoto.length}`);
+
     const html = generateValeMaterialReciboHTML(
       valeData,
       colorCopia,
       qrDataUrl,
+      fotosBase64,
     );
 
     const { uri } = await Print.printToFileAsync({

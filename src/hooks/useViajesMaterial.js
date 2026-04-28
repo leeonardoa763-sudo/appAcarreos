@@ -29,6 +29,7 @@ export const useViajesMaterial = (
   const [loading, setLoading] = useState(true);
   const [registrando, setRegistrando] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [eliminandoViaje, setEliminandoViaje] = useState(false);
   const [minutosRestantes, setMinutosRestantes] = useState(0);
   const [minMinutosEntreViajes, setMinMinutosEntreViajes] =
     useState(MINUTOS_DEFAULT);
@@ -232,7 +233,7 @@ export const useViajesMaterial = (
                     .select(
                       `vehiculos:id_vehiculo(id_sindicato),
                       vale_material_detalles!inner(
-                        id_tipo_de_material:id_material(id_tipo_de_material)
+                        material:id_material(id_tipo_de_material)
                       )`,
                     )
                     .eq("id_vale", idVale)
@@ -243,7 +244,7 @@ export const useViajesMaterial = (
 
                   const idSindicato = valeData.vehiculos?.id_sindicato;
                   const idTipoDeMaterial =
-                    valeData.vale_material_detalles?.[0]?.id_tipo_de_material;
+                    valeData.vale_material_detalles?.[0]?.material?.id_tipo_de_material;
 
                   if (!idSindicato)
                     throw new Error(
@@ -320,7 +321,7 @@ export const useViajesMaterial = (
                         )
                       : null;
 
-                  await supabase
+                  const { error: errorDetalles } = await supabase
                     .from("vale_material_detalles")
                     .update({
                       volumen_real_m3: totalVolumen,
@@ -332,6 +333,8 @@ export const useViajesMaterial = (
                       tarifa_subsecuente: costos.tarifaSubsecuente,
                     })
                     .eq("id_detalle_material", idDetalleMaterial);
+
+                  if (errorDetalles) throw errorDetalles;
 
                   const viajesActualizados = [...viajes, viajeNuevo];
                   setViajes(viajesActualizados);
@@ -368,6 +371,60 @@ export const useViajesMaterial = (
       calcularVolumenDesdeTomeladas,
       iniciarCuentaRegresiva,
     ],
+  );
+
+  // ─── Eliminar último viaje ────────────────────────────────────────────────
+
+  const eliminarUltimoViaje = useCallback(
+    async (idViaje) => {
+      try {
+        setEliminandoViaje(true);
+        const { error } = await supabase
+          .from("vale_material_viajes")
+          .delete()
+          .eq("id_viaje", idViaje);
+        if (error) throw error;
+
+        const viajesRestantes = viajes.slice(0, -1);
+
+        const totalVolumen = viajesRestantes.reduce(
+          (acc, v) => acc + parseFloat(v.volumen_m3 || 0),
+          0,
+        );
+        const totalCosto = viajesRestantes.reduce(
+          (acc, v) => acc + parseFloat(v.costo_viaje_override ?? v.costo_viaje ?? 0),
+          0,
+        );
+        const tienePeso = viajesRestantes.some((v) => v.peso_ton != null);
+        const totalPeso = tienePeso
+          ? viajesRestantes.reduce(
+              (acc, v) => acc + parseFloat(v.peso_ton || 0),
+              0,
+            )
+          : null;
+
+        const { error: errorDetalles } = await supabase
+          .from("vale_material_detalles")
+          .update({
+            volumen_real_m3: totalVolumen,
+            costo_total: totalCosto,
+            ...(totalPeso != null && { peso_ton: totalPeso }),
+          })
+          .eq("id_detalle_material", idDetalleMaterial);
+
+        if (errorDetalles) throw errorDetalles;
+
+        setViajes(viajesRestantes);
+        return true;
+      } catch (error) {
+        console.error("[useViajesMaterial] Error eliminando viaje:", error);
+        Alert.alert("Error", "No se pudo eliminar el viaje.");
+        return false;
+      } finally {
+        setEliminandoViaje(false);
+      }
+    },
+    [viajes, idDetalleMaterial],
   );
 
   // ─── Completar vale ───────────────────────────────────────────────────────
@@ -527,12 +584,14 @@ export const useViajesMaterial = (
     loading,
     registrando,
     saving,
+    eliminandoViaje,
     totalViajes: viajes.length,
     puedeRegistrar: puedeRegistrar(),
     minutosRestantes,
     registrarViaje,
     completarVale,
     actualizarFotoViaje,
+    eliminarUltimoViaje,
     recargarViajes: cargarViajes,
   };
 };

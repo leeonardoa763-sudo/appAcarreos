@@ -21,6 +21,7 @@ export const useTicketsMaterial = (vale) => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [registrando, setRegistrando] = useState(false);
+  const [eliminandoTicket, setEliminandoTicket] = useState(false);
 
   const totalTickets = tickets.length;
   const tieneOperadorYVehiculo = !!(vale?.id_operador && vale?.id_vehiculo);
@@ -186,6 +187,27 @@ export const useTicketsMaterial = (vale) => {
     }
   }, []);
 
+  // ─── Eliminar último ticket ───────────────────────────────────────────────
+
+  const eliminarUltimoTicket = useCallback(async (idTicket) => {
+    try {
+      setEliminandoTicket(true);
+      const { error } = await supabase
+        .from("tickets_material")
+        .delete()
+        .eq("id_ticket", idTicket);
+      if (error) throw error;
+      setTickets((prev) => prev.slice(0, -1));
+      return true;
+    } catch (error) {
+      console.error("[useTicketsMaterial] Error eliminando ticket:", error);
+      Alert.alert("Error", "No se pudo eliminar el ticket.");
+      return false;
+    } finally {
+      setEliminandoTicket(false);
+    }
+  }, []);
+
   // ─── Actualizar banco override en el último viaje ─────────────────────────
 
   const actualizarBancoViaje = useCallback(
@@ -270,10 +292,12 @@ export const useTicketsMaterial = (vale) => {
     tickets,
     loading,
     registrando,
+    eliminandoTicket,
     totalTickets,
     calcularPuedeImprimir,
     registrarTicket,
     reimprimirTicket,
+    eliminarUltimoTicket,
     actualizarBancoViaje,
     recargarTickets: cargarTickets,
   };

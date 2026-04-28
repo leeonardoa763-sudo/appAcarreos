@@ -215,8 +215,12 @@ const useEvidenciaVale = (obraData = null) => {
   /**
    * Sube la foto al bucket 'evidencias-vales' en Supabase Storage
    * Ruta: evidencias-vales/{folio}/{timestamp}.jpg
+   *
+   * Usa FileSystem.readAsStringAsync en lugar de fetch(uri).blob() porque
+   * en iOS, fetch() sobre URIs de archivo local retorna blobs de 0 bytes.
    */
   const subirFotoStorage = async (uri, folioVale, carpeta = null) => {
+    const FileSystem = require("expo-file-system/legacy");
     const t0 = Date.now();
     try {
       const timestamp = Date.now();
@@ -224,14 +228,28 @@ const useEvidenciaVale = (obraData = null) => {
         ? `${folioVale}/${carpeta}/${timestamp}.jpg`
         : `${folioVale}/${timestamp}.jpg`;
 
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      console.log(`[PERF][foto] fetch+blob: ${Date.now() - t0}ms | size: ${blob.size} bytes (~${Math.round(blob.size / 1024)}KB)`);
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      if (!base64 || base64.length === 0) {
+        throw new Error("No se pudo leer el archivo de imagen");
+      }
+
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      console.log(
+        `[PERF][foto] readFile+decode: ${Date.now() - t0}ms | size: ${bytes.length} bytes (~${Math.round(bytes.length / 1024)}KB)`,
+      );
 
       const tUpload = Date.now();
       const { error } = await supabase.storage
         .from("evidencias-vales")
-        .upload(nombreArchivo, blob, {
+        .upload(nombreArchivo, bytes.buffer, {
           contentType: "image/jpeg",
           upsert: false,
         });

@@ -45,6 +45,7 @@ if (BLUETOOTH_ENABLED) {
 const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const { userProfile, userRole } = useAuth();
   const esChecador = userRole === "CHECADOR";
+  const esResidente = userRole === "Residente";
 
   const {
     yaReimprimio,
@@ -115,12 +116,14 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     loading: loadingViajes,
     registrando,
     saving,
+    eliminandoViaje,
     totalViajes,
     puedeRegistrar,
     minutosRestantes,
     registrarViaje,
     completarVale,
     actualizarFotoViaje,
+    eliminarUltimoViaje,
   } = useViajesMaterial(
     detalleMaterial?.id_detalle_material,
     vale?.id_vale,
@@ -307,6 +310,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             onTotalTicketsChange={setTotalTickets}
             esTipo3={esTipo3}
             ultimoIdViaje={viajes[viajes.length - 1]?.id_viaje ?? null}
+            esResidente={esResidente}
           />
         )}
 
@@ -331,6 +335,9 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             esChecador={esChecador}
             notasAdicionales={notasAdicionales}
             setNotasAdicionales={setNotasAdicionales}
+            esResidente={esResidente}
+            onEliminarUltimoViaje={eliminarUltimoViaje}
+            eliminandoViaje={eliminandoViaje}
           />
         )}
         {/* Botón reimprimir PDF — todos los estados excepto en_proceso */}

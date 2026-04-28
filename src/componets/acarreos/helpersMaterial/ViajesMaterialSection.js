@@ -261,6 +261,9 @@ const ViajesMaterialSection = ({
   cantidadConfirmada,
   setCantidadConfirmada,
   esChecador,
+  esResidente = false,
+  onEliminarUltimoViaje,
+  eliminandoViaje = false,
 }) => {
   const esTipo3 = tipoMaterial === 3;
 
@@ -442,6 +445,45 @@ const ViajesMaterialSection = ({
         disabled={registrando}
         capacidadVehiculo={capacidadVehiculo}
       />
+
+      {/* Botón eliminar último viaje — solo para Residente */}
+      {esResidente && totalViajes > 0 && totalTickets === totalViajes && (
+        <TouchableOpacity
+          style={[styles.botonEliminarViaje, eliminandoViaje && styles.botonDeshabilitado]}
+          onPress={() => {
+            const ultimoViaje = viajes[viajes.length - 1];
+            Alert.alert(
+              "Eliminar Viaje",
+              `¿Eliminar el Viaje #${totalViajes}? Esta accion no se puede deshacer.`,
+              [
+                { text: "Cancelar", style: "cancel" },
+                {
+                  text: "Eliminar",
+                  style: "destructive",
+                  onPress: () => onEliminarUltimoViaje?.(ultimoViaje.id_viaje),
+                },
+              ],
+            );
+          }}
+          disabled={eliminandoViaje}
+          activeOpacity={0.7}
+        >
+          {eliminandoViaje ? (
+            <ActivityIndicator size="small" color={colors.danger} />
+          ) : (
+            <>
+              <MaterialCommunityIcons
+                name="delete-circle-outline"
+                size={18}
+                color={colors.danger}
+              />
+              <Text style={styles.botonEliminarViajeTexto}>
+                Eliminar Viaje #{totalViajes}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
 
       {/* Botón registrar */}
       {(() => {
@@ -692,6 +734,22 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
     fontStyle: "italic",
+  },
+  botonEliminarViaje: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    paddingVertical: 10,
+    marginBottom: 10,
+    gap: 6,
+  },
+  botonEliminarViajeTexto: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.danger,
   },
 });
 
