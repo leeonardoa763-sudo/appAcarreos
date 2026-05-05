@@ -6,8 +6,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
-  ScrollView,
-  StyleSheet,
   Alert,
   ActivityIndicator,
   InteractionManager,
@@ -27,10 +25,6 @@ import { useObras } from "../hooks/useObras";
 
 // Validaciones
 import {
-  validateOperadorId,
-  validateVehiculoId,
-  validateCapacidad,
-  validateCapacidadVehiculo,
   validateHoraInicioNoFutura,
   validateMaterialId,
   validateSindicatoId,
@@ -42,7 +36,6 @@ import PrimaryButton from "../componets/common/PrimaryButton";
 import FormInput from "../componets/forms/FormInput";
 import CustomModalPicker from "../componets/forms/CustomModalPicker";
 import CustomTimePicker from "../componets/forms/CustomTimePicker";
-import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 import SuccessModal from "../componets/common/SuccessModal";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
 import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
@@ -59,35 +52,17 @@ const ValeRentaScreen = () => {
 
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
-  const {
-    materiales,
-    sindicatos,
-    preciosRenta,
-    operadores,
-    vehiculos,
-    loading: loadingCatalogos,
-  } = useCatalogos([
-    "materiales",
-    "sindicatos",
-    "preciosRenta",
-    "operadores",
-    "vehiculos",
-  ]);
+  const { materiales, sindicatos, preciosRenta, loading: loadingCatalogos } =
+    useCatalogos(["materiales", "sindicatos", "preciosRenta"]);
 
   const { generateFolio } = useFolioGenerator();
 
   const [formData, setFormData] = useState({
     materialId: null,
-    capacidad: "",
     sindicatoId: null,
     horaInicio: null,
-    selectedOperador: null,
-    selectedVehiculo: null,
     notasAdicionales: "",
   });
-
-  // Estado del checkbox "completar después"
-  const [completarDespues, setCompletarDespues] = useState(false);
 
   const [esTurnoNocturno, setEsTurnoNocturno] = useState(false);
 
@@ -97,10 +72,6 @@ const ValeRentaScreen = () => {
   const [valeCreado, setValeCreado] = useState(null);
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
-  // Agrega esto justo antes del return
-  const sinCapacidad =
-    formData.selectedVehiculo && !formData.selectedVehiculo.capacidad_m3;
-
   const { presupuestoRenta, rentaConsultada } = usePresupuestoObra({
     id_obra: obraSeleccionada,
   });
@@ -145,26 +116,6 @@ const ValeRentaScreen = () => {
     }
   }, [obraSeleccionada, obras]);
 
-  // Al activar "completar después", limpiar operador y vehículo
-  const handleToggleCompletarDespues = () => {
-    const nuevoValor = !completarDespues;
-    setCompletarDespues(nuevoValor);
-
-    if (nuevoValor) {
-      setFormData((prev) => ({
-        ...prev,
-        selectedOperador: null,
-        selectedVehiculo: null,
-        capacidad: "",
-      }));
-      // Limpiar errores de esos campos
-      setErrors((prev) => {
-        const { operadorId, vehiculoId, ...resto } = prev;
-        return resto;
-      });
-    }
-  };
-
   const validateForm = () => {
     const newErrors = {};
 
@@ -176,24 +127,6 @@ const ValeRentaScreen = () => {
 
     const errorHora = validateHoraInicioNoFutura(formData.horaInicio);
     if (errorHora) newErrors.horaInicio = errorHora;
-
-    // Solo validar operador y vehículo si NO se eligió completar después
-    if (!completarDespues) {
-      const errorOperador = validateOperadorId(
-        formData.selectedOperador?.id_operador,
-      );
-      if (errorOperador) newErrors.operadorId = errorOperador;
-
-      const errorVehiculo = validateVehiculoId(
-        formData.selectedVehiculo?.id_vehiculo,
-      );
-      if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
-
-      const errorCapacidadVehiculo = validateCapacidadVehiculo(
-        formData.selectedVehiculo,
-      );
-      if (errorCapacidadVehiculo) newErrors.vehiculoId = errorCapacidadVehiculo;
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -236,13 +169,8 @@ const ValeRentaScreen = () => {
           id_obra: obraDataParaFolio.id_obra,
           id_empresa: obraDataParaFolio.empresas.id_empresa,
           id_persona_creador: userProfile.id_persona,
-          // null si se eligió completar después
-          id_operador: completarDespues
-            ? null
-            : formData.selectedOperador.id_operador,
-          id_vehiculo: completarDespues
-            ? null
-            : formData.selectedVehiculo.id_vehiculo,
+          id_operador: null,
+          id_vehiculo: null,
           estado: "en_proceso",
           qr_verification_url: generateVerificationUrl(folio),
         })
@@ -287,25 +215,8 @@ const ValeRentaScreen = () => {
           cc: obraDataParaFolio.cc,
           empresas: obraDataParaFolio.empresas,
         },
-        operadores: completarDespues
-          ? null
-          : formData.selectedOperador
-            ? { nombre_completo: formData.selectedOperador.nombre_completo }
-            : null,
-        vehiculos: completarDespues
-          ? null
-          : formData.selectedVehiculo
-            ? {
-                placas: formData.selectedVehiculo.placas,
-                capacidad_m3: formData.selectedVehiculo.capacidad_m3 ?? null, // <- agregar
-                sindicatos: {
-                  sindicato:
-                    sindicatos.find(
-                      (s) => s.id_sindicato === formData.sindicatoId,
-                    )?.sindicato || "Pendiente",
-                },
-              }
-            : null,
+        operadores: null,
+        vehiculos: null,
         persona: {
           nombre: userProfile.nombre,
           primer_apellido: userProfile.primer_apellido,
@@ -544,85 +455,16 @@ const ValeRentaScreen = () => {
             </View>
           </TouchableOpacity>
 
-          {/* Checkbox: completar después */}
-          <TouchableOpacity
-            style={styles.checkboxRow}
-            onPress={handleToggleCompletarDespues}
-            activeOpacity={0.7}
-          >
-            <View
-              style={[
-                styles.checkbox,
-                completarDespues && styles.checkboxActivo,
-              ]}
-            >
-              {completarDespues && (
-                <MaterialCommunityIcons
-                  name="check"
-                  size={14}
-                  color={colors.surface}
-                />
-              )}
-            </View>
-            <View style={styles.checkboxTextos}>
-              <Text style={styles.checkboxLabel}>
-                Completar operador después
-              </Text>
-              <Text style={styles.checkboxSubtitle}>
-                Podrás asignarlo desde la pantalla de Acarreos
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <DatosOperadorSection
-            selectedOperador={formData.selectedOperador}
-            selectedVehiculo={formData.selectedVehiculo}
-            onSelectOperador={(operador) =>
-              setFormData({ ...formData, selectedOperador: operador })
-            }
-            onSelectVehiculo={(vehiculo) => {
-              setFormData((prev) => ({
-                ...prev,
-                selectedVehiculo: vehiculo,
-                capacidad: vehiculo?.capacidad_m3?.toString() ?? "",
-              }));
-            }}
-            notasAdicionales={formData.notasAdicionales}
-            onChangeNotas={(value) =>
-              setFormData({ ...formData, notasAdicionales: value })
-            }
-            errors={errors}
-            sindicatoId={formData.sindicatoId}
-            operadores={operadores}
-            vehiculos={vehiculos}
-            disabled={completarDespues}
-          />
         </View>
 
         <View style={styles.buttonContainer}>
           <PrimaryButton
-            title={
-              presupuestoAgotado
-                ? "Presupuesto Agotado"
-                : sinCapacidad
-                  ? "Sin capacidad configurada"
-                  : "Crear Vale"
-            }
+            title={presupuestoAgotado ? "Presupuesto Agotado" : "Crear Vale"}
             onPress={handleCrearVale}
             loading={submitting}
-            icon={
-              presupuestoAgotado
-                ? "cancel"
-                : sinCapacidad
-                  ? "alert-circle"
-                  : "check-circle"
-            }
-            backgroundColor={
-              presupuestoAgotado || sinCapacidad
-                ? colors.disabled
-                : colors.accent
-            }
-            disabled={presupuestoAgotado || sinCapacidad}
+            icon={presupuestoAgotado ? "cancel" : "check-circle"}
+            backgroundColor={presupuestoAgotado ? colors.disabled : colors.accent}
+            disabled={presupuestoAgotado}
           />
         </View>
       </KeyboardAvoidingScrollView>
@@ -630,11 +472,7 @@ const ValeRentaScreen = () => {
       <SuccessModal
         visible={showSuccessModal}
         title="Vale Creado"
-        message={`Vale ${valeCreado?.folio} creado exitosamente.\n\n${
-          completarDespues
-            ? "El operador y vehículo quedaron pendientes. Asígnalos desde Acarreos."
-            : 'El vale quedó en "En Proceso". Complétalo desde Acarreos cuando el operador termine.'
-        }`}
+        message={`Vale ${valeCreado?.folio} creado exitosamente.\n\nEl operador y vehículo quedaron pendientes. Asígnalos desde Acarreos.`}
         primaryAction={{
           text: "Continuar",
           icon: "check-circle",

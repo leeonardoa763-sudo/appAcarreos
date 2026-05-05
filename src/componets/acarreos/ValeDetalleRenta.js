@@ -139,6 +139,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     detalleRenta?.id_vale_renta_detalle,
     vale?.id_obra,
     detalleRenta?.hora_inicio,
+    vale?.fecha_creacion,
   );
 
   const handleReimprimirPDF = useCallback(() => {

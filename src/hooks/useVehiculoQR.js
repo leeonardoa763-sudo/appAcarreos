@@ -6,6 +6,7 @@ import { Alert } from "react-native";
 
 // 3. Local - Config
 import { supabase } from "../config/supabase";
+import { esDentroJornada } from "../utils/jornadaLaboral";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -224,6 +225,7 @@ const useVehiculoQR = () => {
       }
 
       const valesFiltrados = (data ?? []).filter((vale) => {
+        if (!esDentroJornada(vale.fecha_creacion)) return false;
         if (vale.tipo_vale === "material") {
           return vale.vale_material_detalles?.[0]?.id_sindicato === idSindicato;
         }

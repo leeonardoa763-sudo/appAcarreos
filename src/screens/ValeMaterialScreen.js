@@ -6,13 +6,10 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
-  Switch,
   Alert,
   ActivityIndicator,
-  TouchableOpacity,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 // Config
 import { colors } from "../config/colors";
@@ -36,7 +33,6 @@ import PrimaryButton from "../componets/common/PrimaryButton";
 import SuccessModal from "../componets/common/SuccessModal";
 import FormInput from "../componets/forms/FormInput";
 import CustomModalPicker from "../componets/forms/CustomModalPicker";
-import DatosOperadorSection from "../componets/vale/DatosOperadorSection";
 import SelectorCantidadVales from "../componets/vale/SelectorCantidadVales";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
 import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
@@ -56,20 +52,8 @@ const ValeMaterialScreen = () => {
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
   // Catálogos
-  const {
-    materiales,
-    bancos,
-    sindicatos,
-    operadores,
-    vehiculos,
-    loading: loadingCatalogos,
-  } = useCatalogos([
-    "materiales",
-    "bancos",
-    "sindicatos",
-    "operadores",
-    "vehiculos",
-  ]);
+  const { materiales, bancos, sindicatos, loading: loadingCatalogos } =
+    useCatalogos(["materiales", "bancos", "sindicatos"]);
 
   // Estados locales
   const [valeCreado, setValeCreado] = useState(null);
@@ -77,7 +61,6 @@ const ValeMaterialScreen = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
-  const [completarDespues, setCompletarDespues] = useState(false);
   // Hooks de formulario y lógica
   const {
     formData,
@@ -218,20 +201,6 @@ const ValeMaterialScreen = () => {
     return unsubscribe;
   }, [navigation]);
 
-  const handleToggleCompletarDespues = () => {
-    const nuevoValor = !completarDespues;
-    setCompletarDespues(nuevoValor);
-
-    if (nuevoValor) {
-      setFormData((prev) => ({
-        ...prev,
-        selectedOperador: null,
-        selectedVehiculo: null,
-        capacidad: "",
-      }));
-    }
-  };
-
   // Función: Reset completo
   const resetForm = () => {
     resetFormData();
@@ -242,9 +211,9 @@ const ValeMaterialScreen = () => {
 
   // Función: Crear vale
   const handleCrearVale = () => {
-    if (completarDespues && cantidadVales > 1) {
+    if (cantidadVales > 1) {
       // Validar primero antes de mostrar confirmacion
-      if (!validateForm(esTipo3DirectFlow, completarDespues)) {
+      if (!validateForm(esTipo3DirectFlow, true)) {
         Alert.alert(
           "Campos incompletos",
           "Por favor completa todos los campos requeridos",
@@ -267,7 +236,7 @@ const ValeMaterialScreen = () => {
   };
 
   const ejecutarCreacionVales = async () => {
-    if (!validateForm(esTipo3DirectFlow, completarDespues)) {
+    if (!validateForm(esTipo3DirectFlow, true)) {
       Alert.alert(
         "Campos incompletos",
         "Por favor completa todos los campos requeridos",
@@ -292,7 +261,7 @@ const ValeMaterialScreen = () => {
       Alert.alert("Error", "Datos de obra no disponibles. Intenta de nuevo.");
       return;
     }
-    const cantidad = completarDespues ? cantidadVales : 1;
+    const cantidad = cantidadVales;
 
     try {
       if (cantidad > 1) {
@@ -311,7 +280,7 @@ const ValeMaterialScreen = () => {
         }
       } else {
         const { valeCompleto, folio } = await crearVale(
-          { ...formData, completarDespues },
+          { ...formData, completarDespues: true },
           obraDataParaFolio,
           userProfile,
           generateFolio,
@@ -351,10 +320,6 @@ const ValeMaterialScreen = () => {
       </View>
     );
   }
-
-  // Justo antes del return, agregar:
-  const sinCapacidad =
-    formData.selectedVehiculo && !formData.selectedVehiculo.capacidad_m3;
 
   return (
     <View style={styles.container}>
@@ -481,115 +446,36 @@ const ValeMaterialScreen = () => {
             />
           )}
         </View>
-        {/* SECCIÓN: DATOS DE OPERADOR */}
+        {/* SECCIÓN: CANTIDAD DE VALES */}
         <View style={styles.section}>
-          {/* Checkbox: completar después */}
-          <TouchableOpacity
-            style={styles.checkboxRow}
-            onPress={handleToggleCompletarDespues}
-            activeOpacity={0.7}
-          >
-            <View
-              style={[
-                styles.checkbox,
-                completarDespues && styles.checkboxActivo,
-              ]}
-            >
-              {completarDespues && (
-                <MaterialCommunityIcons
-                  name="check"
-                  size={14}
-                  color={colors.surface}
-                />
-              )}
-            </View>
-            <View style={styles.checkboxTextos}>
-              <Text style={styles.checkboxLabel}>
-                Completar operador después
-              </Text>
-              <Text style={styles.checkboxSubtitle}>
-                Podrás asignarlo desde la pantalla de Acarreos
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Selector de cantidad: solo visible si completarDespues esta activo */}
-          {completarDespues && (
-            <SelectorCantidadVales
-              ref={selectorCantidadRef}
-              cantidad={cantidadVales}
-              onCantidadChange={setCantidadVales}
-              onConfirmar={ejecutarCreacionVales}
-            />
-          )}
-
-          <DatosOperadorSection
-            selectedOperador={formData.selectedOperador}
-            selectedVehiculo={formData.selectedVehiculo}
-            onSelectOperador={(operador) =>
-              setFormData({ ...formData, selectedOperador: operador })
-            }
-            onSelectVehiculo={(vehiculo) => {
-              setFormData((prev) => ({
-                ...prev,
-                selectedVehiculo: vehiculo,
-                capacidad: vehiculo?.capacidad_m3?.toString() ?? "",
-              }));
-            }}
-            notasAdicionales={formData.notasAdicionales}
-            onChangeNotas={(value) =>
-              setFormData({ ...formData, notasAdicionales: value })
-            }
-            errors={errors}
-            sindicatoId={formData.sindicatoId}
-            operadores={operadores}
-            vehiculos={vehiculos}
-            disabled={completarDespues}
+          <SelectorCantidadVales
+            ref={selectorCantidadRef}
+            cantidad={cantidadVales}
+            onCantidadChange={setCantidadVales}
+            onConfirmar={ejecutarCreacionVales}
           />
         </View>
 
         {/* Botón crear vale */}
         <View style={styles.buttonContainer}>
           <PrimaryButton
-            title={
-              presupuestoAgotado
-                ? "Presupuesto Agotado"
-                : sinCapacidad
-                  ? "Sin capacidad configurada"
-                  : "Crear Vale"
-            }
+            title={presupuestoAgotado ? "Presupuesto Agotado" : "Crear Vale"}
             onPress={handleCrearVale}
             loading={submitting}
-            icon={
-              presupuestoAgotado
-                ? "cancel"
-                : sinCapacidad
-                  ? "alert-circle"
-                  : "check-circle"
-            }
-            backgroundColor={
-              presupuestoAgotado || sinCapacidad
-                ? colors.disabled
-                : colors.accent
-            }
-            disabled={presupuestoAgotado || sinCapacidad}
+            icon={presupuestoAgotado ? "cancel" : "check-circle"}
+            backgroundColor={presupuestoAgotado ? colors.disabled : colors.accent}
+            disabled={presupuestoAgotado}
           />
         </View>
       </KeyboardAvoidingScrollView>
 
       <SuccessModal
         visible={showSuccessModal}
-        title={
-          cantidadVales > 1 && completarDespues ? "Lote Creado" : "Vale Creado"
-        }
+        title={cantidadVales > 1 ? "Lote Creado" : "Vale Creado"}
         message={
-          cantidadVales > 1 && completarDespues
+          cantidadVales > 1
             ? `${folioCreado} exitosamente.\n\nAsigna operador y vehículo a cada uno desde la pantalla de Acarreos.`
-            : `Vale ${folioCreado} creado exitosamente.\n\n${
-                completarDespues
-                  ? "El operador y vehículo quedaron pendientes. Asígnalos desde Acarreos."
-                  : 'El vale quedó en "En Proceso". Complétalo desde Acarreos cuando el operador termine.'
-              }`
+            : `Vale ${folioCreado} creado exitosamente.\n\nEl operador y vehículo quedaron pendientes. Asígnalos desde Acarreos.`
         }
         primaryAction={{
           text: "Ir a Acarreos",
@@ -615,71 +501,5 @@ const styles = {
     paddingHorizontal: 16,
     paddingTop: 8,
     backgroundColor: colors.background,
-  },
-  checkboxRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: colors.secondary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  checkboxActivo: {
-    backgroundColor: colors.secondary,
-    borderColor: colors.secondary,
-  },
-  checkboxTextos: {
-    flex: 1,
-  },
-  checkboxLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  checkboxSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-
-  toggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.background,
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 8,
-  },
-  toggleInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: 10,
-  },
-  toggleTexts: {
-    flex: 1,
-  },
-  toggleLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  toggleSubLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
 };

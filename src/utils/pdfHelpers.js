@@ -237,44 +237,7 @@ export const getValeBaseCSS = (bgColor) => {
       height: auto;
     }
 
-    .fotos-pagina {
-      page-break-before: always;
-      break-before: page;
-      width: 100%;
-      border: 2px solid #000;
-      background-color: ${bgColor};
-      background-color: ${bgColor} !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    .fotos-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      padding: 6px;
-    }
-
-    .foto-item {
-      text-align: center;
-    }
-
-    .foto-viaje {
-      width: 100%;
-      height: 90px;
-      object-fit: cover;
-      border: 1px solid #000;
-      display: block;
-    }
-
-    .foto-caption {
-      font-size: 8px;
-      margin-top: 2px;
-      color: #000 !important;
-      font-weight: bold;
-    }
-
-    html {
+html {
       height: 100%;
       background-color: ${bgColor} !important;
     }

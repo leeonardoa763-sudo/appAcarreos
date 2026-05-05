@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Alert } from "react-native";
 import { supabase } from "../config/supabase";
 import { useAuth } from "./useAuth";
+import { esDentroJornada } from "../utils/jornadaLaboral";
 
 const MINUTOS_DEFAULT = 20;
 
@@ -9,6 +10,7 @@ export const useViajesRenta = (
   idValeRentaDetalle,
   idObra,
   horaInicioVale = null,
+  fechaCreacionVale = null,
 ) => {
   const { userProfile } = useAuth();
   const [viajes, setViajes] = useState([]);
@@ -115,6 +117,15 @@ export const useViajesRenta = (
   }, [minutosRestantes]);
 
   const registrarViaje = useCallback(async () => {
+    if (!esDentroJornada(fechaCreacionVale)) {
+      Alert.alert(
+        "Vale fuera de jornada",
+        "Este vale fue creado en una jornada anterior y ya no puede recibir viajes. Usa un vale del dia de hoy.",
+        [{ text: "Entendido" }],
+      );
+      return false;
+    }
+
     if (!puedeRegistrar()) {
       Alert.alert(
         "No disponible",
@@ -187,6 +198,7 @@ export const useViajesRenta = (
     idValeRentaDetalle,
     userProfile,
     iniciarCuentaRegresiva,
+    fechaCreacionVale,
   ]);
 
   useEffect(() => {
