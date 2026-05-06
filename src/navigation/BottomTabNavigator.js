@@ -25,6 +25,7 @@ import ConfiguracionScreen from "../screens/ConfiguracionScreen";
 import EstadisticasScreen from "../screens/EstadisticasScreen";
 
 import DevToolsScreen from "../screens/DevToolsScreen";
+import PresupuestosObraScreen from "../screens/PresupuestosObraScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -105,6 +106,32 @@ function ValesStack() {
   );
 }
 
+// Stack para el panel de administrador
+function DevStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        cardStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <Stack.Screen name="DevToolsMain" component={DevToolsScreen} />
+      <Stack.Screen
+        name="PresupuestosObra"
+        component={PresupuestosObraScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Presupuestos de Obra",
+          headerStyle: { backgroundColor: colors.surface, elevation: 2 },
+          headerTintColor: colors.primary,
+          headerTitleStyle: { fontWeight: "bold", fontSize: 18, color: colors.textPrimary },
+          headerBackTitleVisible: false,
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 // Tabs principales
 function MainTabs() {
   const { userRole } = useAuth();
@@ -174,12 +201,12 @@ function MainTabs() {
       {esAdministrador && (
         <Tab.Screen
           name="DevTools"
-          component={DevToolsScreen}
+          component={DevStack}
           options={{
-            tabBarLabel: "Dev",
+            tabBarLabel: "Admin",
             tabBarIcon: ({ color }) => (
               <MaterialCommunityIcons
-                name="bug-outline"
+                name="shield-crown-outline"
                 size={26}
                 color={color}
               />

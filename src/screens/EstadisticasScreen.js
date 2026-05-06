@@ -13,6 +13,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { statsColors } from "../config/statsColors";
+import { supabase } from "../config/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { useObras } from "../hooks/useObras";
 import EstadisticasMaterialTab from "../componets/stats/EstadisticasMaterialTab";
@@ -52,6 +53,13 @@ const EstadisticasScreen = () => {
 
   const residenteId = userProfile?.id_persona ?? null;
   const obrasIds = obras.map((o) => o.id).filter(Boolean);
+
+  // Refrescar matviews de estadísticas al montar (fire and forget)
+  useEffect(() => {
+    supabase.rpc("refrescar_stats").then(({ error }) => {
+      if (error) console.warn("[EstadisticasScreen] refrescar_stats:", error.message);
+    });
+  }, []);
 
   // Preseleccionar primera obra cuando cargan
   useEffect(() => {

@@ -175,7 +175,9 @@ export const useViajesMaterial = (
 
   const registrarViaje = useCallback(
     async ({ pesoTon, volumenDirecto, folioValeFisico } = {}) => {
-      if (!esDentroJornada(fechaCreacionVale)) {
+      const esAdministrador = userProfile?.roles?.role === "Administrador";
+
+      if (!esAdministrador && !esDentroJornada(fechaCreacionVale)) {
         Alert.alert(
           "Vale fuera de jornada",
           "Este vale fue creado en una jornada anterior y ya no puede recibir viajes. Usa un vale del dia de hoy.",
@@ -184,7 +186,7 @@ export const useViajesMaterial = (
         return false;
       }
 
-      if (!puedeRegistrar()) {
+      if (!esAdministrador && !puedeRegistrar()) {
         Alert.alert(
           "No disponible",
           `Debes esperar ${minutosRestantes} min antes de registrar el siguiente viaje.`,

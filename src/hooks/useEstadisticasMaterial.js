@@ -2,22 +2,77 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../config/supabase";
+import { statsColors } from "../config/statsColors";
 
-/**
- * Hook de estadísticas para vales de MATERIAL
- *
- * Recibe periodo y obraId como parametros.
- * - Si obraId es null => filtra por residenteId (todas sus obras)
- * - Si obraId tiene valor => filtra por esa obra especifica
- *
- * Devuelve:
- * - vales: array raw de vales con sus detalles
- * - totales: { totalM3, costoTotal, totalDistancia, totalViajes }
- * - materialesMovidos: [{ id, nombre, m3Total, viajes }]
- * - topOperadores: [{ nombre, viajes }]
- * - chartData: { pieData, barData }
- * - loading, error, refetch
- */
+const ESTADOS_MATERIAL = ["en_proceso", "emitido", "verificado", "conciliado"];
+const PERIODOS_DIRECTOS = new Set(["hoy", "ayer", "semana"]);
+
+// Rango ISO local para periodos cortos — consultan vales directamente
+const rangoFechaDirecto = (periodo) => {
+  const hoy = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  const iso = (d, fin) =>
+    `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${fin ? "23:59:59" : "00:00:00"}`;
+
+  if (periodo === "hoy") return [iso(hoy, false), iso(hoy, true)];
+  if (periodo === "ayer") {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 1);
+    return [iso(d, false), iso(d, true)];
+  }
+  // "semana" — últimos 7 días
+  const ini = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 6);
+  return [iso(ini, false), iso(hoy, true)];
+};
+
+// Rango de primer día de mes para periodos largos — consultan la matview
+const rangoMesMatview = (periodo) => {
+  const hoy = new Date();
+  const p2 = (n) => String(n).padStart(2, "0");
+  const primerDia = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-01`;
+
+  if (periodo === "trimestre") {
+    const ini = new Date(hoy.getFullYear(), hoy.getMonth() - 2, 1);
+    return [primerDia(ini), primerDia(hoy)];
+  }
+  if (periodo === "semestre") {
+    const ini = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1);
+    return [primerDia(ini), primerDia(hoy)];
+  }
+  if (periodo === "año") {
+    return [`${hoy.getFullYear()}-01-01`, `${hoy.getFullYear()}-12-01`];
+  }
+  // "mes"
+  return [primerDia(hoy), primerDia(hoy)];
+};
+
+// Convierte vales con detalles anidados al mismo shape que filas de mv_stats_material
+const valesAFilasMaterial = (vales) => {
+  const mapa = {};
+  vales.forEach((vale) => {
+    (vale.vale_material_detalles || []).forEach((det) => {
+      const k = det.id_material;
+      if (!mapa[k]) {
+        mapa[k] = {
+          id_material: k,
+          nombre_material: det.material?.material ?? String(k),
+          _ids: new Set(),
+          m3_total: 0,
+          costo_total: 0,
+          total_viajes: 0,
+        };
+      }
+      mapa[k]._ids.add(vale.id_vale);
+      mapa[k].m3_total += Number(det.volumen_real_m3 ?? det.cantidad_pedida_m3 ?? 0);
+      mapa[k].costo_total += Number(det.costo_total ?? 0);
+      mapa[k].total_viajes += det.vale_material_viajes?.length ?? 0;
+    });
+  });
+  return Object.values(mapa).map(({ _ids, ...r }) => ({
+    ...r,
+    total_vales: _ids.size,
+  }));
+};
+
 export const useEstadisticasMaterial = (
   periodo = "mes",
   residenteId = null,
@@ -26,110 +81,13 @@ export const useEstadisticasMaterial = (
 ) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [vales, setVales] = useState([]);
-
-  // ─── Calcular rango de fechas ──────────────────────────────────────────────
-
-  const calcularRangoFechas = useCallback(() => {
-    const hoy = new Date();
-    let fechaInicio, fechaFin;
-
-    switch (periodo) {
-      case "hoy":
-        fechaInicio = new Date(hoy);
-        fechaInicio.setHours(0, 0, 0, 0);
-        fechaFin = new Date(hoy);
-        fechaFin.setHours(23, 59, 59, 999);
-        break;
-
-      case "ayer": {
-        const ayer = new Date(hoy);
-        ayer.setDate(hoy.getDate() - 1);
-        fechaInicio = new Date(ayer);
-        fechaInicio.setHours(0, 0, 0, 0);
-        fechaFin = new Date(ayer);
-        fechaFin.setHours(23, 59, 59, 999);
-        break;
-      }
-
-      case "semana": {
-        const diaSemana = (hoy.getDay() + 6) % 7; // Lunes = 0
-        fechaInicio = new Date(hoy);
-        fechaInicio.setDate(hoy.getDate() - diaSemana);
-        fechaInicio.setHours(0, 0, 0, 0);
-        fechaFin = new Date(fechaInicio);
-        fechaFin.setDate(fechaInicio.getDate() + 6);
-        fechaFin.setHours(23, 59, 59, 999);
-        break;
-      }
-
-      case "mes":
-        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-        fechaFin = new Date(
-          hoy.getFullYear(),
-          hoy.getMonth() + 1,
-          0,
-          23,
-          59,
-          59,
-        );
-        break;
-
-      case "trimestre":
-        // Ultimos 3 meses completos incluyendo el actual
-        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 2, 1);
-        fechaFin = new Date(
-          hoy.getFullYear(),
-          hoy.getMonth() + 1,
-          0,
-          23,
-          59,
-          59,
-        );
-        break;
-
-      case "semestre":
-        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1);
-        fechaFin = new Date(
-          hoy.getFullYear(),
-          hoy.getMonth() + 1,
-          0,
-          23,
-          59,
-          59,
-        );
-        break;
-
-      case "año":
-        fechaInicio = new Date(hoy.getFullYear(), 0, 1);
-        fechaFin = new Date(hoy.getFullYear(), 11, 31, 23, 59, 59);
-        break;
-
-      default:
-        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-        fechaFin = new Date(
-          hoy.getFullYear(),
-          hoy.getMonth() + 1,
-          0,
-          23,
-          59,
-          59,
-        );
-    }
-
-    return {
-      fechaInicio: fechaInicio.toISOString(),
-      fechaFin: fechaFin.toISOString(),
-    };
-  }, [periodo]);
-
-  // ─── Query a Supabase ──────────────────────────────────────────────────────
+  const [rowsMatview, setRowsMatview] = useState([]);
+  const [valesBar, setValesBar] = useState([]);
 
   const fetchData = useCallback(async () => {
-    if (!residenteId) {
-      console.warn(
-        "[useEstadisticasMaterial] Sin residenteId, abortando fetch",
-      );
+    if (!residenteId) return;
+    if (!obraId && (!obrasIds || obrasIds.length === 0)) {
+      setLoading(false);
       return;
     }
 
@@ -137,100 +95,90 @@ export const useEstadisticasMaterial = (
       setLoading(true);
       setError(null);
 
-      const { fechaInicio, fechaFin } = calcularRangoFechas();
+      // ── Query bar: últimos 7 días siempre (independiente del periodo) ────────
+      const hoy = new Date();
+      const hace7Dias = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 6);
+      const toLocalISO = (d) => {
+        const p = (n) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T00:00:00`;
+      };
 
-      // ── LOG: parametros de la query ──
-
-      let query = supabase
+      let qBar = supabase
         .from("vales")
         .select(
-          `
-          id_vale,
-          folio,
-          fecha_creacion,
-          fecha_completado,
-          estado,
-          id_obra,
-          obras!vales_id_obra_fkey (
-            obra
-          ),
-          operadores!vales_id_operador_fkey (
-            nombre_completo
-          ),
-          vale_material_detalles (
-            cantidad_pedida_m3,
-            volumen_real_m3,
-            costo_total,
-            distancia_km,
-            requisicion,
-            material!vale_material_detalles_id_material_fkey (
-              id_material,
-              material
-            ),
-          vale_material_viajes (*)
-            )
-        `,
+          "fecha_creacion, fecha_completado, vale_material_detalles(vale_material_viajes(id_viaje))",
         )
         .eq("tipo_vale", "material")
-        .in("estado", ["en_proceso", "emitido", "verificado", "conciliado"])
-        .gte("fecha_creacion", fechaInicio)
-        .lte("fecha_creacion", fechaFin);
+        .in("estado", ESTADOS_MATERIAL)
+        .gte("fecha_creacion", toLocalISO(hace7Dias));
 
-      // ── Filtro de obra: una sola fuente de verdad ──
-      if (obraId) {
-        query = query.eq("id_obra", obraId);
-      } else if (obrasIds?.length > 0) {
-        query = query.in("id_obra", obrasIds);
+      if (obraId) qBar = qBar.eq("id_obra", obraId);
+      else qBar = qBar.in("id_obra", obrasIds);
+
+      let filasPromise;
+
+      if (PERIODOS_DIRECTOS.has(periodo)) {
+        // ── Periodos cortos: query directa a vales con fecha exacta ────────────
+        const [fechaInicio, fechaFin] = rangoFechaDirecto(periodo);
+
+        let qDirect = supabase
+          .from("vales")
+          .select(`
+            id_vale,
+            vale_material_detalles(
+              id_material,
+              material:material(material),
+              volumen_real_m3,
+              cantidad_pedida_m3,
+              costo_total,
+              vale_material_viajes(id_viaje)
+            )
+          `)
+          .eq("tipo_vale", "material")
+          .in("estado", ESTADOS_MATERIAL)
+          .gte("fecha_creacion", fechaInicio)
+          .lte("fecha_creacion", fechaFin);
+
+        if (obraId) qDirect = qDirect.eq("id_obra", obraId);
+        else qDirect = qDirect.in("id_obra", obrasIds);
+
+        filasPromise = qDirect;
       } else {
-        query = query.eq("id_persona_creador", residenteId);
+        // ── Periodos largos: matview pre-agregada por mes ─────────────────────
+        const [mesInicio, mesFin] = rangoMesMatview(periodo);
+
+        let qMv = supabase
+          .from("mv_stats_material")
+          .select(
+            "id_material, nombre_material, total_vales, m3_total, costo_total, total_viajes",
+          )
+          .gte("mes", mesInicio)
+          .lte("mes", mesFin);
+
+        if (obraId) qMv = qMv.eq("id_obra", obraId);
+        else qMv = qMv.in("id_obra", obrasIds);
+
+        filasPromise = qMv;
       }
 
-      query = query.order("fecha_creacion", { ascending: false });
+      const [{ data: filasRaw, error: errFilas }, { data: bares, error: errBar }] =
+        await Promise.all([filasPromise, qBar]);
 
-      const { data, error: supabaseError } = await query;
+      if (errFilas) throw errFilas;
+      if (errBar) throw errBar;
 
-      if (supabaseError) throw supabaseError;
+      const filas = PERIODOS_DIRECTOS.has(periodo)
+        ? valesAFilasMaterial(filasRaw || [])
+        : filasRaw || [];
 
-      const resultados = data || [];
-
-      // ── LOG: resultado raw ──
-
-      if (resultados.length > 0) {
-
-        const obrasEnResultado = [
-          ...new Set(resultados.map((v) => v.obras?.obra).filter(Boolean)),
-        ];
-
-        const materialesEnResultado = [
-          ...new Set(
-            resultados
-              .map((v) => v.vale_material_detalles?.[0]?.material?.material)
-              .filter(Boolean),
-          ),
-        ];
-      } else {
-        console.warn(
-          "[useEstadisticasMaterial] Sin resultados. Posibles causas:",
-        );
-        console.warn("  - residenteId incorrecto:", residenteId);
-        console.warn("  - obraId no tiene vales en este periodo:", obraId);
-        console.warn("  - El rango de fechas no coincide con vales existentes");
-        console.warn(
-          "  - Los estados de los vales no incluyen en_proceso/emitido/verificado/conciliado",
-        );
-      }
-
-      setVales(resultados);
+      setRowsMatview(filas);
+      setValesBar(bares || []);
     } catch (err) {
-      console.error(
-        "[useEstadisticasMaterial] Error en fetchData:",
-        err.message,
-      );
       setError(err.message || "Error al cargar estadísticas de material");
     } finally {
       setLoading(false);
     }
-  }, [periodo, residenteId, obraId, obrasIds, calcularRangoFechas]);
+  }, [periodo, residenteId, obraId, obrasIds]);
 
   useEffect(() => {
     fetchData();
@@ -242,145 +190,89 @@ export const useEstadisticasMaterial = (
     let totalViajes = 0;
     let totalM3 = 0;
     let costoTotal = 0;
-    let totalDistancia = 0;
+    let totalVales = 0;
 
-    vales.forEach((vale) => {
-      const detalle = vale.vale_material_detalles?.[0];
-      if (!detalle) return;
-
-      const viajesDelVale = detalle.vale_material_viajes?.length ?? 0;
-      totalViajes += viajesDelVale;
-
-      totalM3 += Number(
-        detalle.volumen_real_m3 || detalle.cantidad_pedida_m3 || 0,
-      );
-      costoTotal += Number(detalle.costo_total || 0);
-      totalDistancia += Number(detalle.distancia_km || 0);
+    rowsMatview.forEach((r) => {
+      totalViajes += Number(r.total_viajes || 0);
+      totalM3 += Number(r.m3_total || 0);
+      costoTotal += Number(r.costo_total || 0);
+      totalVales += Number(r.total_vales || 0);
     });
 
-    return {
-      totalViajes,
-      totalM3,
-      costoTotal,
-      totalDistancia,
-      totalVales: vales.length,
-    };
-  }, [vales]);
+    return { totalViajes, totalM3, costoTotal, totalDistancia: 0, totalVales };
+  }, [rowsMatview]);
 
-  // ─── Materiales movidos (lista agrupada por material) ─────────────────────
+  // ─── Materiales movidos ────────────────────────────────────────────────────
 
   const materialesMovidos = useMemo(() => {
     const mapa = {};
 
-    vales.forEach((vale) => {
-      const detalle = vale.vale_material_detalles?.[0];
-      if (!detalle?.material) return;
-
-      const { id_material, material } = detalle.material;
-      const m3 = Number(
-        detalle.volumen_real_m3 || detalle.cantidad_pedida_m3 || 0,
-      );
-
-      if (!mapa[id_material]) {
-        mapa[id_material] = {
-          id: id_material,
-          nombre: material,
+    rowsMatview.forEach((r) => {
+      if (!r.id_material) return;
+      if (!mapa[r.id_material]) {
+        mapa[r.id_material] = {
+          id: r.id_material,
+          nombre: r.nombre_material,
           m3Total: 0,
           viajes: 0,
         };
       }
-
-      mapa[id_material].m3Total += m3;
-      mapa[id_material].viajes += detalle.vale_material_viajes?.length ?? 0;
+      mapa[r.id_material].m3Total += Number(r.m3_total || 0);
+      mapa[r.id_material].viajes += Number(r.total_viajes || 0);
     });
 
-    const lista = Object.values(mapa).sort((a, b) => b.m3Total - a.m3Total);
-
-    // lista.forEach((m) =>
-    // );
-
-    return lista;
-  }, [vales]);
-
-  // ─── Top operadores ────────────────────────────────────────────────────────
-
-  const topOperadores = useMemo(() => {
-    const mapa = {};
-
-    vales.forEach((vale) => {
-      const nombre = vale.operadores?.nombre_completo;
-      if (!nombre) return;
-
-      const detalle = vale.vale_material_detalles?.[0];
-      const viajesDelVale = detalle?.vale_material_viajes?.length ?? 0;
-
-      if (!mapa[nombre]) {
-        mapa[nombre] = { nombre, viajes: 0, vales: 0 };
-      }
-      mapa[nombre].vales += 1;
-      mapa[nombre].viajes += viajesDelVale;
-    });
-
-    const lista = Object.values(mapa)
-      .sort((a, b) => b.viajes - a.viajes)
-      .slice(0, 5);
-
-    return lista;
-  }, [vales]);
+    return Object.values(mapa).sort((a, b) => b.m3Total - a.m3Total);
+  }, [rowsMatview]);
 
   // ─── Chart data ────────────────────────────────────────────────────────────
 
   const chartData = useMemo(() => {
-    const COLORES = [
-      "#FF6B35",
-      "#004E89",
-      "#1A936F",
-      "#F4A261",
-      "#E76F51",
-      "#457B9D",
-      "#2A9D8F",
-    ];
+    const palette = statsColors.chartPalette;
 
-    // Pie chart: distribucion de m3 por material
-    const pieData = materialesMovidos.map((material, index) => ({
-      name: material.nombre,
-      value: parseFloat(material.m3Total.toFixed(2)),
-      color: COLORES[index % COLORES.length],
+    const pieData = materialesMovidos.map((mat, i) => ({
+      name: mat.nombre,
+      value: parseFloat(mat.m3Total.toFixed(2)),
+      color: palette[i % palette.length],
     }));
 
-    // Bar chart: viajes por dia (ultimos 7 dias)
     const hoy = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    const toLocalDate = (d) =>
+      `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+
     const barData = [];
-
     for (let i = 6; i >= 0; i--) {
-      const dia = new Date(hoy);
-      dia.setDate(hoy.getDate() - i);
-      const diaStr = dia.toISOString().split("T")[0];
+      const dia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - i);
+      const diaStr = toLocalDate(dia);
 
-      const viajesDelDia = vales.reduce((acc, vale) => {
+      const viajesDelDia = valesBar.reduce((acc, vale) => {
         const fechaRaw = vale.fecha_completado ?? vale.fecha_creacion;
         if (!fechaRaw) return acc;
         const fechaLocal = new Date(fechaRaw);
-        const fechaStr = `${fechaLocal.getFullYear()}-${String(fechaLocal.getMonth() + 1).padStart(2, "0")}-${String(fechaLocal.getDate()).padStart(2, "0")}`;
-        if (fechaStr !== diaStr) return acc;
-        const detalle = vale.vale_material_detalles?.[0];
-        return acc + (detalle?.vale_material_viajes?.length ?? 0);
+        if (toLocalDate(fechaLocal) !== diaStr) return acc;
+        const viajes = (vale.vale_material_detalles || []).reduce(
+          (sum, det) => sum + (det.vale_material_viajes?.length ?? 0),
+          0,
+        );
+        return acc + viajes;
       }, 0);
 
-      const etiqueta = dia.toLocaleDateString("es-MX", { weekday: "short" });
-      barData.push({ label: etiqueta, value: viajesDelDia });
+      barData.push({
+        label: dia.toLocaleDateString("es-MX", { weekday: "short" }),
+        value: viajesDelDia,
+      });
     }
 
     return { pieData, barData };
-  }, [materialesMovidos, vales]);
+  }, [materialesMovidos, valesBar]);
 
   // ─── Return ────────────────────────────────────────────────────────────────
 
   return {
-    vales,
+    vales: [],
     totales,
     materialesMovidos,
-    topOperadores,
+    topOperadores: [],
     chartData,
     loading,
     error,

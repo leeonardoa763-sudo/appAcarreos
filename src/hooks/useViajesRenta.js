@@ -117,7 +117,9 @@ export const useViajesRenta = (
   }, [minutosRestantes]);
 
   const registrarViaje = useCallback(async () => {
-    if (!esDentroJornada(fechaCreacionVale)) {
+    const esAdministrador = userProfile?.roles?.role === "Administrador";
+
+    if (!esAdministrador && !esDentroJornada(fechaCreacionVale)) {
       Alert.alert(
         "Vale fuera de jornada",
         "Este vale fue creado en una jornada anterior y ya no puede recibir viajes. Usa un vale del dia de hoy.",
@@ -126,7 +128,7 @@ export const useViajesRenta = (
       return false;
     }
 
-    if (!puedeRegistrar()) {
+    if (!esAdministrador && !puedeRegistrar()) {
       Alert.alert(
         "No disponible",
         "No es posible registrar un viaje en este momento.",
