@@ -9,7 +9,7 @@ import { Alert } from "react-native";
 import { supabase } from "../config/supabase";
 import { useAuth } from "./useAuth";
 
-const MOTIVO_MIN_CHARS = 40;
+const MOTIVO_MIN_CHARS = 20;
 
 export const useCancelarVale = (vale, onExito) => {
   const { userRole, userProfile } = useAuth();
@@ -22,7 +22,8 @@ export const useCancelarVale = (vale, onExito) => {
   // Determina si el botón debe mostrarse
 
   const puedeCancel =
-    userRole?.toLowerCase() === "residente" && vale?.estado === "en_proceso";
+    (userRole?.toLowerCase() === "residente" || userRole === "Administrador") &&
+    vale?.estado === "en_proceso";
 
   const abrirModal = () => {
     setMotivo("");

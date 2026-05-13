@@ -1,7 +1,4 @@
-// 1. React y hooks
 import React, { useState, useEffect, useRef } from "react";
-
-// 2. React Native
 import {
   View,
   Text,
@@ -11,750 +8,35 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
-  FlatList,
 } from "react-native";
-
-// 3. Third party
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-
-// 4. Local - Config
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
-
-// 5. Local - Componentes
-// 5. Local - Componentes
 import FormInput from "../forms/FormInput";
-import QRCodeGenerator from "../common/QRCodeGenerator";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
+import SelectorSindicato from "./agregarOperador/SelectorSindicato";
+import PantallaResultadoOperador from "./agregarOperador/PantallaResultadoOperador";
+import { validarFormulario, generarQrUid } from "./agregarOperador/validacion";
 
-// ─── Validaciones ─────────────────────────────────────────────────────────────
-
-const validarFormulario = (form) => {
-  const errores = {};
-
-  if (!form.nombre.trim()) {
-    errores.nombre = "El nombre es obligatorio";
-  }
-  if (!form.primerApellido.trim()) {
-    errores.primerApellido = "El primer apellido es obligatorio";
-  }
-  if (!form.sindicatoId) {
-    errores.sindicatoId = "Selecciona un sindicato";
-  }
-
-  const placasLimpias = form.placas.trim().toUpperCase();
-  if (!placasLimpias) {
-    errores.placas = "Las placas son obligatorias";
-  } else if (placasLimpias.length < 6 || placasLimpias.length > 10) {
-    errores.placas = "Las placas deben tener entre 6 y 10 caracteres";
-  }
-
-  if (!form.capacidad.trim()) {
-    errores.capacidad = "La capacidad es obligatoria";
-  } else if (
-    isNaN(parseFloat(form.capacidad)) ||
-    parseFloat(form.capacidad) <= 0
-  ) {
-    errores.capacidad = "Ingresa una capacidad válida mayor a 0";
-  }
-
-  return errores;
+const ESTADO_INICIAL = {
+  nombre: "",
+  primerApellido: "",
+  segundoApellido: "",
+  sindicatoId: null,
+  placas: "",
+  capacidad: "",
 };
-
-// ─── Selector de sindicato con modal propio ───────────────────────────────────
-
-const SelectorSindicato = ({
-  sindicatos,
-  value,
-  onSelect,
-  error,
-  disabled,
-}) => {
-  const [modalVisible, setModalVisible] = useState(false);
-
-  const seleccionado = sindicatos.find((s) => s.id_sindicato === value);
-
-  const handleSeleccionar = (item) => {
-    onSelect(item.id_sindicato);
-    setModalVisible(false);
-  };
-
-  return (
-    <View style={selectorStyles.wrapper}>
-      <Text style={selectorStyles.label}>Sindicato</Text>
-
-      <TouchableOpacity
-        style={[
-          selectorStyles.boton,
-          error && selectorStyles.botonError,
-          disabled && selectorStyles.botonDisabled,
-        ]}
-        onPress={() => !disabled && setModalVisible(true)}
-        activeOpacity={0.7}
-      >
-        <Text
-          style={[
-            selectorStyles.botonTexto,
-            !seleccionado && selectorStyles.botonPlaceholder,
-          ]}
-          numberOfLines={1}
-        >
-          {seleccionado ? seleccionado.sindicato : "Seleccionar sindicato..."}
-        </Text>
-        <MaterialCommunityIcons
-          name="chevron-down"
-          size={22}
-          color={colors.textSecondary}
-        />
-      </TouchableOpacity>
-
-      {error && <Text style={selectorStyles.errorTexto}>{error}</Text>}
-
-      {/* Modal interno del selector */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={selectorStyles.overlay}>
-          <View style={selectorStyles.sheet}>
-            <View style={selectorStyles.sheetHeader}>
-              <Text style={selectorStyles.sheetTitulo}>
-                Seleccionar sindicato
-              </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <MaterialCommunityIcons
-                  name="close"
-                  size={24}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <FlatList
-              data={sindicatos}
-              keyExtractor={(item) => item.id_sindicato.toString()}
-              renderItem={({ item }) => {
-                const estaSeleccionado = item.id_sindicato === value;
-                return (
-                  <TouchableOpacity
-                    style={[
-                      selectorStyles.opcion,
-                      estaSeleccionado && selectorStyles.opcionActiva,
-                    ]}
-                    onPress={() => handleSeleccionar(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        selectorStyles.opcionTexto,
-                        estaSeleccionado && selectorStyles.opcionTextoActivo,
-                      ]}
-                    >
-                      {item.sindicato}
-                    </Text>
-                    {estaSeleccionado && (
-                      <MaterialCommunityIcons
-                        name="check-circle"
-                        size={20}
-                        color={colors.accent}
-                      />
-                    )}
-                  </TouchableOpacity>
-                );
-              }}
-              ItemSeparatorComponent={() => (
-                <View style={selectorStyles.separador} />
-              )}
-              showsVerticalScrollIndicator={false}
-            />
-          </View>
-        </View>
-      </Modal>
-    </View>
-  );
-};
-
-const selectorStyles = StyleSheet.create({
-  wrapper: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.textPrimary,
-    marginBottom: 6,
-  },
-  boton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.input.background,
-    borderWidth: 1,
-    borderColor: colors.input.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 13,
-  },
-  botonError: {
-    borderColor: colors.danger,
-  },
-  botonDisabled: {
-    opacity: 0.5,
-  },
-  botonTexto: {
-    fontSize: 16,
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  botonPlaceholder: {
-    color: colors.textSecondary,
-  },
-  errorTexto: {
-    marginTop: 4,
-    fontSize: 12,
-    color: colors.danger,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "60%",
-    paddingBottom: Platform.OS === "ios" ? 50 : 80,
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  sheetTitulo: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  opcion: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  opcionActiva: {
-    backgroundColor: `${colors.accent}10`,
-  },
-  opcionTexto: {
-    fontSize: 15,
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  opcionTextoActivo: {
-    color: colors.accent,
-    fontWeight: "600",
-  },
-  separador: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginHorizontal: 20,
-  },
-});
-
-// ─── Generador de qr_uid ──────────────────────────────────────────────────────
-
-const generarQrUid = (placas) => {
-  const placasLimpias = placas.replace(/[^A-Z0-9]/g, "");
-  const timestamp = Date.now().toString(36).toUpperCase();
-  return `VH-${placasLimpias}-${timestamp}`;
-};
-
-// ─── PantallaResultado ────────────────────────────────────────────────────────
-
-const PantallaResultado = ({ operador, vehiculo, mensaje, onCerrar }) => {
-  const [qrDataUrl, setQrDataUrl] = useState(null);
-  const [generandoPDF, setGenerandoPDF] = useState(false);
-
-  const handleExportarPDF = async () => {
-    if (!qrDataUrl) {
-      Alert.alert("Espera", "El código QR aún se está generando.");
-      return;
-    }
-
-    try {
-      setGenerandoPDF(true);
-
-      const html = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="UTF-8">
-            <style>
-              * { margin: 0; padding: 0; box-sizing: border-box; }
-              body {
-                font-family: Arial, sans-serif;
-                background: #ffffff;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                padding: 24px;
-              }
-              .card {
-                width: 100%;
-                max-width: 320px;
-                border: 2px solid #004E89;
-                border-radius: 16px;
-                overflow: hidden;
-                margin: 0 auto;
-              }
-              .header {
-                background-color: #004E89;
-                padding: 16px 20px;
-                text-align: center;
-              }
-              .header-titulo {
-                color: #ffffff;
-                font-size: 13px;
-                font-weight: 700;
-                letter-spacing: 1px;
-                text-transform: uppercase;
-                margin-bottom: 2px;
-              }
-              .header-subtitulo {
-                color: rgba(255,255,255,0.75);
-                font-size: 11px;
-              }
-              .body {
-                padding: 20px;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 16px;
-              }
-              .qr-wrapper {
-                border: 1px solid #E5E7EB;
-                border-radius: 12px;
-                padding: 14px;
-                background: #F5F6FA;
-              }
-              .qr-wrapper img {
-                display: block;
-                width: 160px;
-                height: 160px;
-              }
-              .info {
-                width: 100%;
-                border-top: 1px solid #E5E7EB;
-                padding-top: 14px;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-              }
-              .fila {
-                display: flex;
-                flex-direction: column;
-                gap: 2px;
-              }
-              .fila-label {
-                font-size: 10px;
-                color: #7F8C8D;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-              }
-              .fila-valor {
-                font-size: 15px;
-                font-weight: 700;
-                color: #2C3E50;
-              }
-              .fila-valor-placas {
-                font-size: 22px;
-                font-weight: 800;
-                color: #004E89;
-                letter-spacing: 2px;
-              }
-              .footer {
-                background: #F5F6FA;
-                padding: 10px 20px;
-                text-align: center;
-                border-top: 1px solid #E5E7EB;
-              }
-              .footer-texto {
-                font-size: 10px;
-                color: #7F8C8D;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <div class="header">
-                <div class="header-titulo">Control de Acarreos</div>
-                <div class="header-subtitulo">Identificación de Vehículo</div>
-              </div>
-              <div class="body">
-                <div class="qr-wrapper">
-                  <img src="${qrDataUrl}" />
-                </div>
-                <div class="info">
-                  <div class="fila">
-                    <span class="fila-label">Placas</span>
-                    <span class="fila-valor-placas">${vehiculo.placas}</span>
-                  </div>
-                  <div class="fila">
-                    <span class="fila-label">Operador</span>
-                    <span class="fila-valor">${operador.nombre_completo}</span>
-                  </div>
-                  ${
-                    vehiculo.capacidad_m3
-                      ? `
-                  <div class="fila">
-                    <span class="fila-label">Capacidad</span>
-                    <span class="fila-valor">${vehiculo.capacidad_m3} m³</span>
-                  </div>`
-                      : ""
-                  }
-                </div>
-              </div>
-              <div class="footer">
-                <span class="footer-texto">Escanea el QR para asignar este vehículo a un vale</span>
-              </div>
-            </div>
-          </body>
-        </html>
-      `;
-
-      const { uri } = await Print.printToFileAsync({
-        html,
-        base64: false,
-      });
-
-      const puedeCompartir = await Sharing.isAvailableAsync();
-      if (!puedeCompartir) {
-        Alert.alert("Error", "La función de compartir no está disponible.");
-        return;
-      }
-
-      await Sharing.shareAsync(uri, {
-        mimeType: "application/pdf",
-        dialogTitle: `QR Vehículo ${vehiculo.placas}`,
-        UTI: "com.adobe.pdf",
-      });
-    } catch (error) {
-      console.error("[PantallaResultado] Error generando PDF:", error);
-      Alert.alert("Error", "No se pudo generar el PDF. Intenta de nuevo.");
-    } finally {
-      setGenerandoPDF(false);
-    }
-  };
-
-  return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={resultadoStyles.container}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* QR invisible para captura */}
-      {vehiculo.qr_uid && (
-        <QRCodeGenerator
-          value={vehiculo.qr_uid}
-          onGenerated={(dataUrl) => setQrDataUrl(dataUrl)}
-          size={200}
-        />
-      )}
-
-      {/* Banner de éxito */}
-      <View style={resultadoStyles.banner}>
-        <MaterialCommunityIcons
-          name="check-circle"
-          size={36}
-          color={colors.accent}
-        />
-        <Text style={resultadoStyles.bannerTitulo}>Registro exitoso</Text>
-        <Text style={resultadoStyles.bannerMensaje}>{mensaje}</Text>
-      </View>
-
-      {/* Card con QR */}
-      <View style={resultadoStyles.card}>
-        {/* Header card */}
-        <View style={resultadoStyles.cardHeader}>
-          <MaterialCommunityIcons
-            name="dump-truck"
-            size={20}
-            color={colors.surface}
-          />
-          <Text style={resultadoStyles.cardHeaderTexto}>
-            Identificación del vehículo
-          </Text>
-        </View>
-
-        {/* QR visual */}
-        <View style={resultadoStyles.qrContainer}>
-          {qrDataUrl ? (
-            <Image
-              source={{ uri: qrDataUrl }}
-              style={resultadoStyles.qrImagen}
-            />
-          ) : (
-            <View style={resultadoStyles.qrCargando}>
-              <ActivityIndicator size="small" color={colors.secondary} />
-              <Text style={resultadoStyles.qrCargandoTexto}>
-                Generando QR...
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Datos */}
-        <View style={resultadoStyles.datosContainer}>
-          <View style={resultadoStyles.datoFila}>
-            <Text style={resultadoStyles.datoLabel}>PLACAS</Text>
-            <Text style={resultadoStyles.datoValorPlacas}>
-              {vehiculo.placas}
-            </Text>
-          </View>
-          <View style={resultadoStyles.separador} />
-          <View style={resultadoStyles.datoFila}>
-            <Text style={resultadoStyles.datoLabel}>OPERADOR</Text>
-            <Text style={resultadoStyles.datoValor}>
-              {operador.nombre_completo}
-            </Text>
-          </View>
-          {vehiculo.capacidad_m3 && (
-            <>
-              <View style={resultadoStyles.separador} />
-              <View style={resultadoStyles.datoFila}>
-                <Text style={resultadoStyles.datoLabel}>CAPACIDAD</Text>
-                <Text style={resultadoStyles.datoValor}>
-                  {vehiculo.capacidad_m3} m³
-                </Text>
-              </View>
-            </>
-          )}
-        </View>
-
-        <Text style={resultadoStyles.qrHint}>
-          Pega este QR en el vehículo para asignarlo rápidamente a un vale
-        </Text>
-      </View>
-
-      {/* Botones */}
-      <View style={resultadoStyles.botones}>
-        <TouchableOpacity
-          style={[
-            resultadoStyles.btnPDF,
-            (!qrDataUrl || generandoPDF) && resultadoStyles.btnDisabled,
-          ]}
-          onPress={handleExportarPDF}
-          disabled={!qrDataUrl || generandoPDF}
-          activeOpacity={0.8}
-        >
-          {generandoPDF ? (
-            <ActivityIndicator size="small" color={colors.surface} />
-          ) : (
-            <MaterialCommunityIcons
-              name="file-pdf-box"
-              size={22}
-              color={colors.surface}
-            />
-          )}
-          <Text style={resultadoStyles.btnPDFTexto}>
-            {generandoPDF ? "Generando..." : "Exportar QR en PDF"}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={resultadoStyles.btnListo}
-          onPress={onCerrar}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons
-            name="check"
-            size={20}
-            color={colors.secondary}
-          />
-          <Text style={resultadoStyles.btnListoTexto}>Listo</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
-};
-
-const resultadoStyles = StyleSheet.create({
-  container: {
-    padding: 20,
-    gap: 16,
-    paddingBottom: 32,
-  },
-  banner: {
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 8,
-  },
-  bannerTitulo: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.accent,
-  },
-  bannerMensaje: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    overflow: "hidden",
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-  },
-  cardHeader: {
-    backgroundColor: colors.secondary,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  cardHeaderTexto: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.surface,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  qrContainer: {
-    alignItems: "center",
-    paddingVertical: 20,
-    backgroundColor: colors.background,
-  },
-  qrImagen: {
-    width: 160,
-    height: 160,
-    borderRadius: 8,
-  },
-  qrCargando: {
-    width: 160,
-    height: 160,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  qrCargandoTexto: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  datosContainer: {
-    padding: 16,
-    gap: 10,
-  },
-  datoFila: {
-    gap: 2,
-  },
-  datoLabel: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-  },
-  datoValor: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  datoValorPlacas: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: colors.secondary,
-    letterSpacing: 2,
-  },
-  separador: {
-    height: 1,
-    backgroundColor: colors.background,
-  },
-  qrHint: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    textAlign: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    lineHeight: 16,
-  },
-  botones: {
-    gap: 10,
-  },
-  btnPDF: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  btnDisabled: {
-    backgroundColor: colors.disabled,
-    elevation: 0,
-  },
-  btnPDFTexto: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.surface,
-  },
-  btnListo: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: colors.secondary,
-  },
-  btnListoTexto: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.secondary,
-  },
-});
-// ─── Componente principal ─────────────────────────────────────────────────────
 
 const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
   const isMounted = useRef(true);
 
-  const estadoInicial = {
-    nombre: "",
-    primerApellido: "",
-    segundoApellido: "",
-    sindicatoId: null,
-    placas: "",
-    capacidad: "",
-  };
-
-  const [form, setForm] = useState(estadoInicial);
+  const [form, setForm] = useState(ESTADO_INICIAL);
   const [errores, setErrores] = useState({});
   const [sindicatos, setSindicatos] = useState([]);
   const [loadingSindicatos, setLoadingSindicatos] = useState(true);
   const [guardando, setGuardando] = useState(false);
-  const [resultado, setResultado] = useState(null); // { operador, vehiculo, mensaje }
+  const [resultado, setResultado] = useState(null);
 
   useEffect(() => {
     isMounted.current = true;
@@ -766,7 +48,7 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
   useEffect(() => {
     if (!visible) return;
     cargarSindicatos();
-    setForm(estadoInicial);
+    setForm(ESTADO_INICIAL);
     setErrores({});
     setResultado(null);
   }, [visible]);
@@ -805,6 +87,24 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
     try {
       setGuardando(true);
 
+      // ── 1. Verificar si la placa ya existe ANTES de crear nada ──────────────
+      const placas = form.placas.trim().toUpperCase();
+
+      const { data: vehiculoExistente } = await supabase
+        .from("vehiculos")
+        .select("id_vehiculo, placas")
+        .eq("placas", placas)
+        .maybeSingle();
+
+      if (vehiculoExistente) {
+        setErrores((prev) => ({
+          ...prev,
+          placas: `La placa "${placas}" ya está registrada en el sistema`,
+        }));
+        return;
+      }
+
+      // ── 2. Verificar si el operador ya existe por nombre ────────────────────
       const nombreCompleto = [
         form.nombre.trim(),
         form.primerApellido.trim(),
@@ -813,7 +113,6 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
         .filter(Boolean)
         .join(" ");
 
-      // ── 1. Verificar si el operador ya existe por nombre ──────────────────
       const { data: operadorExistente } = await supabase
         .from("operadores")
         .select("id_operador, nombre_completo, id_sindicato")
@@ -843,76 +142,33 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
         operadorEsNuevo = true;
       }
 
-      // ── 2. Verificar si la placa ya existe ────────────────────────────────
-      const placas = form.placas.trim().toUpperCase();
+      // ── 3. Crear el vehículo ────────────────────────────────────────────────
+      const qrUid = generarQrUid(placas);
 
-      const { data: vehiculoExistente } = await supabase
+      const { data: vehiculoNuevo, error: errorVehiculo } = await supabase
         .from("vehiculos")
-        .select("id_vehiculo, placas, capacidad_m3")
-        .eq("placas", placas)
-        .maybeSingle();
+        .insert({
+          placas,
+          capacidad_m3: parseFloat(form.capacidad),
+          id_sindicato: form.sindicatoId,
+          id_operador_sugerido: operadorFinal.id_operador,
+          qr_uid: qrUid,
+          activo: true,
+        })
+        .select("id_vehiculo, placas, capacidad_m3, qr_uid")
+        .single();
 
-      let vehiculoFinal;
-      let placaEraExistente = false;
-
-      if (vehiculoExistente) {
-        placaEraExistente = true;
-
-        // Si ya tiene qr_uid lo conservamos, si no le generamos uno
-        const qrUidActualizado =
-          vehiculoExistente.qr_uid ?? generarQrUid(placas);
-
-        const { data: vehiculoActualizado, error: errorUpdate } = await supabase
-          .from("vehiculos")
-          .update({
-            capacidad_m3: parseFloat(form.capacidad),
-            id_sindicato: form.sindicatoId,
-            id_operador_sugerido: operadorFinal.id_operador,
-            qr_uid: qrUidActualizado,
-          })
-          .eq("id_vehiculo", vehiculoExistente.id_vehiculo)
-          .select("id_vehiculo, placas, capacidad_m3, qr_uid")
-          .single();
-
-        if (errorUpdate) throw errorUpdate;
-        vehiculoFinal = vehiculoActualizado;
-      } else {
-        const qrUid = generarQrUid(placas);
-
-        const { data: vehiculoNuevo, error: errorVehiculo } = await supabase
-          .from("vehiculos")
-          .insert({
-            placas,
-            capacidad_m3: parseFloat(form.capacidad),
-            id_sindicato: form.sindicatoId,
-            id_operador_sugerido: operadorFinal.id_operador,
-            qr_uid: qrUid,
-            activo: true,
-          })
-          .select("id_vehiculo, placas, capacidad_m3, qr_uid")
-          .single();
-
-        if (errorVehiculo) throw errorVehiculo;
-        vehiculoFinal = vehiculoNuevo;
-      }
+      if (errorVehiculo) throw errorVehiculo;
 
       if (!isMounted.current) return;
 
-      // ── 3. Construir mensaje de resultado ─────────────────────────────────
-      let mensaje;
-      if (!operadorEsNuevo && placaEraExistente) {
-        mensaje = `El operador "${operadorFinal.nombre_completo}" y la placa "${vehiculoFinal.placas}" ya existían. Se actualizó la capacidad a ${vehiculoFinal.capacidad_m3} m³.`;
-      } else if (!operadorEsNuevo) {
-        mensaje = `La placa "${vehiculoFinal.placas}" fue agregada. El operador "${operadorFinal.nombre_completo}" ya existía y no fue duplicado.`;
-      } else if (placaEraExistente) {
-        mensaje = `Operador "${operadorFinal.nombre_completo}" registrado correctamente. La placa "${vehiculoFinal.placas}" ya existía, se actualizó su capacidad a ${vehiculoFinal.capacidad_m3} m³.`;
-      } else {
-        mensaje = `${operadorFinal.nombre_completo} y su vehículo (${vehiculoFinal.placas}) fueron agregados correctamente.`;
-      }
+      const mensaje = operadorEsNuevo
+        ? `${operadorFinal.nombre_completo} y su vehículo (${vehiculoNuevo.placas}) fueron agregados correctamente.`
+        : `La placa "${vehiculoNuevo.placas}" fue agregada. El operador "${operadorFinal.nombre_completo}" ya existía y no fue duplicado.`;
 
       setResultado({
         operador: operadorFinal,
-        vehiculo: vehiculoFinal,
+        vehiculo: vehiculoNuevo,
         mensaje,
       });
     } catch (error) {
@@ -967,9 +223,9 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
             </TouchableOpacity>
           </View>
 
-          {/* ── Pantalla de resultado con QR ── */}
+          {/* ── Pantalla de resultado ── */}
           {resultado ? (
-            <PantallaResultado
+            <PantallaResultadoOperador
               operador={resultado.operador}
               vehiculo={resultado.vehiculo}
               mensaje={resultado.mensaje}
@@ -986,7 +242,7 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
-                {/* ── Sección: Datos del operador ── */}
+                {/* ── Datos del operador ── */}
                 <View style={styles.seccion}>
                   <View style={styles.seccionHeader}>
                     <MaterialCommunityIcons
@@ -1044,7 +300,7 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
                   )}
                 </View>
 
-                {/* ── Sección: Datos del vehículo ── */}
+                {/* ── Datos del vehículo ── */}
                 <View style={styles.seccion}>
                   <View style={styles.seccionHeader}>
                     <MaterialCommunityIcons
@@ -1072,10 +328,7 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
                     label="Placas"
                     value={form.placas}
                     onChangeText={(v) =>
-                      handleCampo(
-                        "placas",
-                        v.toUpperCase().replace(/[^A-Z0-9-]/g, ""),
-                      )
+                      handleCampo("placas", v.replace(/[^A-Z0-9-]/g, ""))
                     }
                     placeholder="Ej: ABC-123"
                     autoCapitalize="characters"

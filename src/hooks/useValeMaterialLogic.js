@@ -32,18 +32,7 @@ export const useValeMaterialLogic = (materiales) => {
 
     const tipoDeMaterial = material.id_tipo_de_material;
 
-    /*
-     * LÓGICA ORIGINAL (flujo dos pasos para todos):
-     * const nuevaCopiaRoja = true;
-     *
-     * Reemplazada por lógica condicional via FEATURE_FLAGS
-     */
     let nuevaCopiaRoja = true;
-
-    if (tipoDeMaterial === 3 && !flags.TIPO3_FLUJO_DOS_PASOS) {
-      // Tepetate en flujo directo: no genera copia roja
-      nuevaCopiaRoja = false;
-    }
 
     if (tipoDeMaterial === 2 && !flags.TIPO2_GENERAR_PDF_ROJO) {
       // Carpeta asfáltica: tampoco genera copia roja
@@ -78,22 +67,7 @@ export const useValeMaterialLogic = (materiales) => {
       // PASO 3: URL de verificación
       const verificationUrl = generateVerificationUrl(folio);
 
-      // PASO 4: Determinar estado inicial según tipo de material y feature flags
-      const tipoDeMaterial = materiales.find(
-        (m) => m.id_material === formData.materialId,
-      )?.id_tipo_de_material;
-
-      const esTipo3DirectFlow =
-        tipoDeMaterial === 3 && !flags.TIPO3_FLUJO_DOS_PASOS;
-
-      /*
-       * LÓGICA ORIGINAL:
-       * estado: generarCopiaRoja ? "en_proceso" : "emitido"
-       *
-       * Nueva lógica: Tipo 3 en flujo directo va a "emitido" inmediatamente.
-       * Tipo 2 y el resto van a "en_proceso".
-       */
-      const estadoInicial = esTipo3DirectFlow ? "emitido" : "en_proceso";
+      const estadoInicial = "en_proceso";
 
       const { data: valeNuevo, error: errorVale } = await supabase
         .from("vales")
@@ -112,10 +86,6 @@ export const useValeMaterialLogic = (materiales) => {
               : formData.selectedVehiculo?.id_vehiculo,
             estado: estadoInicial,
             qr_verification_url: verificationUrl,
-            ...(esTipo3DirectFlow && {
-              id_persona_completador: userProfile.id_persona,
-              fecha_completado: new Date().toISOString(),
-            }),
           },
         ])
         .select()
@@ -145,10 +115,7 @@ export const useValeMaterialLogic = (materiales) => {
         peso_ton: null,
         notas_adicionales: formData.notasAdicionales || null,
         requisicion: formData.requisicion || null,
-        // NUEVO: Folio vale físico, solo para tipo 3 en flujo directo
-        folio_vale_fisico: esTipo3DirectFlow
-          ? parseInt(formData.folioValeFisico, 10)
-          : null,
+        folio_vale_fisico: null,
       };
 
       const { error: errorDetalle } = await supabase
@@ -298,6 +265,5 @@ export const useValeMaterialLogic = (materiales) => {
     submitting,
     crearVale,
     crearValesEnLote,
-    tipoMaterialSeleccionado: materialSeleccionado?.id_tipo_de_material ?? null,
   };
 };

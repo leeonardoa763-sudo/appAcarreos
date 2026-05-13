@@ -160,6 +160,7 @@ const ValesScreen = () => {
 
   const esChecador = userRole === "CHECADOR";
   const esResidente = userRole === "Residente";
+  const esAdministrador = userRole === "Administrador";
 
   const buttonConfigs = [
     !esChecador && {
@@ -196,7 +197,7 @@ const ValesScreen = () => {
       isMain: true,
       loading: buscandoVehiculo,
     },
-    esResidente && {
+    (esResidente || esAdministrador) && {
       onPress: handleAgregarOperador,
       iconName: "account-hard-hat",
       buttonText: "Añadir Operador",
@@ -252,7 +253,7 @@ const ValesScreen = () => {
 
       <ButtonsGrid buttons={buttonConfigs} />
 
-      {esResidente && (
+      {(esResidente || esAdministrador) && (
         <View style={styles.seccionOperadores}>
           <SeccionOperadoresSindicato />
         </View>

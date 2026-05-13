@@ -57,14 +57,6 @@ export const useValeMaterialPDF = (navigation) => {
         valeData.vale_material_detalles?.[0]?.material?.id_tipo_de_material;
 
       const esTipo2 = tipoDeMaterial === 2;
-      const esTipo3DirectFlow =
-        tipoDeMaterial === 3 && !flags.TIPO3_FLUJO_DOS_PASOS;
-
-      /*
-       * LÓGICA ORIGINAL (PDF rojo para todos al crear):
-       *   const colorCopia = generarCopiaRoja ? "roja" : "blanca";
-       *   await generateAndSharePDF(valeData, colorCopia, qrDataUrl);
-       */
 
       if (esTipo2 && !flags.TIPO2_GENERAR_PDF_ROJO) {
         if (isMounted.current) navegarAcarreos();
@@ -75,11 +67,7 @@ export const useValeMaterialPDF = (navigation) => {
         isSharing.current = true;
         if (isMounted.current) setGeneratingPDF(true);
 
-        const colorCopia = esTipo3DirectFlow
-          ? "blanca"
-          : generarCopiaRoja
-            ? "roja"
-            : "blanca";
+        const colorCopia = generarCopiaRoja ? "roja" : "blanca";
 
         await generateAndSharePDF(valeData, colorCopia, qrDataUrl);
 

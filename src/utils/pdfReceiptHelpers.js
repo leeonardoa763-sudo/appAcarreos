@@ -48,7 +48,7 @@ export const getReceiptBaseCSS = (bgColor) => {
     }
     
     @page {
-      size: 50mm 250mm;
+      size: 50mm 350mm;
       margin: 0;
       background-color: ${bgColor} !important;
     }

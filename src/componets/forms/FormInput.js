@@ -54,6 +54,8 @@ const FormInput = ({
   numberOfLines = 1,
   returnKeyType = "done",
   onSubmitEditing = null,
+  autoCapitalize = "sentences",
+  maxLength,
 }) => {
   return (
     <View style={styles.container}>
@@ -82,6 +84,9 @@ const FormInput = ({
           returnKeyType={multiline ? "default" : returnKeyType}
           blurOnSubmit={!multiline}
           onSubmitEditing={onSubmitEditing}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={false}
+          maxLength={maxLength}
         />
 
         {/* Sufijo (ej: m³, km, etc) */}

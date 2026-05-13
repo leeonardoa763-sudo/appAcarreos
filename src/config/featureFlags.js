@@ -39,12 +39,4 @@ export const FEATURE_FLAGS_DEFAULTS = {
    * false → NO genera PDF al crear, queda en en_proceso para completar después
    */
   TIPO2_GENERAR_PDF_ROJO: false,
-
-  /**
-   * Tipo 3 - Tepetate
-   *
-   * true  → Flujo original: crea en en_proceso, genera PDF rojo, se completa en Acarreos
-   * false → Flujo directo: crea en emitido, genera PDF blanco inmediato
-   */
-  TIPO3_FLUJO_DOS_PASOS: false,
 };

@@ -37,10 +37,6 @@ export const useFeatureFlags = () => {
       TIPO2_GENERAR_PDF_ROJO:
         flagsFromDB.tipo2_generar_pdf_rojo ??
         FEATURE_FLAGS_DEFAULTS.TIPO2_GENERAR_PDF_ROJO,
-
-      TIPO3_FLUJO_DOS_PASOS:
-        flagsFromDB.tipo3_flujo_dos_pasos ??
-        FEATURE_FLAGS_DEFAULTS.TIPO3_FLUJO_DOS_PASOS,
     };
   }, [userProfile?.feature_flags]);
 

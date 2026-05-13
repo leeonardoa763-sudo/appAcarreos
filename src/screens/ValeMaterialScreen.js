@@ -24,7 +24,6 @@ import { useValeMaterialForm } from "../hooks/useValeMaterialForm";
 import { useValeMaterialLogic } from "../hooks/useValeMaterialLogic";
 
 import { useObras } from "../hooks/useObras";
-import { useFeatureFlags } from "../hooks/useFeatureFlags";
 
 // Componentes
 import SectionHeader from "../componets/common/SectionHeader";
@@ -41,7 +40,6 @@ import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
 const ValeMaterialScreen = () => {
   const navigation = useNavigation();
   const { userProfile, userRole } = useAuth();
-  const { flags } = useFeatureFlags();
   const isMounted = useRef(true);
   const selectorCantidadRef = useRef(null);
   const esChecador = userRole === "CHECADOR";
@@ -77,13 +75,9 @@ const ValeMaterialScreen = () => {
     submitting,
     crearVale,
     crearValesEnLote,
-    tipoMaterialSeleccionado,
   } = useValeMaterialLogic(materiales);
   const { generateFolio } = useFolioGenerator();
 
-  // Computed: tipo 3 en flujo directo
-  const esTipo3DirectFlow =
-    tipoMaterialSeleccionado === 3 && !flags.TIPO3_FLUJO_DOS_PASOS;
   // Presupuesto disponible para obra + material seleccionado
   const { presupuestoMaterial, materialConsultado } = usePresupuestoObra({
     id_obra: obraSeleccionada,
@@ -213,7 +207,7 @@ const ValeMaterialScreen = () => {
   const handleCrearVale = () => {
     if (cantidadVales > 1) {
       // Validar primero antes de mostrar confirmacion
-      if (!validateForm(esTipo3DirectFlow, true)) {
+      if (!validateForm(false, true)) {
         Alert.alert(
           "Campos incompletos",
           "Por favor completa todos los campos requeridos",
@@ -236,7 +230,7 @@ const ValeMaterialScreen = () => {
   };
 
   const ejecutarCreacionVales = async () => {
-    if (!validateForm(esTipo3DirectFlow, true)) {
+    if (!validateForm(false, true)) {
       Alert.alert(
         "Campos incompletos",
         "Por favor completa todos los campos requeridos",

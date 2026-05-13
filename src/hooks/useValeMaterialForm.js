@@ -27,13 +27,12 @@ export const useValeMaterialForm = (materiales = []) => {
     selectedVehiculo: null,
     notasAdicionales: "",
     requisicion: "",
-    folioValeFisico: "",
   });
 
   const [errors, setErrors] = useState({});
 
   const validateForm = (
-    esTipo3DirectFlow = false,
+    _unused = false,
     completarDespues = false,
   ) => {
     const newErrors = {};
@@ -97,7 +96,6 @@ export const useValeMaterialForm = (materiales = []) => {
       selectedVehiculo: null,
       notasAdicionales: "",
       requisicion: "",
-      folioValeFisico: "",
     });
     setErrors({});
   };
