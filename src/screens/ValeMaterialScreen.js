@@ -50,8 +50,16 @@ const ValeMaterialScreen = () => {
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
   // Catálogos
-  const { materiales, bancos, sindicatos, loading: loadingCatalogos } =
-    useCatalogos(["materiales", "bancos", "sindicatos"]);
+  const catalogosRequeridos = ["materiales", "bancos", "sindicatos"];
+
+  const {
+    materiales,
+    bancos,
+    sindicatos,
+    loading: loadingCatalogos,
+  } = useCatalogos(catalogosRequeridos);
+
+  const materialesFiltrados = materiales;
 
   // Estados locales
   const [valeCreado, setValeCreado] = useState(null);
@@ -66,7 +74,7 @@ const ValeMaterialScreen = () => {
     errors,
     validateForm,
     resetForm: resetFormData,
-  } = useValeMaterialForm(materiales);
+  } = useValeMaterialForm(materialesFiltrados, false);
 
   const {
     materialSeleccionado,
@@ -75,7 +83,7 @@ const ValeMaterialScreen = () => {
     submitting,
     crearVale,
     crearValesEnLote,
-  } = useValeMaterialLogic(materiales);
+  } = useValeMaterialLogic(materialesFiltrados);
   const { generateFolio } = useFolioGenerator();
 
   // Presupuesto disponible para obra + material seleccionado
@@ -264,7 +272,7 @@ const ValeMaterialScreen = () => {
           obraDataParaFolio,
           userProfile,
           generateFolio,
-          materiales,
+          materialesFiltrados,
           cantidad,
         );
 
@@ -278,7 +286,7 @@ const ValeMaterialScreen = () => {
           obraDataParaFolio,
           userProfile,
           generateFolio,
-          materiales,
+          materialesFiltrados,
         );
 
         if (isMounted.current) {
@@ -378,7 +386,7 @@ const ValeMaterialScreen = () => {
             onValueChange={(value) =>
               setFormData({ ...formData, materialId: value })
             }
-            items={materiales.map((m) => ({
+            items={materialesFiltrados.map((m) => ({
               id: m.id_material,
               label: m.material,
             }))}
@@ -461,6 +469,7 @@ const ValeMaterialScreen = () => {
             disabled={presupuestoAgotado}
           />
         </View>
+
       </KeyboardAvoidingScrollView>
 
       <SuccessModal
@@ -483,6 +492,7 @@ const ValeMaterialScreen = () => {
         }}
         onClose={() => {}}
       />
+
     </View>
   );
 };

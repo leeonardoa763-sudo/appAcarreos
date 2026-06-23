@@ -218,6 +218,7 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
     : null;
 
   const esTipo3 = detalle.material?.id_tipo_de_material === 3;
+  const esTipo2 = detalle.material?.id_tipo_de_material === 2;
 
   // Datos post-completado
 
@@ -345,6 +346,16 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
           `
               : ""
           }
+          ${
+            volumenReal
+              ? `
+          <div class="receipt-row">
+            <span class="receipt-row-label">Cantidad Real</span>
+            <span class="receipt-row-value">${parseFloat(volumenReal).toFixed(2)} m³</span>
+          </div>
+          `
+              : ""
+          }
           
          ${
            factorPesoVolumetrico && esCopiaBlanca && !esTipo3
@@ -374,9 +385,9 @@ const generateValeMaterialReciboHTML = (valeData, colorCopia, qrDataUrl) => {
           </div>
         </div>
 
-        <!-- TABLA DE VIAJES — solo en copia blanca cuando hay viajes -->
+        <!-- TABLA DE VIAJES — solo en copia blanca cuando hay viajes y no es asfaltico -->
         ${
-          esCopiaBlanca
+          esCopiaBlanca && !esTipo2
             ? `
         <div class="receipt-section">
           <div class="section-title">VIAJES REGISTRADOS</div>

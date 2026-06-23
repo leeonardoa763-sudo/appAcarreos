@@ -61,6 +61,9 @@ export const generarTicketMaterial = (vale) => {
   const capacidadRaw = vale.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3;
   const capacidad = capacidadRaw ? `${capacidadRaw} m3` : "N/A";
   const distancia = detalle.distancia_km ? `${detalle.distancia_km} km` : "N/A";
+  const cantidadPedida = detalle.cantidad_pedida_m3 != null
+    ? `${parseFloat(detalle.cantidad_pedida_m3).toFixed(2)} m3`
+    : null;
   const requisicion = detalle.requisicion || null;
   const fecha = formatearFecha(vale.fecha_creacion);
   const hora = formatearHora(vale.fecha_creacion);
@@ -140,6 +143,15 @@ export const generarTicketMaterial = (vale) => {
       contenido: `DISTANCIA: ${distancia}\n`,
       opciones: { align: ALINEACION.IZQUIERDA },
     },
+    ...(cantidadPedida
+      ? [
+          {
+            tipo: "texto",
+            contenido: `CANTIDAD: ${cantidadPedida}\n`,
+            opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+          },
+        ]
+      : []),
     { tipo: "separador" },
     {
       tipo: "texto",

@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
@@ -45,7 +46,14 @@ const ViajesRentaSection = ({
   puedeRegistrar,
   totalViajes,
   onRegistrarViaje,
+  esResidente = false,
+  esChecador = false,
+  onEliminarUltimoViaje,
+  eliminandoViaje = false,
+  totalTickets = 0,
+  esMaterialDescarga = false,
 }) => {
+  const tieneTicketPendiente = !esMaterialDescarga || totalTickets > totalViajes;
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -85,13 +93,51 @@ const ViajesRentaSection = ({
             </View>
           )}
 
+          {(esResidente || esChecador) && totalViajes > 0 && (
+            <TouchableOpacity
+              style={[styles.botonEliminarViaje, eliminandoViaje && styles.botonDeshabilitado]}
+              onPress={() => {
+                const ultimoViaje = viajes[viajes.length - 1];
+                Alert.alert(
+                  "Eliminar Viaje",
+                  `¿Eliminar el Viaje #${totalViajes}? Esta accion no se puede deshacer.`,
+                  [
+                    { text: "Cancelar", style: "cancel" },
+                    {
+                      text: "Eliminar",
+                      style: "destructive",
+                      onPress: () => onEliminarUltimoViaje?.(ultimoViaje.id_viaje),
+                    },
+                  ],
+                );
+              }}
+              disabled={eliminandoViaje}
+              activeOpacity={0.7}
+            >
+              {eliminandoViaje ? (
+                <ActivityIndicator size="small" color={colors.danger} />
+              ) : (
+                <>
+                  <MaterialCommunityIcons
+                    name="delete-circle-outline"
+                    size={18}
+                    color={colors.danger}
+                  />
+                  <Text style={styles.botonEliminarViajeTexto}>
+                    Eliminar Viaje #{totalViajes}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={[
               styles.botonRegistrar,
-              (!puedeRegistrar || registrando) && styles.botonDeshabilitado,
+              (!puedeRegistrar || !tieneTicketPendiente || registrando) && styles.botonDeshabilitado,
             ]}
             onPress={onRegistrarViaje}
-            disabled={!puedeRegistrar || registrando}
+            disabled={!puedeRegistrar || !tieneTicketPendiente || registrando}
             activeOpacity={0.8}
           >
             {registrando ? (
@@ -101,12 +147,12 @@ const ViajesRentaSection = ({
                 <MaterialCommunityIcons
                   name="plus-circle"
                   size={20}
-                  color={puedeRegistrar ? colors.surface : colors.textSecondary}
+                  color={(puedeRegistrar && tieneTicketPendiente) ? colors.surface : colors.textSecondary}
                 />
                 <Text
                   style={[
                     styles.botonTexto,
-                    !puedeRegistrar && styles.botonTextoDeshabilitado,
+                    (!puedeRegistrar || !tieneTicketPendiente) && styles.botonTextoDeshabilitado,
                   ]}
                 >
                   {totalViajes === 0
@@ -116,6 +162,11 @@ const ViajesRentaSection = ({
               </>
             )}
           </TouchableOpacity>
+          {esMaterialDescarga && !tieneTicketPendiente && (
+            <Text style={styles.avisoTicket}>
+              Imprime el ticket antes de registrar el siguiente viaje
+            </Text>
+          )}
         </>
       )}
     </View>
@@ -227,6 +278,29 @@ const styles = StyleSheet.create({
   },
   botonTextoDeshabilitado: {
     color: colors.textSecondary,
+  },
+  avisoTicket: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginTop: 8,
+    fontStyle: "italic",
+  },
+  botonEliminarViaje: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    paddingVertical: 10,
+    marginBottom: 10,
+    gap: 6,
+  },
+  botonEliminarViajeTexto: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.danger,
   },
 });
 

@@ -36,7 +36,7 @@ const ERRORES = {
  * USADO EN:
  * - (próximo) AsignacionVehiculoScreen o modal equivalente
  */
-const useVehiculoQR = () => {
+const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
   // ─── Estado ───────────────────────────────────────────────────────────────
 
   const [vehiculo, setVehiculo] = useState(null);
@@ -124,6 +124,20 @@ const useVehiculoQR = () => {
           return;
         }
 
+        if (
+          expectedSindicatoId != null &&
+          vehiculoData.id_sindicato !== expectedSindicatoId
+        ) {
+          setError(
+            "El vehículo escaneado no pertenece al sindicato seleccionado.",
+          );
+          Alert.alert(
+            "Sindicato no coincide",
+            "Escanea un vehículo del sindicato seleccionado.",
+          );
+          return;
+        }
+
         // ── Paso B: cuántos vales activos tiene desde la vista ───────────────
         const { data: vistaData, error: errorVista } = await supabase
           .from("vehiculos_vales_activos")
@@ -177,7 +191,7 @@ const useVehiculoQR = () => {
         setCargando(false);
       }
     },
-    [_cargarValesDisponibles],
+    [_cargarValesDisponibles, expectedSindicatoId],
   );
 
   // ─── 2. Cargar vales en_proceso sin vehículo ─────────────────────────────

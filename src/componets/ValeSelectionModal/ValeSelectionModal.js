@@ -18,6 +18,10 @@ const ValeSelectionModal = () => {
     navigation.replace("ValeMaterialScreen");
   };
 
+  const handleMaterialAsfaltico = () => {
+    navigation.replace("ValeMaterialAsfalticoScreen");
+  };
+
   const handleClose = () => {
     navigation.goBack();
   };
@@ -39,6 +43,14 @@ const ValeSelectionModal = () => {
             text="Material"
             onPress={handleMaterial}
             color={colors.primary}
+          />
+
+          {/* Botón para Asfálticos */}
+          <ValeOptionButton
+            iconName="road-variant"
+            text="Asfálticos"
+            onPress={handleMaterialAsfaltico}
+            color={colors.accent}
           />
 
           {/* Botón para Renta */}

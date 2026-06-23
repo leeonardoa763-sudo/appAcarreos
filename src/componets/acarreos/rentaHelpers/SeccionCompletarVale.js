@@ -67,6 +67,11 @@ const SeccionCompletarVale = ({
   saving,
   onCompletar,
   totalTickets = 0,
+  esResidente = false,
+  esChecador = false,
+  onEliminarUltimoViaje,
+  eliminandoViaje = false,
+  esMaterialDescarga = false,
 }) => {
   const ticketsViajesDesbalanceados =
     totalTickets > 0 && totalViajes !== totalTickets;
@@ -98,6 +103,12 @@ const SeccionCompletarVale = ({
         puedeRegistrar={puedeRegistrar}
         totalViajes={totalViajes}
         onRegistrarViaje={onRegistrarViaje}
+        esResidente={esResidente}
+        esChecador={esChecador}
+        onEliminarUltimoViaje={onEliminarUltimoViaje}
+        eliminandoViaje={eliminandoViaje}
+        totalTickets={totalTickets}
+        esMaterialDescarga={esMaterialDescarga}
       />
 
       <FormCheckbox

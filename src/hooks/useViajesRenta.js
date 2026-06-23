@@ -16,6 +16,7 @@ export const useViajesRenta = (
   const [viajes, setViajes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [registrando, setRegistrando] = useState(false);
+  const [eliminandoViaje, setEliminandoViaje] = useState(false);
   const [minutosRestantes, setMinutosRestantes] = useState(0);
   const [minMinutosEntreViajes, setMinMinutosEntreViajes] =
     useState(MINUTOS_DEFAULT);
@@ -203,6 +204,29 @@ export const useViajesRenta = (
     fechaCreacionVale,
   ]);
 
+  const eliminarUltimoViaje = useCallback(
+    async (idViaje) => {
+      try {
+        setEliminandoViaje(true);
+        const { error } = await supabase
+          .from("vale_renta_viajes")
+          .delete()
+          .eq("id_viaje", idViaje);
+        if (error) throw error;
+
+        setViajes((prev) => prev.slice(0, -1));
+        return true;
+      } catch (error) {
+        console.error("[useViajesRenta] Error eliminando viaje:", error);
+        Alert.alert("Error", "No se pudo eliminar el viaje.");
+        return false;
+      } finally {
+        setEliminandoViaje(false);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     cargarConfiguracion();
   }, [cargarConfiguracion]);
@@ -229,9 +253,11 @@ export const useViajesRenta = (
     viajes,
     loading,
     registrando,
+    eliminandoViaje,
     puedeRegistrar: puedeRegistrar(),
     totalViajes: viajes.length,
     registrarViaje,
+    eliminarUltimoViaje,
     recargarViajes: cargarViajes,
   };
 };

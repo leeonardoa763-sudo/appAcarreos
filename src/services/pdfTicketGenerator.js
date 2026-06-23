@@ -51,6 +51,11 @@ const formatearHora = (fecha) => {
   });
 };
 
+const generarQRUrl = (url) => {
+  const encoded = encodeURIComponent(url || "");
+  return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encoded}`;
+};
+
 // ─── CSS base compartido ──────────────────────────────────────────────────────
 
 const CSS_BASE = `
@@ -129,13 +134,18 @@ const CSS_BASE = `
   .viajes-totales-item { text-align: center; }
   .viajes-totales-label { font-size: 5px; color: #555; display: block; }
   .viajes-totales-valor { font-size: 7px; font-weight: bold; display: block; }
+  .qr-container { text-align: center; margin-top: 1.5mm; }
+  .qr { display: block; width: 100%; max-width: 140px; margin: 0 auto; }
 `;
 
 // ─── Tabla de viajes para material ───────────────────────────────────────────
 
-const generarTablaViajes = (viajes, esTipo3) => {
+const generarTablaViajes = (viajes, esTipo3, cantidadPedidaM3) => {
   if (!viajes || viajes.length === 0) {
-    return `<div style="font-size:6px;color:#888;text-align:center;margin:1mm 0;">Sin viajes registrados</div>`;
+    const cantidadTexto = cantidadPedidaM3
+      ? `<br>Cantidad solicitada: ${parseFloat(cantidadPedidaM3).toFixed(2)} m3`
+      : "";
+    return `<div style="font-size:6px;color:#888;text-align:center;margin:1mm 0;">Sin viajes registrados${cantidadTexto}</div>`;
   }
 
   const filas = viajes
@@ -222,18 +232,25 @@ const generarHTMLTicket = (valeData) => {
       ? `${valeData.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3} m3`
       : "N/A";
   const distancia = detalle.distancia_km ? `${detalle.distancia_km} km` : "N/A";
+  const cantidadPedida = detalle.cantidad_pedida_m3 != null
+    ? `${parseFloat(detalle.cantidad_pedida_m3).toFixed(2)} m3`
+    : null;
+  const esTipo2 = detalle.material?.id_tipo_de_material === 2;
   const requisicion = detalle.requisicion || null;
   const notas = detalle.notas_adicionales || null;
 
   const esTipo3 = detalle.material?.id_tipo_de_material === 3;
   const viajes = detalle.vale_material_viajes || [];
+  const folio = valeData.folio || "N/A";
+  const verificationUrl =
+    valeData.qr_verification_url || `https://web-acarreos.vercel.app/vale/${folio}`;
+  const qrImageUrl = generarQRUrl(verificationUrl);
 
   const fecha = formatearFecha(valeData.fecha_creacion);
   const hora = formatearHora(valeData.fecha_creacion);
   const fechaEmision = formatearFecha(new Date());
   const horaEmision = formatearHora(new Date());
   const estado = traducirEstado(valeData.estado);
-  const folio = valeData.folio || "N/A";
 
   // Persona que completo
   const completador = valeData.persona_completador
@@ -281,6 +298,16 @@ const generarHTMLTicket = (valeData) => {
         <span class="fila-valor">${distancia}</span>
       </div>
       ${
+        cantidadPedida
+          ? `
+      <div class="fila">
+        <span class="fila-label">CANTIDAD:</span>
+        <span class="fila-valor">${cantidadPedida}</span>
+      </div>`
+          : ""
+      }
+
+      ${
         requisicion
           ? `
       <div class="fila">
@@ -305,8 +332,12 @@ const generarHTMLTicket = (valeData) => {
 
       <div class="separador"></div>
 
-      <div class="viajes-titulo">VIAJES REGISTRADOS</div>
-      ${generarTablaViajes(viajes, esTipo3)}
+      ${!esTipo2 ? `<div class="viajes-titulo">VIAJES REGISTRADOS</div>${generarTablaViajes(viajes, esTipo3, detalle.cantidad_pedida_m3)}` : ""}
+
+      <div class="qr-container">
+        <div class="label">VERIFICA QR</div>
+        <img class="qr" src="${qrImageUrl}" alt="QR de verificación" />
+      </div>
 
       ${
         completador
@@ -423,6 +454,16 @@ const generarHTMLTicketRenta = (valeData) => {
         <span class="fila-label">SINDICATO:</span>
         <span class="fila-valor">${sindicato}</span>
       </div>
+      ${
+        volumenReal
+          ? `
+      <div class="fila">
+        <span class="fila-label">CANTIDAD REAL:</span>
+        <span class="fila-valor">${volumenReal}</span>
+      </div>
+      `
+          : ""
+      }
 
       <div class="separador"></div>
 

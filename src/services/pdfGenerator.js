@@ -220,11 +220,6 @@ const generateValeHTML = (valeData, colorCopia, qrDataUrl) => {
             <span class="info-value">${precioM3}</span>
           </div>
           
-          <!-- 8. COSTO TOTAL -->
-          <div class="info-row">
-            <span class="info-label" style="font-size: 12px;">Costo Total</span>
-            <span class="info-value" style="font-size: 12px; font-weight: bold;">${costoTotal}</span>
-          </div>
           `
               : ""
           }

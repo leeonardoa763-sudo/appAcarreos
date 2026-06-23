@@ -123,7 +123,7 @@ const EvidenciaCaptura = ({
                   size={16}
                   color={colors.accent}
                 />
-                <Text style={styles.estadoTextoOk}>Foto guardada</Text>
+                <Text style={styles.estadoTextoOk}>Foto subida correctamente</Text>
               </View>
             ) : (
               <View style={styles.estadoRow}>
@@ -183,6 +183,19 @@ const EvidenciaCaptura = ({
               </View>
             )}
           </View>
+
+          {fotoUrl && ubicacion && (
+            <View style={styles.estadoRow}>
+              <MaterialCommunityIcons
+                name="check-circle"
+                size={16}
+                color={colors.accent}
+              />
+              <Text style={styles.estadoTextoOk}>
+                Evidencia lista: foto subida y ubicación guardada
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -216,7 +229,7 @@ const UbicacionIndicador = ({
           size={16}
           color={colors.accent}
         />
-        <Text style={styles.estadoTextoOk}>Ubicación registrada</Text>
+        <Text style={styles.estadoTextoOk}>Ubicación guardada</Text>
       </View>
     );
   }

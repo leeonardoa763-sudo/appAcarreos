@@ -15,16 +15,19 @@ import {
   validateBancoId,
   validateSindicatoId,
   validateDistancia,
+  validateCantidadSolicitada,
 } from "../utils/validations";
-export const useValeMaterialForm = (materiales = []) => {
+export const useValeMaterialForm = (materiales = [], modoAsfaltico = false) => {
   const [formData, setFormData] = useState({
     materialId: null,
     bancoId: null,
     sindicatoId: null,
     capacidad: "",
+    cantidadMaterial: "",
     distancia: "",
     selectedOperador: null,
     selectedVehiculo: null,
+    vehiculoPlacas: "",
     notasAdicionales: "",
     requisicion: "",
   });
@@ -49,10 +52,10 @@ export const useValeMaterialForm = (materiales = []) => {
     const errorSindicato = validateSindicatoId(formData.sindicatoId);
     if (errorSindicato) newErrors.sindicatoId = errorSindicato;
 
-    // Solo validar operador, vehículo y capacidad si NO se va a completar después
-    if (!completarDespues) {
-      const errorCapacidad = validateCapacidad(formData.capacidad);
-      if (errorCapacidad) newErrors.capacidad = errorCapacidad;
+    // Validaciones adicionales para modo asfaltico
+    if (modoAsfaltico) {
+      const errorCantidad = validateCantidadSolicitada(formData.cantidadMaterial);
+      if (errorCantidad) newErrors.cantidadMaterial = errorCantidad;
 
       const errorOperador = validateOperadorId(
         formData.selectedOperador?.id_operador,
@@ -68,6 +71,27 @@ export const useValeMaterialForm = (materiales = []) => {
         formData.selectedVehiculo,
       );
       if (errorCapacidadVehiculo) newErrors.vehiculoId = errorCapacidadVehiculo;
+    } else {
+      // Solo validar operador, vehículo y capacidad si NO se va a completar después
+      if (!completarDespues) {
+        const errorCapacidad = validateCapacidad(formData.capacidad);
+        if (errorCapacidad) newErrors.capacidad = errorCapacidad;
+
+        const errorOperador = validateOperadorId(
+          formData.selectedOperador?.id_operador,
+        );
+        if (errorOperador) newErrors.operadorId = errorOperador;
+
+        const errorVehiculo = validateVehiculoId(
+          formData.selectedVehiculo?.id_vehiculo,
+        );
+        if (errorVehiculo) newErrors.vehiculoId = errorVehiculo;
+
+        const errorCapacidadVehiculo = validateCapacidadVehiculo(
+          formData.selectedVehiculo,
+        );
+        if (errorCapacidadVehiculo) newErrors.vehiculoId = errorCapacidadVehiculo;
+      }
     }
 
     // Validación requisición: Obligatoria solo para materiales tipo 1
@@ -90,10 +114,11 @@ export const useValeMaterialForm = (materiales = []) => {
       bancoId: null,
       sindicatoId: null,
       capacidad: "",
-      cantidadSolicitada: "",
+      cantidadMaterial: "",
       distancia: "",
       selectedOperador: null,
       selectedVehiculo: null,
+      vehiculoPlacas: "",
       notasAdicionales: "",
       requisicion: "",
     });

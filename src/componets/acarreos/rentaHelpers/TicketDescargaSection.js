@@ -95,15 +95,19 @@ const TicketDescargaSection = ({
   viajes = [],
   totalViajes = 0,
   onTotalTicketsChange,
+  esResidente = false,
+  esChecador = false,
 }) => {
   const {
     tickets,
     loading,
     registrando,
+    eliminandoTicket,
     totalTickets,
     esMaterialDescarga,
     registrarTicket,
     reimprimirTicket,
+    eliminarUltimoTicket,
   } = useTicketsDescarga({ vale, detalleRenta });
 
   useEffect(() => {
@@ -236,6 +240,45 @@ const TicketDescargaSection = ({
             />
           ))}
         </View>
+      )}
+
+      {/* Botón eliminar último ticket — solo cuando el ticket no tiene viaje aún */}
+      {(esResidente || esChecador) && totalTickets > 0 && totalTickets > totalViajes && (
+        <TouchableOpacity
+          style={[styles.botonEliminarTicket, eliminandoTicket && styles.botonDeshabilitado]}
+          onPress={() => {
+            const ultimoTicket = tickets[tickets.length - 1];
+            Alert.alert(
+              "Eliminar Ticket",
+              `¿Eliminar el Ticket #${totalTickets} (${ultimoTicket?.folio_ticket})? Esta accion no se puede deshacer.`,
+              [
+                { text: "Cancelar", style: "cancel" },
+                {
+                  text: "Eliminar",
+                  style: "destructive",
+                  onPress: () => eliminarUltimoTicket?.(ultimoTicket.id_ticket),
+                },
+              ],
+            );
+          }}
+          disabled={eliminandoTicket}
+          activeOpacity={0.7}
+        >
+          {eliminandoTicket ? (
+            <ActivityIndicator size="small" color={colors.danger} />
+          ) : (
+            <>
+              <MaterialCommunityIcons
+                name="delete-circle-outline"
+                size={18}
+                color={colors.danger}
+              />
+              <Text style={styles.botonEliminarTicketTexto}>
+                Eliminar Ticket #{totalTickets}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
       )}
 
       {/* Botón para generar ticket */}
@@ -590,6 +633,22 @@ const styles = StyleSheet.create({
   botonReimprimirAgotado: {
     borderColor: colors.textSecondary,
     backgroundColor: colors.background,
+  },
+  botonEliminarTicket: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    paddingVertical: 10,
+    marginBottom: 10,
+    gap: 6,
+  },
+  botonEliminarTicketTexto: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.danger,
   },
 });
 

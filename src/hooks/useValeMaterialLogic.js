@@ -51,6 +51,7 @@ export const useValeMaterialLogic = (materiales) => {
     userProfile,
     folio,
     materiales,
+    options = {},
   ) => {
     try {
       // PASO 2: Verificar folio único
@@ -67,7 +68,16 @@ export const useValeMaterialLogic = (materiales) => {
       // PASO 3: URL de verificación
       const verificationUrl = generateVerificationUrl(folio);
 
-      const estadoInicial = "en_proceso";
+      const estadoInicial = options.estadoInicial || "en_proceso";
+      const idOperador = options.idOperador ?? formData.selectedOperador?.id_operador ?? null;
+      const idVehiculo = options.idVehiculo ?? formData.selectedVehiculo?.id_vehiculo ?? null;
+
+      const capacidadM3 = options.capacidadM3 ??
+        (formData.selectedVehiculo?.capacidad_m3 ||
+          (formData.capacidad ? parseFloat(formData.capacidad) : null));
+
+      const cantidadPedida = options.cantidadPedidaM3 ??
+        (formData.cantidadMaterial ? parseFloat(formData.cantidadMaterial) : null);
 
       const { data: valeNuevo, error: errorVale } = await supabase
         .from("vales")
@@ -78,12 +88,8 @@ export const useValeMaterialLogic = (materiales) => {
             id_obra: obraData.id_obra,
             id_empresa: obraData.empresas.id_empresa,
             id_persona_creador: userProfile.id_persona,
-            id_operador: formData.completarDespues
-              ? null
-              : formData.selectedOperador?.id_operador,
-            id_vehiculo: formData.completarDespues
-              ? null
-              : formData.selectedVehiculo?.id_vehiculo,
+            id_operador: idOperador,
+            id_vehiculo: idVehiculo,
             estado: estadoInicial,
             qr_verification_url: verificationUrl,
           },
@@ -104,14 +110,46 @@ export const useValeMaterialLogic = (materiales) => {
       // Ahora TODOS los vales se completan después de creados
 
       // PASO 6: Insertar detalles
+      const materialSeleccionado = materiales.find(
+        (m) => m.id_material === formData.materialId,
+      );
+      const tipoMaterial = materialSeleccionado?.id_tipo_de_material ?? null;
+
+      let precioM3 = null;
+      let costoTotal = null;
+      let idPreciosMaterial = null;
+      let tarifaPrimerKm = null;
+      let tarifaSubsecuente = null;
+
+      if (tipoMaterial && formData.sindicatoId && formData.distancia) {
+        const precioData = await calcularCostoValeMaterial(
+          tipoMaterial,
+          formData.sindicatoId,
+          parseFloat(formData.distancia),
+          cantidadPedida,
+        );
+
+        precioM3 = precioData.precioM3;
+        costoTotal = precioData.costoTotal;
+        idPreciosMaterial = precioData.idPreciosMaterial;
+        tarifaPrimerKm = precioData.tarifaPrimerKm;
+        tarifaSubsecuente = precioData.tarifaSubsecuente;
+      }
+
       const detalleInsert = {
         id_vale: valeNuevo.id_vale,
         id_material: formData.materialId,
         id_banco: formData.bancoId,
         id_sindicato: formData.sindicatoId,
-        capacidad_m3: parseFloat(formData.capacidad),
+        capacidad_m3: capacidadM3,
         distancia_km: parseFloat(formData.distancia),
-        cantidad_pedida_m3: null,
+        cantidad_pedida_m3: cantidadPedida,
+        volumen_real_m3: cantidadPedida,
+        precio_m3: precioM3,
+        costo_total: costoTotal,
+        id_precios_material: idPreciosMaterial,
+        tarifa_primer_km: tarifaPrimerKm,
+        tarifa_subsecuente: tarifaSubsecuente,
         peso_ton: null,
         notas_adicionales: formData.notasAdicionales || null,
         requisicion: formData.requisicion || null,
@@ -211,11 +249,19 @@ export const useValeMaterialLogic = (materiales) => {
     userProfile,
     generateFolio,
     materiales,
+    options = {},
   ) => {
     setSubmitting(true);
     try {
       const folio = await generateFolio(obraData);
-      return await _insertarVale(formData, obraData, userProfile, folio, materiales);
+      return await _insertarVale(
+        formData,
+        obraData,
+        userProfile,
+        folio,
+        materiales,
+        options,
+      );
     } catch (error) {
       throw error;
     } finally {
@@ -231,6 +277,7 @@ export const useValeMaterialLogic = (materiales) => {
     generateFolio,
     materiales,
     cantidad,
+    options = {},
   ) => {
     setSubmitting(true);
     try {
@@ -246,7 +293,7 @@ export const useValeMaterialLogic = (materiales) => {
 
       let creados = 0;
       for (const folio of folios) {
-        await _insertarVale(formData, obraData, userProfile, folio, materiales);
+        await _insertarVale(formData, obraData, userProfile, folio, materiales, options);
         creados++;
       }
 

@@ -21,6 +21,7 @@ import SeleccionarTipoValeScreen from "../screens/SeleccionarTipoValeScreen";
 import ArchivadosScreen from "../screens/ArchivadosScreen";
 import ValeRentaScreen from "../screens/ValeRentaScreen";
 import ValeMaterialScreen from "../screens/ValeMaterialScreen";
+import ValeMaterialAsfalticoScreen from "../screens/ValeMaterialAsfalticoScreen";
 import ConfiguracionScreen from "../screens/ConfiguracionScreen";
 import EstadisticasScreen from "../screens/EstadisticasScreen";
 
@@ -99,7 +100,18 @@ function ValesStack() {
         options={{
           headerShown: true,
           headerTitle: "Nuevo Vale de Material",
-          headerBackVisible: true, // Mostrar botón de atrás nativo
+          headerBackVisible: true,
+        }}
+      />
+
+      {/* Pantalla de Material Asfáltico - CON header */}
+      <Stack.Screen
+        name="ValeMaterialAsfalticoScreen"
+        component={ValeMaterialAsfalticoScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Nuevo Vale Asfáltico",
+          headerBackVisible: true,
         }}
       />
     </Stack.Navigator>

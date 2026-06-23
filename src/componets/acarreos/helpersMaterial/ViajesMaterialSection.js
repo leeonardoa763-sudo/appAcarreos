@@ -265,6 +265,8 @@ const ViajesMaterialSection = ({
   onEliminarUltimoViaje,
   eliminandoViaje = false,
 }) => {
+  // Para materiales asfálticos (tipo 2) siempre será 1 viaje; ocultar sección
+  if (typeof tipoMaterial !== "undefined" && tipoMaterial === 2) return null;
   const esTipo3 = tipoMaterial === 3;
 
   const capacidadVehiculo =

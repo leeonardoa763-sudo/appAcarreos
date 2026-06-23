@@ -44,6 +44,8 @@ import { Text } from "react-native";
 
 const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const { userProfile, userRole } = useAuth();
+  const esResidente = userRole === "Residente";
+  const esChecador = userRole === "CHECADOR";
   const {
     modalVisible: modalCancelarVisible,
     motivo,
@@ -68,6 +70,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   } = useReimprimirPDF(vale?.id_vale, userRole);
 
   const tieneDatosPendientes = !vale?.id_operador || !vale?.id_vehiculo;
+  const esMaterialDescarga = detalleRenta?.material?.es_material_descarga === true;
   const canComplete = vale?.estado === "en_proceso" && detalleRenta && !tieneDatosPendientes;
   const preciosRenta = detalleRenta?.precios_renta;
   const obraData = vale?.obras || null;
@@ -132,9 +135,11 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     viajes,
     loading: loadingViajes,
     registrando,
+    eliminandoViaje,
     puedeRegistrar,
     totalViajes,
     registrarViaje,
+    eliminarUltimoViaje,
   } = useViajesRenta(
     detalleRenta?.id_vale_renta_detalle,
     vale?.id_obra,
@@ -498,6 +503,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           viajes={viajes}
           totalViajes={totalViajes}
           onTotalTicketsChange={setTotalTicketsDescarga}
+          esResidente={esResidente}
+          esChecador={esChecador}
         />
 
         {/* Viajes desglosados — solo cuando el vale ya está completado */}
@@ -555,6 +562,11 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             saving={saving}
             onCompletar={handleCompletar}
             totalTickets={totalTicketsDescarga}
+            esResidente={esResidente}
+            esChecador={esChecador}
+            onEliminarUltimoViaje={eliminarUltimoViaje}
+            eliminandoViaje={eliminandoViaje}
+            esMaterialDescarga={esMaterialDescarga}
           />
         )}
 
