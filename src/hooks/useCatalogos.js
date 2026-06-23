@@ -53,6 +53,7 @@ export const useCatalogos = (catalogosRequeridos = []) => {
             `id_material, material, id_tipo_de_material,
             tipo_de_material:id_tipo_de_material (id_tipo_de_material, tipo_de_material)`,
           )
+          .eq("activo", true)
           .order("material"),
       sindicatos: () =>
         supabase

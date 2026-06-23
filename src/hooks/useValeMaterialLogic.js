@@ -121,7 +121,7 @@ export const useValeMaterialLogic = (materiales) => {
       let tarifaPrimerKm = null;
       let tarifaSubsecuente = null;
 
-      if (tipoMaterial && formData.sindicatoId && formData.distancia) {
+      if (tipoMaterial && formData.sindicatoId && formData.distancia && cantidadPedida) {
         const precioData = await calcularCostoValeMaterial(
           tipoMaterial,
           formData.sindicatoId,

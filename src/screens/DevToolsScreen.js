@@ -17,6 +17,12 @@ const OPCIONES = [
     label: "Presupuestos de obra",
     descripcion: "Ver y configurar presupuestos por material y renta",
   },
+  {
+    destino: "GestionMateriales",
+    icono: "package-variant-closed",
+    label: "Gestion de materiales",
+    descripcion: "Agregar, editar y desactivar materiales del catalogo",
+  },
 ];
 
 export default function DevToolsScreen({ navigation }) {

@@ -27,6 +27,7 @@ import EstadisticasScreen from "../screens/EstadisticasScreen";
 
 import DevToolsScreen from "../screens/DevToolsScreen";
 import PresupuestosObraScreen from "../screens/PresupuestosObraScreen";
+import GestionMaterialesScreen from "../screens/GestionMaterialesScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -134,6 +135,18 @@ function DevStack() {
         options={{
           headerShown: true,
           headerTitle: "Presupuestos de Obra",
+          headerStyle: { backgroundColor: colors.surface, elevation: 2 },
+          headerTintColor: colors.primary,
+          headerTitleStyle: { fontWeight: "bold", fontSize: 18, color: colors.textPrimary },
+          headerBackTitleVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="GestionMateriales"
+        component={GestionMaterialesScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Gestion de Materiales",
           headerStyle: { backgroundColor: colors.surface, elevation: 2 },
           headerTintColor: colors.primary,
           headerTitleStyle: { fontWeight: "bold", fontSize: 18, color: colors.textPrimary },
