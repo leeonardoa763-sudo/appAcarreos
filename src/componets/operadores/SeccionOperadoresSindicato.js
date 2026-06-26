@@ -9,6 +9,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from "react-native";
 
 // 3. Third party
@@ -43,6 +44,7 @@ const SeccionOperadoresSindicato = () => {
   const { grupos, loading, error, cargar } = useOperadoresSindicato();
 
   const [expandidos, setExpandidos] = useState({});
+  const [busqueda, setBusqueda] = useState("");
   const [compartiendo, setCompartiendo] = useState(null);
   const [exportandoTodos, setExportandoTodos] = useState(false);
   const [exportandoSindicato, setExportandoSindicato] = useState(null);
@@ -54,9 +56,24 @@ const SeccionOperadoresSindicato = () => {
   const toggleGrupo = (id_sindicato) => {
     setExpandidos((prev) => ({
       ...prev,
-      [id_sindicato]: prev[id_sindicato] === false ? true : false,
+      [id_sindicato]: !prev[id_sindicato],
     }));
   };
+
+  const hayBusqueda = busqueda.trim().length > 0;
+
+  const gruposFiltrados = hayBusqueda
+    ? grupos
+        .map((g) => ({
+          ...g,
+          operadores: g.operadores.filter((o) =>
+            o.nombre_completo
+              .toLowerCase()
+              .includes(busqueda.toLowerCase().trim()),
+          ),
+        }))
+        .filter((g) => g.operadores.length > 0)
+    : grupos;
 
   const handleCompartirIndividual = async (operador) => {
     try {
@@ -210,10 +227,33 @@ const SeccionOperadoresSindicato = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Buscador */}
+      <View style={styles.buscadorContainer}>
+        <MaterialCommunityIcons
+          name="magnify"
+          size={18}
+          color={colors.textSecondary}
+          style={styles.buscadorIcono}
+        />
+        <TextInput
+          style={styles.buscadorInput}
+          placeholder="Buscar operador..."
+          placeholderTextColor={colors.textSecondary}
+          value={busqueda}
+          onChangeText={setBusqueda}
+          autoCapitalize="words"
+          returnKeyType="search"
+        />
+        {hayBusqueda && (
+          <TouchableOpacity onPress={() => setBusqueda("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <MaterialCommunityIcons name="close-circle" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Grupos por sindicato */}
-      {grupos.map((grupo) => {
-        // undefined o true = expandido, false = colapsado
-        const estaExpandido = expandidos[grupo.id_sindicato] !== false;
+      {gruposFiltrados.map((grupo) => {
+        const estaExpandido = hayBusqueda ? true : expandidos[grupo.id_sindicato] === true;
 
         return (
           <View key={grupo.id_sindicato} style={styles.grupo}>
@@ -354,6 +394,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: colors.surface,
+  },
+  buscadorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+    height: 38,
+  },
+  buscadorIcono: {
+    marginRight: 6,
+  },
+  buscadorInput: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textPrimary,
+    paddingVertical: 0,
   },
   grupo: {
     marginBottom: 10,

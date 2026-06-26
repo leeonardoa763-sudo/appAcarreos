@@ -246,13 +246,13 @@ const estilos = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "flex-end",
+    justifyContent: "center",
+    paddingHorizontal: 20,
   },
   contenedor: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "80%",
+    borderRadius: 16,
+    maxHeight: "85%",
   },
   header: {
     flexDirection: "row",

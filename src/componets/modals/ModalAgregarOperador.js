@@ -12,6 +12,7 @@ import {
   Platform,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
 import FormInput from "../forms/FormInput";
@@ -30,6 +31,7 @@ const ESTADO_INICIAL = {
 
 const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
   const isMounted = useRef(true);
+  const insets = useSafeAreaInsets();
 
   const [form, setForm] = useState(ESTADO_INICIAL);
   const [errores, setErrores] = useState({});
@@ -216,7 +218,7 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
         style={styles.overlay}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           {/* ── Header ── */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -437,7 +439,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: "92%",
-    paddingBottom: Platform.OS === "ios" ? 30 : 16,
   },
   header: {
     flexDirection: "row",

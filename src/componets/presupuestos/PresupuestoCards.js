@@ -42,7 +42,7 @@ const DatoItem = ({ label, valor }) => (
 );
 
 // ─── Card material ────────────────────────────────────────────────────────────
-export const CardPresupuestoMaterial = ({ item, onEditar }) => (
+export const CardPresupuestoMaterial = ({ item, onEditar, onEliminar }) => (
   <View style={estilos.card}>
     <View style={estilos.cardEncabezado}>
       <Text style={estilos.cardTitulo}>{item.nombre}</Text>
@@ -72,10 +72,16 @@ export const CardPresupuestoMaterial = ({ item, onEditar }) => (
       <DatoItem label="%" valor={`${item.porcentaje.toFixed(0)}%`} />
     </View>
 
-    <TouchableOpacity style={estilos.botonEditar} onPress={() => onEditar(item)}>
-      <MaterialCommunityIcons name="pencil-outline" size={15} color={colors.secondary} />
-      <Text style={estilos.botonEditarTexto}>Editar</Text>
-    </TouchableOpacity>
+    <View style={estilos.botonesAccion}>
+      <TouchableOpacity style={estilos.botonEliminar} onPress={() => onEliminar(item)}>
+        <MaterialCommunityIcons name="trash-can-outline" size={15} color={colors.danger} />
+        <Text style={estilos.botonEliminarTexto}>Eliminar</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={estilos.botonEditar} onPress={() => onEditar(item)}>
+        <MaterialCommunityIcons name="pencil-outline" size={15} color={colors.secondary} />
+        <Text style={estilos.botonEditarTexto}>Editar</Text>
+      </TouchableOpacity>
+    </View>
   </View>
 );
 
@@ -83,7 +89,7 @@ export const CardPresupuestoMaterial = ({ item, onEditar }) => (
 const formatMonto = (n) =>
   n?.toLocaleString("es-MX", { style: "currency", currency: "MXN" }) ?? "$0";
 
-export const CardPresupuestoRenta = ({ renta, onEditar }) => {
+export const CardPresupuestoRenta = ({ renta, onEditar, onEliminar }) => {
   if (!renta) {
     return (
       <View style={[estilos.card, estilos.cardVacio]}>
@@ -133,10 +139,16 @@ export const CardPresupuestoRenta = ({ renta, onEditar }) => {
         <DatoItem label="%" valor={`${renta.porcentaje.toFixed(0)}%`} />
       </View>
 
-      <TouchableOpacity style={estilos.botonEditar} onPress={onEditar}>
-        <MaterialCommunityIcons name="pencil-outline" size={15} color={colors.secondary} />
-        <Text style={estilos.botonEditarTexto}>Editar</Text>
-      </TouchableOpacity>
+      <View style={estilos.botonesAccion}>
+        <TouchableOpacity style={estilos.botonEliminar} onPress={onEliminar}>
+          <MaterialCommunityIcons name="trash-can-outline" size={15} color={colors.danger} />
+          <Text style={estilos.botonEliminarTexto}>Eliminar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={estilos.botonEditar} onPress={onEditar}>
+          <MaterialCommunityIcons name="pencil-outline" size={15} color={colors.secondary} />
+          <Text style={estilos.botonEditarTexto}>Editar</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -212,11 +224,15 @@ const estilos = StyleSheet.create({
     fontWeight: "700",
     color: colors.textPrimary,
   },
+  botonesAccion: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
   botonEditar: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    alignSelf: "flex-end",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
@@ -225,6 +241,21 @@ const estilos = StyleSheet.create({
   },
   botonEditarTexto: {
     color: colors.secondary,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  botonEliminar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  botonEliminarTexto: {
+    color: colors.danger,
     fontSize: 12,
     fontWeight: "600",
   },

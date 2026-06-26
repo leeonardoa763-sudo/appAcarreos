@@ -214,6 +214,46 @@ export const usePresupuestosAdmin = (id_obra, catalogMateriales = []) => {
     [id_obra, presupuestoRenta, cargar]
   );
 
+  const eliminarMaterial = useCallback(
+    async (id_material) => {
+      try {
+        setGuardando(true);
+        const { error } = await supabase
+          .from("presupuesto_material_obra")
+          .update({ activo: false })
+          .eq("id_obra", id_obra)
+          .eq("id_material", id_material)
+          .eq("activo", true);
+        if (error) throw error;
+        await cargar();
+      } catch (err) {
+        console.error("[eliminarMaterial]", err);
+        throw err;
+      } finally {
+        setGuardando(false);
+      }
+    },
+    [id_obra, cargar]
+  );
+
+  const eliminarRenta = useCallback(async () => {
+    try {
+      setGuardando(true);
+      const { error } = await supabase
+        .from("presupuesto_renta_obra")
+        .update({ activo: false })
+        .eq("id_obra", id_obra)
+        .eq("activo", true);
+      if (error) throw error;
+      await cargar();
+    } catch (err) {
+      console.error("[eliminarRenta]", err);
+      throw err;
+    } finally {
+      setGuardando(false);
+    }
+  }, [id_obra, cargar]);
+
   return {
     presupuestosMaterial,
     presupuestoRenta,
@@ -223,5 +263,7 @@ export const usePresupuestosAdmin = (id_obra, catalogMateriales = []) => {
     cargar,
     guardarMaterial,
     guardarRenta,
+    eliminarMaterial,
+    eliminarRenta,
   };
 };

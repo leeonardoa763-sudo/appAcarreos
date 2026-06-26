@@ -371,10 +371,28 @@ const FilterBar = ({
       hasDropdown: false,
       onPress: () => {
         closeAll();
-        setFilter("soloHoy", !filters.soloHoy);
+        const nuevoValor = !filters.soloHoy;
+        setFilter("soloHoy", nuevoValor);
+        if (nuevoValor) setFilter("soloAyer", false);
       },
       onClear: () => {
         setFilter("soloHoy", false);
+      },
+    },
+    {
+      key: "soloAyer",
+      icon: "calendar-arrow-left",
+      label: "Ayer",
+      active: filters.soloAyer,
+      hasDropdown: false,
+      onPress: () => {
+        closeAll();
+        const nuevoValor = !filters.soloAyer;
+        setFilter("soloAyer", nuevoValor);
+        if (nuevoValor) setFilter("soloHoy", false);
+      },
+      onClear: () => {
+        setFilter("soloAyer", false);
       },
     },
     {

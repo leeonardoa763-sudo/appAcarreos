@@ -45,6 +45,8 @@ export default function PresupuestosObraScreen() {
     guardando,
     guardarMaterial,
     guardarRenta,
+    eliminarMaterial,
+    eliminarRenta,
   } = usePresupuestosAdmin(obraSeleccionada?.id, materiales);
 
   const handleSeleccionarObra = useCallback(
@@ -86,6 +88,51 @@ export default function PresupuestosObraScreen() {
   }, [presupuestoRenta]);
 
   const cerrarModal = useCallback(() => setModal(null), []);
+
+  const handleEliminarMaterial = useCallback(
+    (item) => {
+      Alert.alert(
+        "Eliminar presupuesto",
+        `Se eliminara el presupuesto de "${item.nombre}". Esta accion se puede deshacer volviendo a configurarlo.`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Eliminar",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await eliminarMaterial(item.id_material);
+              } catch {
+                Alert.alert("Error", "No se pudo eliminar el presupuesto.");
+              }
+            },
+          },
+        ]
+      );
+    },
+    [eliminarMaterial]
+  );
+
+  const handleEliminarRenta = useCallback(() => {
+    Alert.alert(
+      "Eliminar presupuesto de renta",
+      "Se eliminara el presupuesto de renta de equipo. Esta accion se puede deshacer volviendo a configurarlo.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await eliminarRenta();
+            } catch {
+              Alert.alert("Error", "No se pudo eliminar el presupuesto de renta.");
+            }
+          },
+        },
+      ]
+    );
+  }, [eliminarRenta]);
 
   const handleGuardarMaterial = useCallback(
     async (id_material, m3Texto) => {
@@ -216,6 +263,7 @@ export default function PresupuestosObraScreen() {
                 key={item.id_material}
                 item={item}
                 onEditar={() => abrirEditarMaterial(item)}
+                onEliminar={() => handleEliminarMaterial(item)}
               />
             ))
           )}
@@ -240,6 +288,7 @@ export default function PresupuestosObraScreen() {
           <CardPresupuestoRenta
             renta={presupuestoRenta}
             onEditar={abrirEditarRenta}
+            onEliminar={handleEliminarRenta}
           />
         </ScrollView>
       )}

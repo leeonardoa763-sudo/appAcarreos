@@ -23,6 +23,12 @@ const OPCIONES = [
     label: "Gestion de materiales",
     descripcion: "Agregar, editar y desactivar materiales del catalogo",
   },
+  {
+    destino: "GestionBancos",
+    icono: "home-city-outline",
+    label: "Bancos de material",
+    descripcion: "Crear y configurar bancos, distancias y pesos especificos",
+  },
 ];
 
 export default function DevToolsScreen({ navigation }) {

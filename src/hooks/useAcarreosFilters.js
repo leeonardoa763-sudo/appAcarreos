@@ -27,6 +27,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 
 const FILTROS_INICIALES = {
   soloHoy: false,
+  soloAyer: false,
   obraId: null,
   obraLabel: null,
   materialId: null,
@@ -72,6 +73,7 @@ export const useAcarreosFilters = (
   const activeCount = useMemo(() => {
     let count = 0;
     if (filters.soloHoy) count++;
+    if (filters.soloAyer) count++;
     if (filters.obraId !== null) count++;
     if (filters.materialId !== null) count++;
     if (filters.sindicatoId !== null) count++;
@@ -115,6 +117,36 @@ export const useAcarreosFilters = (
 
           // Renta: usa hora_inicio del detalle
           // Material: usa fecha_programada si existe, sino fecha_creacion
+          let fechaReferencia;
+          if (vale.tipo_vale === "renta") {
+            fechaReferencia = vale.vale_renta_detalle?.[0]?.hora_inicio;
+          } else {
+            fechaReferencia = vale.fecha_programada ?? vale.fecha_creacion;
+          }
+
+          if (!esMismoDia(fechaReferencia)) return false;
+        }
+
+        // ── Filtro: solo ayer ─────────────────────────────────────────────────
+        if (filters.soloAyer) {
+          const ayer = new Date();
+          ayer.setDate(ayer.getDate() - 1);
+
+          const esMismoDia = (fechaISO) => {
+            if (!fechaISO) return false;
+            const fecha = fechaISO.includes("T")
+              ? new Date(fechaISO)
+              : (() => {
+                  const [y, m, d] = fechaISO.split("-").map(Number);
+                  return new Date(y, m - 1, d);
+                })();
+            return (
+              fecha.getFullYear() === ayer.getFullYear() &&
+              fecha.getMonth() === ayer.getMonth() &&
+              fecha.getDate() === ayer.getDate()
+            );
+          };
+
           let fechaReferencia;
           if (vale.tipo_vale === "renta") {
             fechaReferencia = vale.vale_renta_detalle?.[0]?.hora_inicio;
