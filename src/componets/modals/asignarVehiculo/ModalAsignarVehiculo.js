@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import {
   EstadoError,
   BannerLimite,
 } from "./EstadosUI";
+import ConfirmarOperadorCard from "./ConfirmarOperadorCard";
 
 const ModalAsignarVehiculo = ({
   visible,
@@ -43,7 +44,11 @@ const ModalAsignarVehiculo = ({
   }, []);
 
   useEffect(() => {
-    if (!visible) reset();
+    if (!visible) {
+      reset();
+      setOperadorConfirmado(null);
+      setExpandirCambioOp(false);
+    }
   }, [visible]);
 
   const {
@@ -55,12 +60,36 @@ const ModalAsignarVehiculo = ({
     error,
     limiteAlcanzado,
     foliosActivos,
+    asignacionActual,
+    operadoresSindicato,
     buscarVehiculoPorQR,
     asignarVehiculo,
     reset,
   } = useVehiculoQR();
 
   const { buscarValePorFolio, loading: cargandoVale } = useValeByFolio();
+
+  const [operadorConfirmado, setOperadorConfirmado] = useState(null);
+  const [expandirCambioOp, setExpandirCambioOp] = useState(false);
+
+  // Inicializar operador confirmado cuando se encuentra un vehículo
+  useEffect(() => {
+    if (!vehiculo) return;
+    if (asignacionActual) {
+      setOperadorConfirmado({
+        id_operador: asignacionActual.id_operador,
+        nombre_completo:
+          asignacionActual.operadores?.nombre_completo ?? "Desconocido",
+      });
+    } else if (vehiculo.operador_sugerido) {
+      setOperadorConfirmado(vehiculo.operador_sugerido);
+    } else {
+      setOperadorConfirmado(null);
+    }
+    setExpandirCambioOp(false);
+    // Solo re-ejecutar cuando cambia el vehículo escaneado
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehiculo?.id_vehiculo]);
 
   const handleQrDetectado = useCallback(
     (qrUid) => {
@@ -75,7 +104,10 @@ const ModalAsignarVehiculo = ({
 
   const handleAsignar = useCallback(
     async (idVale, folio) => {
-      const ok = await asignarVehiculo(idVale);
+      const ok = await asignarVehiculo(
+        idVale,
+        operadorConfirmado?.id_operador ?? null,
+      );
       if (!ok) return;
 
       const valeCompleto = await buscarValePorFolio(folio);
@@ -84,7 +116,7 @@ const ModalAsignarVehiculo = ({
         setTimeout(() => onIrAVale(valeCompleto), 300);
       }
     },
-    [asignarVehiculo, buscarValePorFolio, onClose, onIrAVale],
+    [asignarVehiculo, operadorConfirmado, buscarValePorFolio, onClose, onIrAVale],
   );
 
   const mostrarResultado = !cargando && vehiculo;
@@ -149,6 +181,18 @@ const ModalAsignarVehiculo = ({
                 onReScanear={() => {
                   reset();
                   handleAbrirScanner();
+                }}
+              />
+
+              <ConfirmarOperadorCard
+                operadorConfirmado={operadorConfirmado}
+                operadores={operadoresSindicato}
+                sindicatoNombre={vehiculo?.sindicatos?.sindicato}
+                expandido={expandirCambioOp}
+                onExpandir={() => setExpandirCambioOp(true)}
+                onSeleccionar={(op) => {
+                  setOperadorConfirmado(op);
+                  setExpandirCambioOp(false);
                 }}
               />
 

@@ -46,6 +46,8 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
   const [asignando, setAsignando] = useState(false);
   const [error, setError] = useState(null);
   const [foliosActivos, setFoliosActivos] = useState([]);
+  const [asignacionActual, setAsignacionActual] = useState(null);
+  const [operadoresSindicato, setOperadoresSindicato] = useState([]);
 
   // ─── Reset ────────────────────────────────────────────────────────────────
 
@@ -57,6 +59,8 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
     setCargando(false);
     setAsignando(false);
     setFoliosActivos([]);
+    setAsignacionActual(null);
+    setOperadoresSindicato([]);
   }, []);
 
   // ─── 1. Buscar vehículo por QR ────────────────────────────────────────────
@@ -163,6 +167,15 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
         setVehiculo(vehiculoData);
         setValesActivos(totalActivos);
 
+        // ── Paso B.2: asignación activa del operador ─────────────────────────
+        const { data: asignacion } = await supabase
+          .from("asignacion_operador_vehiculo")
+          .select("id_asignacion, id_operador, operadores(nombre_completo)")
+          .eq("id_vehiculo", vehiculoData.id_vehiculo)
+          .is("fecha_fin", null)
+          .maybeSingle();
+        setAsignacionActual(asignacion ?? null);
+
         // ── Paso C: validar límite ───────────────────────────────────────────
         if (totalActivos >= MAX_VALES_ACTIVOS) {
           console.warn(
@@ -174,8 +187,11 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
           return;
         }
 
-        // ── Paso D: cargar vales disponibles ────────────────────────────────
-        await _cargarValesDisponibles(vehiculoData.id_sindicato);
+        // ── Paso D: cargar vales disponibles y operadores del sindicato ─────
+        await Promise.all([
+          _cargarValesDisponibles(vehiculoData.id_sindicato),
+          _cargarOperadoresSindicato(vehiculoData.id_sindicato),
+        ]);
       } catch (err) {
         console.error(
           "[useVehiculoQR] buscarVehiculoPorQR falló:",
@@ -191,7 +207,7 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
         setCargando(false);
       }
     },
-    [_cargarValesDisponibles, expectedSindicatoId],
+    [_cargarValesDisponibles, _cargarOperadoresSindicato, expectedSindicatoId],
   );
 
   // ─── 2. Cargar vales en_proceso sin vehículo ─────────────────────────────
@@ -261,6 +277,26 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
       ]);
     }
   }, []);
+  // ─── 2b. Cargar operadores activos del sindicato ─────────────────────────
+
+  const _cargarOperadoresSindicato = useCallback(async (idSindicato) => {
+    try {
+      const { data, error } = await supabase
+        .from("operadores")
+        .select("id_operador, nombre_completo")
+        .eq("id_sindicato", idSindicato)
+        .eq("activo", true)
+        .order("nombre_completo");
+      if (error) throw error;
+      setOperadoresSindicato(data ?? []);
+    } catch (err) {
+      console.error(
+        "[useVehiculoQR] _cargarOperadoresSindicato falló:",
+        err.message,
+      );
+    }
+  }, []);
+
   // ─── 3. Asignar vehículo a un vale ───────────────────────────────────────
 
   /**
@@ -272,7 +308,7 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
    * @returns {boolean}      — true si asignó correctamente
    */
   const asignarVehiculo = useCallback(
-    async (idVale) => {
+    async (idVale, idOperadorFinal) => {
       if (!vehiculo) {
         Alert.alert("Error", "No hay vehículo seleccionado. Escanea de nuevo.");
         return false;
@@ -320,10 +356,42 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
           return false;
         }
 
-        // ── Escribir asignación ──────────────────────────────────────────────
+        // ── Registrar rotación si el operador cambió ─────────────────────────
+        const idOpEfectivo =
+          idOperadorFinal ??
+          asignacionActual?.id_operador ??
+          vehiculo.id_operador_sugerido ??
+          null;
+
+        if (idOpEfectivo) {
+          const hoy = new Date();
+          const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+
+          if (asignacionActual && idOpEfectivo !== asignacionActual.id_operador) {
+            await supabase
+              .from("asignacion_operador_vehiculo")
+              .update({ fecha_fin: fechaHoy })
+              .eq("id_asignacion", asignacionActual.id_asignacion);
+
+            await supabase
+              .from("asignacion_operador_vehiculo")
+              .insert({ id_vehiculo: vehiculo.id_vehiculo, id_operador: idOpEfectivo, fecha_inicio: fechaHoy });
+
+            await supabase
+              .from("vehiculos")
+              .update({ id_operador_sugerido: idOpEfectivo })
+              .eq("id_vehiculo", vehiculo.id_vehiculo);
+          } else if (!asignacionActual) {
+            await supabase
+              .from("asignacion_operador_vehiculo")
+              .insert({ id_vehiculo: vehiculo.id_vehiculo, id_operador: idOpEfectivo, fecha_inicio: fechaHoy });
+          }
+        }
+
+        // ── Escribir asignación en el vale ───────────────────────────────────
         const payload = {
           id_vehiculo: vehiculo.id_vehiculo,
-          id_operador: vehiculo.id_operador_sugerido ?? null,
+          id_operador: idOpEfectivo,
         };
 
         const { error: errorUpdate } = await supabase
@@ -359,7 +427,7 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
         setAsignando(false);
       }
     },
-    [vehiculo],
+    [vehiculo, asignacionActual],
   );
 
   // ─── API pública ──────────────────────────────────────────────────────────
@@ -374,6 +442,8 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
     error,
     limiteAlcanzado: valesActivos >= MAX_VALES_ACTIVOS,
     foliosActivos,
+    asignacionActual,
+    operadoresSindicato,
     // Acciones
     buscarVehiculoPorQR,
     asignarVehiculo,

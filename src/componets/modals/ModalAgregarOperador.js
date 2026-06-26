@@ -160,6 +160,25 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
 
       if (errorVehiculo) throw errorVehiculo;
 
+      // ── 4. Crear asignación inicial en el historial de rotaciones ───────────
+      const hoy = new Date();
+      const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+
+      const { error: errorAsignacion } = await supabase
+        .from("asignacion_operador_vehiculo")
+        .insert({
+          id_vehiculo: vehiculoNuevo.id_vehiculo,
+          id_operador: operadorFinal.id_operador,
+          fecha_inicio: fechaHoy,
+        });
+
+      if (errorAsignacion) {
+        console.error(
+          "[ModalAgregarOperador] Error al crear asignación inicial:",
+          errorAsignacion.message,
+        );
+      }
+
       if (!isMounted.current) return;
 
       const mensaje = operadorEsNuevo
