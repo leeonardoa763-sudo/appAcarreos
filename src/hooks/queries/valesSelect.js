@@ -137,6 +137,7 @@ export const VALE_SELECT_COMPLETO = `
   tickets_descarga (
     numero_ticket,
     banco_descarga,
-    id_material_ticket
+    id_material_ticket,
+    material:id_material_ticket ( material )
   )
 `;

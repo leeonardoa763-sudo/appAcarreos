@@ -393,6 +393,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             latitud_completado: ubicacion?.latitud ?? null,
             longitud_completado: ubicacion?.longitud ?? null,
             distancia_obra_metros: distanciaObra ?? null,
+            // Viajes actuales del hook (más frescos que detalleRenta.vale_renta_viajes)
+            vale_renta_viajes: viajes,
           },
         ],
       };
@@ -513,6 +515,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             viajes={viajes}
             loading={loadingViajes}
             totalViajes={totalViajes}
+            vale={valeLocal}
+            detalleRenta={detalleRentaLocal}
           />
         )}
 

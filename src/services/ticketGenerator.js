@@ -301,7 +301,8 @@ export const generarTicketRenta = (vale) => {
   const placas = vale.vehiculos?.placas || "N/A";
   const sindicato = vale.vehiculos?.sindicatos?.sindicato || "N/A";
   const material = detalle.material?.material || "N/A";
-  const capacidad = detalle.capacidad_m3 ? `${detalle.capacidad_m3} m3` : "N/A";
+  const capacidadRaw = vale.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3;
+  const capacidad = capacidadRaw ? `${capacidadRaw} m3` : "N/A";
   const notas = detalle.notas_adicionales || null;
 
   const esRentaPorDia = detalle.es_renta_por_dia === true;
@@ -447,6 +448,7 @@ export const generarTicketRenta = (vale) => {
   const ticketsDescarga = vale.tickets_descarga || [];
   const ticketMap = {};
   ticketsDescarga.forEach((t) => { ticketMap[t.numero_ticket] = t; });
+  const esMaterialDescarga = detalle.material?.es_material_descarga === true;
 
   if (viajesRenta.length > 0) {
     lineas.push(
@@ -458,7 +460,9 @@ export const generarTicketRenta = (vale) => {
       },
       {
         tipo: "texto",
-        contenido: "#  HORA   BANCO DE DESCARGA\n",
+        contenido: esMaterialDescarga
+          ? "## HORA   MATERIAL   BANCO\n"
+          : "## HORA    BANCO DE DESCARGA\n",
         opciones: { align: ALINEACION.IZQUIERDA },
       },
       { tipo: "separador" },
@@ -466,16 +470,28 @@ export const generarTicketRenta = (vale) => {
 
     viajesRenta.forEach((v) => {
       const ticket = ticketMap[v.numero_viaje];
-      const num = String(v.numero_viaje).padEnd(3);
-      const hora = v.hora_registro ? formatearHora(v.hora_registro) : "--:--";
-      const banco = ticket?.banco_descarga
-        ? ticket.banco_descarga.substring(0, 20)
-        : "—";
-      lineas.push({
-        tipo: "texto",
-        contenido: `${num}${hora}  ${banco}\n`,
-        opciones: { align: ALINEACION.IZQUIERDA },
-      });
+      const num = String(v.numero_viaje).padStart(2, "0");
+      const horaRaw = v.hora_registro ? formatearHora(v.hora_registro) : "--:--";
+      // Hora compacta: "10:30 PM" → "10:30p" (6 chars)
+      const hora = horaRaw.replace(" AM", "a").replace(" PM", "p").substring(0, 6).padEnd(6);
+
+      if (esMaterialDescarga) {
+        const matNombre = (ticket?.material?.material || detalle.material?.material || "—")
+          .substring(0, 10).padEnd(10);
+        const banco = (ticket?.banco_descarga || "—").substring(0, 11);
+        lineas.push({
+          tipo: "texto",
+          contenido: `${num} ${hora} ${matNombre} ${banco}\n`,
+          opciones: { align: ALINEACION.IZQUIERDA },
+        });
+      } else {
+        const banco = (ticket?.banco_descarga || "—").substring(0, 20);
+        lineas.push({
+          tipo: "texto",
+          contenido: `${num} ${hora}  ${banco}\n`,
+          opciones: { align: ALINEACION.IZQUIERDA },
+        });
+      }
     });
 
     lineas.push(

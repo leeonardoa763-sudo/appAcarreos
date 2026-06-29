@@ -19,29 +19,71 @@ const formatHora = (isoString) => {
   });
 };
 
-const ViajeRow = ({ viaje }) => (
-  <View style={styles.viajeRow}>
-    <View style={styles.viajeNumeroContainer}>
-      <Text style={styles.viajeNumero}>{viaje.numero_viaje}</Text>
+const ViajeRow = ({ viaje, ticket, esMaterialDescarga, materialDefault }) => {
+  const matNombre = esMaterialDescarga
+    ? (ticket?.material?.material || materialDefault || "—")
+    : null;
+  const banco = esMaterialDescarga ? (ticket?.banco_descarga || "—") : null;
+
+  return (
+    <View style={styles.viajeRow}>
+      <View style={styles.viajeNumeroContainer}>
+        <Text style={styles.viajeNumero}>{viaje.numero_viaje}</Text>
+      </View>
+
+      <View style={styles.viajeContenido}>
+        {/* Fila principal: hora + quién registró */}
+        <View style={styles.viajeFilaPrincipal}>
+          <View style={styles.viajeHoraContainer}>
+            <MaterialCommunityIcons
+              name="clock-outline"
+              size={13}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.viajeHora}>{formatHora(viaje.hora_registro)}</Text>
+          </View>
+          <Text style={styles.viajePersona} numberOfLines={1}>
+            {viaje.persona?.nombre} {viaje.persona?.primer_apellido}
+          </Text>
+        </View>
+
+        {/* Fila secundaria: material y banco — solo si es_material_descarga */}
+        {esMaterialDescarga && (
+          <View style={styles.viajeFilaDescarga}>
+            <MaterialCommunityIcons
+              name="package-variant"
+              size={11}
+              color={colors.accent}
+            />
+            <Text style={styles.viajeMaterial} numberOfLines={1}>
+              {matNombre}
+            </Text>
+            {banco !== "—" && (
+              <>
+                <Text style={styles.viajeSeparador}>·</Text>
+                <MaterialCommunityIcons
+                  name="map-marker-outline"
+                  size={11}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.viajeBanco} numberOfLines={1}>
+                  {banco}
+                </Text>
+              </>
+            )}
+          </View>
+        )}
+      </View>
     </View>
-    <View style={styles.viajeHoraContainer}>
-      <MaterialCommunityIcons
-        name="clock-outline"
-        size={14}
-        color={colors.textSecondary}
-      />
-      <Text style={styles.viajeHora}>{formatHora(viaje.hora_registro)}</Text>
-    </View>
-    <Text style={styles.viajePersona} numberOfLines={1}>
-      {viaje.persona?.nombre} {viaje.persona?.primer_apellido}
-    </Text>
-  </View>
-);
+  );
+};
 
 const SeccionViajesCompletado = ({
   viajes = [],
   loading = false,
   totalViajes = 0,
+  vale = null,
+  detalleRenta = null,
 }) => {
   if (loading) {
     return (
@@ -52,6 +94,15 @@ const SeccionViajesCompletado = ({
   }
 
   if (!viajes || viajes.length === 0) return null;
+
+  const esMaterialDescarga = detalleRenta?.material?.es_material_descarga === true;
+  const materialDefault = detalleRenta?.material?.material || null;
+
+  // Mapa numero_ticket → ticket para cruzar con viajes
+  const ticketMap = {};
+  (vale?.tickets_descarga || []).forEach((t) => {
+    ticketMap[t.numero_ticket] = t;
+  });
 
   return (
     <View style={styles.container}>
@@ -70,14 +121,24 @@ const SeccionViajesCompletado = ({
       <View style={styles.tabla}>
         <View style={styles.tablaHeader}>
           <Text style={[styles.tablaHeaderTexto, styles.colNumero]}>#</Text>
-          <Text style={[styles.tablaHeaderTexto, styles.colHora]}>Hora</Text>
-          <Text style={[styles.tablaHeaderTexto, styles.colPersona]}>
-            Registrado por
-          </Text>
+          <View style={styles.colContenido}>
+            <Text style={styles.tablaHeaderTexto}>Hora · Registrado por</Text>
+            {esMaterialDescarga && (
+              <Text style={[styles.tablaHeaderTexto, { marginTop: 1 }]}>
+                Material · Banco
+              </Text>
+            )}
+          </View>
         </View>
 
         {viajes.map((viaje) => (
-          <ViajeRow key={viaje.id_viaje} viaje={viaje} />
+          <ViajeRow
+            key={viaje.id_viaje}
+            viaje={viaje}
+            ticket={ticketMap[viaje.numero_viaje]}
+            esMaterialDescarga={esMaterialDescarga}
+            materialDefault={materialDefault}
+          />
         ))}
       </View>
     </View>
@@ -128,6 +189,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F5F6FA",
     paddingVertical: 6,
     paddingHorizontal: 8,
+    alignItems: "flex-start",
   },
   tablaHeaderTexto: {
     fontSize: 10,
@@ -137,38 +199,44 @@ const styles = StyleSheet.create({
   },
   colNumero: {
     width: 25,
+    paddingTop: 1,
   },
-  colHora: {
-    width: 72,
-  },
-  colPersona: {
+  colContenido: {
     flex: 1,
   },
   viajeRow: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 9,
+    alignItems: "flex-start",
+    paddingVertical: 8,
     paddingHorizontal: 10,
     borderTopWidth: 1,
     borderTopColor: "#F0F0F0",
   },
   viajeNumeroContainer: {
     width: 22,
-    alignItems: "flex-start",
+    paddingTop: 1,
   },
   viajeNumero: {
     fontSize: 11,
     fontWeight: "700",
     color: colors.accent,
   },
-  viajeHoraContainer: {
-    width: 72,
+  viajeContenido: {
+    flex: 1,
+    gap: 3,
+  },
+  viajeFilaPrincipal: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 8,
+  },
+  viajeHoraContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
   },
   viajeHora: {
-    fontSize: 9,
+    fontSize: 11,
     color: colors.textPrimary,
     fontWeight: "500",
   },
@@ -176,6 +244,27 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 11,
     color: colors.textSecondary,
+  },
+  viajeFilaDescarga: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    flexWrap: "wrap",
+  },
+  viajeMaterial: {
+    fontSize: 11,
+    color: colors.accent,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
+  viajeSeparador: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  viajeBanco: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    flexShrink: 1,
   },
 });
 

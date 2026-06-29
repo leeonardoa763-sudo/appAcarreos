@@ -98,7 +98,51 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
     costoTotal = "Pendiente";
   }
 
-  // Datos de obra y empresa
+  // Tabla de viajes registrados
+  const viajesRenta = detalle.vale_renta_viajes || [];
+  const ticketsDescarga = valeData.tickets_descarga || [];
+  const ticketMap = {};
+  ticketsDescarga.forEach((t) => { ticketMap[t.numero_ticket] = t; });
+  const esMaterialDescarga = detalle.material?.es_material_descarga === true;
+
+  const filasViajesRecibo = viajesRenta.length > 0
+    ? viajesRenta
+        .slice()
+        .sort((a, b) => a.numero_viaje - b.numero_viaje)
+        .map((v) => {
+          const ticket = ticketMap[v.numero_viaje];
+          const hora = v.hora_registro ? formatearHoraRecibo(v.hora_registro) : "--:--";
+          const banco = ticket?.banco_descarga || "—";
+          const matNombre = esMaterialDescarga
+            ? (ticket?.material?.material || detalle.material?.material || "—")
+            : (detalle.material?.material || "—");
+          return `
+            <tr>
+              <td style="padding:2px 3px; text-align:center; border-bottom:1px solid #E8EAF0; font-size:5.5px;">${v.numero_viaje}</td>
+              <td style="padding:2px 3px; text-align:center; border-bottom:1px solid #E8EAF0; font-size:5.5px;">${hora}</td>
+              <td style="padding:2px 3px; border-bottom:1px solid #E8EAF0; font-size:5.5px;">${matNombre}</td>
+              <td style="padding:2px 3px; border-bottom:1px solid #E8EAF0; font-size:5.5px;">${banco}</td>
+            </tr>`;
+        })
+        .join("")
+    : `<tr><td colspan="4" style="padding:4px; text-align:center; color:#7F8C8D; font-style:italic; font-size:5.5px;">Sin viajes registrados</td></tr>`;
+
+  const seccionViajesRecibo = `
+    <div class="receipt-section">
+      <div class="section-title">VIAJES REGISTRADOS</div>
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="background-color:#004E89; color:#FFFFFF;">
+            <th style="padding:3px; text-align:center; width:14px; font-size:5px;">#</th>
+            <th style="padding:3px; text-align:center; width:36px; font-size:5px;">Hora</th>
+            <th style="padding:3px; text-align:left; font-size:5px;">Material</th>
+            <th style="padding:3px; text-align:left; font-size:5px;">Banco</th>
+          </tr>
+        </thead>
+        <tbody>${filasViajesRecibo}</tbody>
+      </table>
+    </div>`;
+
   // Datos de obra y empresa
   const cc = valeData.obras?.cc || "";
   const nombreObra = valeData.obras?.obra || "N/A";
@@ -194,6 +238,9 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
             <span class="receipt-row-value">${totalDias}</span>
           </div>
         </div>
+
+        <!-- VIAJES REGISTRADOS -->
+        ${seccionViajesRecibo}
 
         <!-- TARIFAS Y COSTO - COMENTADO PARA PRIVACIDAD -->
         <!--

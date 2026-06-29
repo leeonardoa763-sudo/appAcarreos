@@ -119,6 +119,7 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
   const ticketsDescarga = valeData.tickets_descarga || [];
   const ticketMap = {};
   ticketsDescarga.forEach((t) => { ticketMap[t.numero_ticket] = t; });
+  const esMaterialDescarga = detalle.material?.es_material_descarga === true;
 
   const filasViajes = viajesRenta.length > 0
     ? viajesRenta
@@ -130,15 +131,19 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
             ? formatearHora(v.hora_registro)
             : "--:--";
           const banco = ticket?.banco_descarga || "—";
+          const matNombre = esMaterialDescarga
+            ? (ticket?.material?.material || detalle.material?.material || "—")
+            : (detalle.material?.material || "—");
           return `
             <tr>
               <td style="padding:3px 4px; text-align:center; border-bottom:1px solid #E8EAF0;">${v.numero_viaje}</td>
               <td style="padding:3px 4px; text-align:center; border-bottom:1px solid #E8EAF0;">${hora}</td>
+              <td style="padding:3px 4px; border-bottom:1px solid #E8EAF0;">${matNombre}</td>
               <td style="padding:3px 4px; border-bottom:1px solid #E8EAF0;">${banco}</td>
             </tr>`;
         })
         .join("")
-    : `<tr><td colspan="3" style="padding:6px; text-align:center; color:#7F8C8D; font-style:italic;">Sin viajes registrados</td></tr>`;
+    : `<tr><td colspan="4" style="padding:6px; text-align:center; color:#7F8C8D; font-style:italic;">Sin viajes registrados</td></tr>`;
 
   const tablaViajes = `
     <div class="section-title">REGISTRO DE VIAJES</div>
@@ -147,6 +152,7 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
         <tr style="background-color:#004E89; color:#FFFFFF;">
           <th style="padding:4px; text-align:center; width:20px;">#</th>
           <th style="padding:4px; text-align:center; width:48px;">Hora</th>
+          <th style="padding:4px; text-align:left;">Material</th>
           <th style="padding:4px; text-align:left;">Banco de Descarga</th>
         </tr>
       </thead>
