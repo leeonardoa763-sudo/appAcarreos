@@ -208,17 +208,21 @@ export const useViajesRenta = (
     async (idViaje) => {
       try {
         setEliminandoViaje(true);
-        const { error } = await supabase
+        const { data: deleted, error } = await supabase
           .from("vale_renta_viajes")
           .delete()
-          .eq("id_viaje", idViaje);
+          .eq("id_viaje", idViaje)
+          .select("id_viaje");
         if (error) throw error;
+        if (!deleted || deleted.length === 0) {
+          throw new Error("RLS: fila no eliminada");
+        }
 
         setViajes((prev) => prev.slice(0, -1));
         return true;
       } catch (error) {
         console.error("[useViajesRenta] Error eliminando viaje:", error);
-        Alert.alert("Error", "No se pudo eliminar el viaje.");
+        Alert.alert("Error", "No se pudo eliminar el viaje. Verifica permisos.");
         return false;
       } finally {
         setEliminandoViaje(false);

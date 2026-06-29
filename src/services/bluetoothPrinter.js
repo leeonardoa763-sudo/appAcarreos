@@ -45,7 +45,11 @@ export const solicitarPermisos = async () => {
 
 export const verificarBluetooth = async () => {
   try {
-    const habilitado = await RNBluetoothClassic.isBluetoothEnabled();
+    const habilitado = await withTimeout(
+      RNBluetoothClassic.isBluetoothEnabled(),
+      5000,
+      "Timeout verificando Bluetooth",
+    );
     return habilitado;
   } catch (error) {
     throw new Error("No se pudo verificar el estado del Bluetooth");
@@ -67,12 +71,11 @@ const withTimeout = (
 
 export const escanearImpresoras = async () => {
   try {
-
-    const permisosOk = await solicitarPermisos();
-    if (!permisosOk) throw new Error("Permisos Bluetooth denegados");
-
-    const dispositivos = await RNBluetoothClassic.getBondedDevices();
-
+    const dispositivos = await withTimeout(
+      RNBluetoothClassic.getBondedDevices(),
+      8000,
+      "Timeout obteniendo dispositivos vinculados",
+    );
     return dispositivos.map((d) => ({
       id: d.address,
       address: d.address,

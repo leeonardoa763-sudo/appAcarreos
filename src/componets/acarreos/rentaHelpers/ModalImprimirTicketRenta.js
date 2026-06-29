@@ -40,7 +40,7 @@ import { colors } from "../../../config/colors";
 import { BLUETOOTH_ENABLED } from "../../../config/features";
 
 // 5. Imports condicionales de Bluetooth y generador
-let verificarBluetooth, escanearImpresoras, conectarImpresora, imprimirTicket;
+let verificarBluetooth, escanearImpresoras, conectarImpresora, imprimirTicket, solicitarPermisos;
 let generarTicketRenta;
 
 if (BLUETOOTH_ENABLED) {
@@ -49,6 +49,7 @@ if (BLUETOOTH_ENABLED) {
   escanearImpresoras = bt.escanearImpresoras;
   conectarImpresora = bt.conectarImpresora;
   imprimirTicket = bt.imprimirTicket;
+  solicitarPermisos = bt.solicitarPermisos;
 
   const tg = require("../../../services/ticketGenerator");
   generarTicketRenta = tg.generarTicketRenta;
@@ -112,13 +113,11 @@ const ModalImprimirTicketRenta = ({
 
   const handleBuscarImpresoras = useCallback(async () => {
     setErrorMensaje(null);
+    setFase("escaneando");
 
     try {
-      // 1. Verificar Bluetooth activo
-      setFase("escaneando");
-
+      // 1. Verificar que BT esté encendido
       const bluetoothActivo = await verificarBluetooth();
-
       if (!bluetoothActivo) {
         setFase("inicio");
         Alert.alert(
@@ -128,17 +127,13 @@ const ModalImprimirTicketRenta = ({
         return;
       }
 
-      // 2. Escanear dispositivos vinculados
-
+      // 2. Obtener dispositivos vinculados
       const dispositivos = await escanearImpresoras();
-
       setImpresoras(dispositivos);
       setFase("lista");
     } catch (error) {
       setFase("inicio");
-      setErrorMensaje(
-        "No se pudieron buscar impresoras. Verifica que el Bluetooth esté activo.",
-      );
+      setErrorMensaje(error.message || "No se pudieron buscar impresoras.");
     }
   }, []);
 

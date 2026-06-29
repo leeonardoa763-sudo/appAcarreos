@@ -127,6 +127,16 @@ export const VALE_SELECT_COMPLETO = `
     precios_renta (
       costo_hr,
       costo_dia
+    ),
+    vale_renta_viajes (
+      id_viaje,
+      numero_viaje,
+      hora_registro
     )
+  ),
+  tickets_descarga (
+    numero_ticket,
+    banco_descarga,
+    id_material_ticket
   )
 `;

@@ -104,6 +104,7 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
           numero_ticket,
           banco_descarga,
           fecha_impresion,
+          id_material_ticket,
           persona:id_persona_registro (
             nombre,
             primer_apellido
@@ -136,10 +137,11 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
   /**
    * Registra el ticket en BD y devuelve los datos completos para imprimir
    * @param {string} bancoDescarga - Nombre del banco donde se descargará
+   * @param {object} materialSeleccionado - Material seleccionado { id_material, material }
    * @returns {object|null} - Datos del ticket creado o null si falla
    */
   const registrarTicket = useCallback(
-    async (bancoDescarga) => {
+    async (bancoDescarga, materialSeleccionado) => {
       if (!bancoDescarga?.trim()) {
         Alert.alert(
           "Campo requerido",
@@ -163,6 +165,7 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
             numero_ticket: numeroTicket,
             banco_descarga: bancoDescarga.toUpperCase().trim(),
             id_persona_registro: userProfile?.id_persona,
+            id_material_ticket: materialSeleccionado?.id_material ?? null,
           })
           .select(
             `
@@ -171,6 +174,7 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
             numero_ticket,
             banco_descarga,
             fecha_impresion,
+            id_material_ticket,
             persona:id_persona_registro (
               nombre,
               primer_apellido
@@ -181,10 +185,15 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
 
         if (error) throw error;
 
-        // Actualizar lista local sin recargar BD
-        setTickets((prev) => [...prev, data]);
+        // Adjuntar objeto material para que el ticket impreso lo use sin depender del join
+        const ticketConMaterial = materialSeleccionado
+          ? { ...data, material: { material: materialSeleccionado.material } }
+          : data;
 
-        return data;
+        // Actualizar lista local sin recargar BD
+        setTickets((prev) => [...prev, ticketConMaterial]);
+
+        return ticketConMaterial;
       } catch (error) {
         console.error("[useTicketsDescarga] Error registrando ticket:", error);
         Alert.alert(
@@ -249,17 +258,21 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
   const eliminarUltimoTicket = useCallback(async (idTicket) => {
     try {
       setEliminandoTicket(true);
-      const { error } = await supabase
+      const { data: deleted, error } = await supabase
         .from("tickets_descarga")
         .delete()
-        .eq("id_ticket", idTicket);
+        .eq("id_ticket", idTicket)
+        .select("id_ticket");
       if (error) throw error;
+      if (!deleted || deleted.length === 0) {
+        throw new Error("RLS: fila no eliminada");
+      }
 
       setTickets((prev) => prev.slice(0, -1));
       return true;
     } catch (error) {
       console.error("[useTicketsDescarga] Error eliminando ticket:", error);
-      Alert.alert("Error", "No se pudo eliminar el ticket.");
+      Alert.alert("Error", "No se pudo eliminar el ticket. Verifica permisos.");
       return false;
     } finally {
       setEliminandoTicket(false);

@@ -36,12 +36,10 @@ import { renamePDFWithAutoName } from "./pdfFileHandler";
 const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
   const { bgColor, destinatario } = getCopiaInfo(colorCopia);
 
-  const fechaFormateada = formatearFecha(
-    valeData.fecha_completado || valeData.fecha_creacion,
-  );
-  const horaFormateada = formatearHora(
-    valeData.fecha_completado || valeData.fecha_creacion,
-  );
+  const fechaFormateada = formatearFecha(valeData.fecha_creacion);
+  const horaFormateada = formatearHora(valeData.fecha_creacion);
+  const fechaEmision = formatearFecha(valeData.fecha_completado || valeData.fecha_creacion);
+  const horaEmision = formatearHora(valeData.fecha_completado || valeData.fecha_creacion);
 
   // Extraer datos del vale de RENTA
   const detalle = valeData.vale_renta_detalle?.[0] || {};
@@ -115,6 +113,45 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
   } else {
     costoTotal = "Pendiente";
   }
+
+  // Tabla de viajes registrados
+  const viajesRenta = detalle.vale_renta_viajes || [];
+  const ticketsDescarga = valeData.tickets_descarga || [];
+  const ticketMap = {};
+  ticketsDescarga.forEach((t) => { ticketMap[t.numero_ticket] = t; });
+
+  const filasViajes = viajesRenta.length > 0
+    ? viajesRenta
+        .slice()
+        .sort((a, b) => a.numero_viaje - b.numero_viaje)
+        .map((v) => {
+          const ticket = ticketMap[v.numero_viaje];
+          const hora = v.hora_registro
+            ? formatearHora(v.hora_registro)
+            : "--:--";
+          const banco = ticket?.banco_descarga || "—";
+          return `
+            <tr>
+              <td style="padding:3px 4px; text-align:center; border-bottom:1px solid #E8EAF0;">${v.numero_viaje}</td>
+              <td style="padding:3px 4px; text-align:center; border-bottom:1px solid #E8EAF0;">${hora}</td>
+              <td style="padding:3px 4px; border-bottom:1px solid #E8EAF0;">${banco}</td>
+            </tr>`;
+        })
+        .join("")
+    : `<tr><td colspan="3" style="padding:6px; text-align:center; color:#7F8C8D; font-style:italic;">Sin viajes registrados</td></tr>`;
+
+  const tablaViajes = `
+    <div class="section-title">REGISTRO DE VIAJES</div>
+    <table style="width:100%; border-collapse:collapse; font-size:9px; margin-bottom:10px;">
+      <thead>
+        <tr style="background-color:#004E89; color:#FFFFFF;">
+          <th style="padding:4px; text-align:center; width:20px;">#</th>
+          <th style="padding:4px; text-align:center; width:48px;">Hora</th>
+          <th style="padding:4px; text-align:left;">Banco de Descarga</th>
+        </tr>
+      </thead>
+      <tbody>${filasViajes}</tbody>
+    </table>`;
 
   // Extraer datos de obra y empresa
   const obra = valeData.obras?.obra || "N/A";
@@ -265,6 +302,9 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
             : ""
         }
         
+        <!-- TABLA DE VIAJES -->
+        ${tablaViajes}
+
         <!-- NOTAS (solo si existen) -->
           ${
             detalle.notas_adicionales
@@ -293,7 +333,7 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
           <div class="copia-badge">COPIA ${colorCopia.toUpperCase()}</div>
           <div class="copia-destinatario">${destinatario}</div>
           <div class="emision-info">
-            Emitida: ${fechaFormateada} ${horaFormateada}
+            Emitida: ${fechaEmision} ${horaEmision}
           </div>
         </div>
       </div>

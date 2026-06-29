@@ -440,6 +440,54 @@ export const generarTicketRenta = (vale) => {
     },
   );
 
+  // Tabla de viajes registrados
+  const viajesRenta = (detalle.vale_renta_viajes || [])
+    .slice()
+    .sort((a, b) => a.numero_viaje - b.numero_viaje);
+  const ticketsDescarga = vale.tickets_descarga || [];
+  const ticketMap = {};
+  ticketsDescarga.forEach((t) => { ticketMap[t.numero_ticket] = t; });
+
+  if (viajesRenta.length > 0) {
+    lineas.push(
+      { tipo: "separador" },
+      {
+        tipo: "texto",
+        contenido: "VIAJES REGISTRADOS\n",
+        opciones: { align: ALINEACION.CENTRO, bold: true },
+      },
+      {
+        tipo: "texto",
+        contenido: "#  HORA   BANCO DE DESCARGA\n",
+        opciones: { align: ALINEACION.IZQUIERDA },
+      },
+      { tipo: "separador" },
+    );
+
+    viajesRenta.forEach((v) => {
+      const ticket = ticketMap[v.numero_viaje];
+      const num = String(v.numero_viaje).padEnd(3);
+      const hora = v.hora_registro ? formatearHora(v.hora_registro) : "--:--";
+      const banco = ticket?.banco_descarga
+        ? ticket.banco_descarga.substring(0, 20)
+        : "—";
+      lineas.push({
+        tipo: "texto",
+        contenido: `${num}${hora}  ${banco}\n`,
+        opciones: { align: ALINEACION.IZQUIERDA },
+      });
+    });
+
+    lineas.push(
+      { tipo: "separador" },
+      {
+        tipo: "texto",
+        contenido: `TOTAL: ${viajesRenta.length} viaje${viajesRenta.length !== 1 ? "s" : ""}\n`,
+        opciones: { align: ALINEACION.IZQUIERDA, bold: true },
+      },
+    );
+  }
+
   if (notas) {
     lineas.push(
       { tipo: "separador" },

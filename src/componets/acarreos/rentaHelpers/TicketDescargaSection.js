@@ -1,7 +1,7 @@
 // components/acarreos/rentaHelpers/TicketDescargaSection.js
 
 // 1. React
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 
 // 2. React Native
 import {
@@ -27,6 +27,12 @@ import { useTicketsDescarga } from "../../../hooks/useTicketsDescarga";
 import BancoDescargaModal from "./BancoDescargaModal";
 import ModalImprimirTicketRenta from "./ModalImprimirTicketRenta";
 import MaterialTicketModal from "./MaterialTicketModal";
+
+let solicitarPermisos;
+if (BLUETOOTH_ENABLED) {
+  const bt = require("../../../services/bluetoothPrinter");
+  solicitarPermisos = bt.solicitarPermisos;
+}
 
 // ─── Subcomponente: item de ticket ya generado ────────────────────────────────
 
@@ -120,6 +126,15 @@ const TicketDescargaSection = ({
   const [ticketPendiente, setTicketPendiente] = useState(null);
   const [bancoSeleccionado, setBancoSeleccionado] = useState(null);
   const [modoReimpresion, setModoReimpresion] = useState(false);
+  const permisosRef = useRef(false);
+
+  // Pedir permisos BT en mount, antes de que se abra cualquier Modal apilado.
+  // PermissionsAndroid.requestMultiple se bloquea si hay un Modal RN encima.
+  useEffect(() => {
+    if (!BLUETOOTH_ENABLED || !solicitarPermisos || permisosRef.current) return;
+    permisosRef.current = true;
+    solicitarPermisos().catch(() => {});
+  }, []);
 
   if (!esMaterialDescarga) {
     return null;
@@ -148,7 +163,7 @@ const TicketDescargaSection = ({
 
   // ─── Flujo de impresión ───────────────────────────────────────────────────
 
-  const handlePresionarBoton = useCallback(() => {
+  const handlePresionarBoton = useCallback(async () => {
     if (!puedeGenerar) {
       const razon = razonBloqueado();
       if (razon) Alert.alert("No disponible", razon);
