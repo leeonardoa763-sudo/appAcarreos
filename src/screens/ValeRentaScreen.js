@@ -40,6 +40,7 @@ import SuccessModal from "../componets/common/SuccessModal";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
 import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
 import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
+import RefrescarCatalogoButton from "../componets/common/RefrescarCatalogoButton";
 
 // Utils
 import { generateVerificationUrl } from "../utils/qrGenerator";
@@ -52,8 +53,14 @@ const ValeRentaScreen = () => {
 
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
-  const { materiales, sindicatos, preciosRenta, loading: loadingCatalogos } =
-    useCatalogos(["materiales", "sindicatos", "preciosRenta"]);
+  const {
+    materiales,
+    sindicatos,
+    preciosRenta,
+    loading: loadingCatalogos,
+    refrescando: refrescandoCatalogos,
+    refrescarCatalogos,
+  } = useCatalogos(["materiales", "sindicatos", "preciosRenta"]);
 
   const { generateFolio } = useFolioGenerator();
 
@@ -383,6 +390,11 @@ const ValeRentaScreen = () => {
             }
             onChangeText={() => {}}
             editable={false}
+          />
+
+          <RefrescarCatalogoButton
+            onPress={refrescarCatalogos}
+            refrescando={refrescandoCatalogos}
           />
 
           <CustomModalPicker

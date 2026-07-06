@@ -154,6 +154,7 @@ export const useValeMaterialLogic = (materiales) => {
         notas_adicionales: formData.notasAdicionales || null,
         requisicion: formData.requisicion || null,
         folio_vale_fisico: null,
+        es_planta_asfaltos: options.esPlantaAsfaltos ?? false,
       };
 
       const { error: errorDetalle } = await supabase

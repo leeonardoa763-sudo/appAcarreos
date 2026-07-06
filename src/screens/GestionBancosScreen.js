@@ -16,26 +16,32 @@ import { useCatalogos } from "../hooks/useCatalogos";
 import {
   ModalBanco,
   ModalDistancia,
+  ModalDistanciaPlanta,
   ModalPesoEspecifico,
 } from "../componets/bancos/GestionBancosModales";
 
-const PESTANAS = ["Bancos", "Distancias", "Pesos"];
+const PESTANAS = ["Bancos", "Distancias", "Dist. Planta", "Pesos"];
 
 export default function GestionBancosScreen() {
   const {
     bancos,
     distancias,
+    distanciasPlanta,
     pesosEspecificos,
     loading,
     error,
     fetchBancos,
     fetchDistancias,
+    fetchDistanciasPlanta,
     fetchPesos,
     crearBanco,
     editarBanco,
     crearDistancia,
     editarDistancia,
     eliminarDistancia,
+    crearDistanciaPlanta,
+    editarDistanciaPlanta,
+    eliminarDistanciaPlanta,
     crearPeso,
     editarPeso,
     eliminarPeso,
@@ -51,17 +57,22 @@ export default function GestionBancosScreen() {
   const [modalDistanciaVisible, setModalDistanciaVisible] = useState(false);
   const [distanciaSeleccionada, setDistanciaSeleccionada] = useState(null);
 
+  const [modalDistanciaPlantaVisible, setModalDistanciaPlantaVisible] = useState(false);
+  const [distanciaPlantaSeleccionada, setDistanciaPlantaSeleccionada] = useState(null);
+
   const [modalPesoVisible, setModalPesoVisible] = useState(false);
   const [pesoSeleccionado, setPesoSeleccionado] = useState(null);
 
   useEffect(() => {
     fetchBancos();
     fetchDistancias();
+    fetchDistanciasPlanta();
     fetchPesos();
     supabase
       .from("obras")
       .select("id_obra, obra")
       .neq("id_obra", 888)
+      .eq("activo", true)
       .order("obra")
       .then(({ data }) => setObras(data ?? []));
   }, []);
@@ -71,6 +82,9 @@ export default function GestionBancosScreen() {
 
   const abrirNuevaDistancia = () => { setDistanciaSeleccionada(null); setModalDistanciaVisible(true); };
   const abrirEditarDistancia = (d) => { setDistanciaSeleccionada(d); setModalDistanciaVisible(true); };
+
+  const abrirNuevaDistanciaPlanta = () => { setDistanciaPlantaSeleccionada(null); setModalDistanciaPlantaVisible(true); };
+  const abrirEditarDistanciaPlanta = (d) => { setDistanciaPlantaSeleccionada(d); setModalDistanciaPlantaVisible(true); };
 
   const abrirNuevoPeso = () => { setPesoSeleccionado(null); setModalPesoVisible(true); };
   const abrirEditarPeso = (p) => { setPesoSeleccionado(p); setModalPesoVisible(true); };
@@ -82,6 +96,17 @@ export default function GestionBancosScreen() {
       [
         { text: "Cancelar", style: "cancel" },
         { text: "Eliminar", style: "destructive", onPress: () => eliminarDistancia(item.id_distancia_banco_obra) },
+      ]
+    );
+  };
+
+  const confirmarEliminarDistanciaPlanta = (item) => {
+    Alert.alert(
+      "Eliminar distancia",
+      `¿Eliminar ${item.bancos?.banco} → Planta de Asfaltos?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Eliminar", style: "destructive", onPress: () => eliminarDistanciaPlanta(item.id_distancia_banco_planta) },
       ]
     );
   };
@@ -137,6 +162,34 @@ export default function GestionBancosScreen() {
     </TouchableOpacity>
   );
 
+  const renderDistanciaPlanta = ({ item }) => (
+    <TouchableOpacity style={estilos.fila} onPress={() => abrirEditarDistanciaPlanta(item)} activeOpacity={0.7}>
+      <View style={estilos.filaIcono}>
+        <MaterialCommunityIcons name="map-marker-distance" size={22} color={colors.secondary} />
+      </View>
+      <View style={estilos.filaTextos}>
+        <Text style={estilos.filaNombre}>{item.bancos?.banco}</Text>
+        <View style={estilos.filaSubRow}>
+          <MaterialCommunityIcons name="factory" size={12} color={colors.textSecondary} />
+          <Text style={estilos.filaSubtexto}>Planta de Asfaltos</Text>
+          <View style={estilos.badge}>
+            <MaterialCommunityIcons name="ruler" size={11} color={colors.secondary} />
+            <Text style={[estilos.badgeTexto, { color: colors.secondary }]}>
+              {item.distancia_km} km
+            </Text>
+          </View>
+        </View>
+      </View>
+      <TouchableOpacity
+        style={estilos.btnEliminar}
+        onPress={() => confirmarEliminarDistanciaPlanta(item)}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#E74C3C" />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+
   const renderPeso = ({ item }) => (
     <TouchableOpacity style={estilos.fila} onPress={() => abrirEditarPeso(item)} activeOpacity={0.7}>
       <View style={estilos.filaIcono}>
@@ -171,7 +224,7 @@ export default function GestionBancosScreen() {
         <Text style={estilos.errorTexto}>Error al cargar datos</Text>
         <TouchableOpacity
           style={estilos.btnReintentar}
-          onPress={() => { fetchBancos(); fetchDistancias(); fetchPesos(); }}
+          onPress={() => { fetchBancos(); fetchDistancias(); fetchDistanciasPlanta(); fetchPesos(); }}
         >
           <Text style={estilos.btnReintentarTexto}>Reintentar</Text>
         </TouchableOpacity>
@@ -253,6 +306,34 @@ export default function GestionBancosScreen() {
         </>
       )}
 
+      {pestanaActiva === "Dist. Planta" && (
+        <>
+          <View style={estilos.tabHeader}>
+            <Text style={estilos.tabTitulo}>Distancias banco-planta de asfaltos</Text>
+            <TouchableOpacity style={estilos.btnAgregar} onPress={abrirNuevaDistanciaPlanta}>
+              <MaterialCommunityIcons name="plus" size={22} color={colors.surface} />
+            </TouchableOpacity>
+          </View>
+          {loading ? (
+            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.primary} />
+          ) : (
+            <FlatList
+              data={distanciasPlanta}
+              keyExtractor={(item) => String(item.id_distancia_banco_planta)}
+              renderItem={renderDistanciaPlanta}
+              contentContainerStyle={estilos.listaContenido}
+              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+              ListEmptyComponent={
+                <View style={estilos.vacio}>
+                  <MaterialCommunityIcons name="map-marker-distance" size={36} color={colors.textSecondary} />
+                  <Text style={estilos.vacioTexto}>No hay distancias a planta configuradas</Text>
+                </View>
+              }
+            />
+          )}
+        </>
+      )}
+
       {pestanaActiva === "Pesos" && (
         <>
           <View style={estilos.tabHeader}>
@@ -301,6 +382,17 @@ export default function GestionBancosScreen() {
           else await crearDistancia(idOrDatos);
         }}
         onCerrar={() => setModalDistanciaVisible(false)}
+      />
+
+      <ModalDistanciaPlanta
+        visible={modalDistanciaPlantaVisible}
+        distancia={distanciaPlantaSeleccionada}
+        listaBancos={listaBancosActivos}
+        onGuardar={async (idOrDatos, km) => {
+          if (distanciaPlantaSeleccionada) await editarDistanciaPlanta(idOrDatos, km);
+          else await crearDistanciaPlanta(idOrDatos);
+        }}
+        onCerrar={() => setModalDistanciaPlantaVisible(false)}
       />
 
       <ModalPesoEspecifico

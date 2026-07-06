@@ -23,7 +23,8 @@ import CollapsibleSection from "../componets/common/CollapsibleSection";
 import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
 
 const ArchivadosScreen = () => {
-  const { userProfile } = useAuth();
+  const { userProfile, userRole } = useAuth();
+  const esPlantaAsfaltos = userRole === "Planta de Asfaltos";
 
   const { obras, loading: obrasLoading } = useObras(userProfile?.id_persona);
 
@@ -94,6 +95,7 @@ const ArchivadosScreen = () => {
             id_sindicato
           ),
           vale_material_detalles (
+            es_planta_asfaltos,
             material:id_material (id_material, material)
           )
         `,
@@ -104,8 +106,16 @@ const ArchivadosScreen = () => {
 
       if (error) throw error;
 
-      const material = data.filter((v) => v.tipo_vale === "material");
-      const renta = data.filter((v) => v.tipo_vale === "renta");
+      let material = data.filter((v) => v.tipo_vale === "material");
+      let renta = data.filter((v) => v.tipo_vale === "renta");
+
+      // El rol Planta de Asfaltos solo ve sus propios vales archivados.
+      if (esPlantaAsfaltos) {
+        material = material.filter(
+          (v) => v.vale_material_detalles?.[0]?.es_planta_asfaltos,
+        );
+        renta = [];
+      }
 
       if (isMounted.current) {
         setValesMaterial(material);

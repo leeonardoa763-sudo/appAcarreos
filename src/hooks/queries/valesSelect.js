@@ -27,6 +27,7 @@ export const VALE_SELECT_LISTA = `
   vale_material_detalles (
     requisicion,
     folio_vale_fisico,
+    es_planta_asfaltos,
     material:id_material (
       id_material,
       material

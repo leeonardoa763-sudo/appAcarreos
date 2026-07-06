@@ -23,7 +23,6 @@ import { useFolioGenerator } from "../hooks/useFolioGenerator";
 import { useValeMaterialForm } from "../hooks/useValeMaterialForm";
 import { useValeMaterialLogic } from "../hooks/useValeMaterialLogic";
 import { useObras } from "../hooks/useObras";
-import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
 import useEvidenciaVale from "../hooks/useEvidenciaVale";
 import useVehiculoQRScanner from "../hooks/useVehiculoQRScanner";
 import useVehiculoQR from "../hooks/useVehiculoQR";
@@ -35,11 +34,12 @@ import SuccessModal from "../componets/common/SuccessModal";
 import FormInput from "../componets/forms/FormInput";
 import CustomModalPicker from "../componets/forms/CustomModalPicker";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
-import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
 import QRScannerModal from "../componets/common/QRScannerModal";
+import RefrescarCatalogoButton from "../componets/common/RefrescarCatalogoButton";
 import EvidenciaCaptura from "../componets/vale/EvidenciaCaptura";
 import ModalImprimirTicketRenta from "../componets/acarreos/rentaHelpers/ModalImprimirTicketRenta";
 import ModalBuscarVehiculoPlacas from "../componets/acarreos/ModalBuscarVehiculoPlacas";
+import ModalSeleccionarOperador from "../componets/modals/asignarVehiculo/ModalSeleccionarOperador";
 import { generarYCompartirPDFTicket } from "../services/pdfTicketGenerator";
 import { BLUETOOTH_ENABLED } from "../config/features";
 
@@ -51,9 +51,8 @@ if (BLUETOOTH_ENABLED) {
 
 const ValeMaterialAsfalticoScreen = () => {
   const navigation = useNavigation();
-  const { userProfile, userRole } = useAuth();
+  const { userProfile } = useAuth();
   const isMounted = useRef(true);
-  const esChecador = userRole === "CHECADOR";
 
   // Datos de obra
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
@@ -66,6 +65,8 @@ const ValeMaterialAsfalticoScreen = () => {
     operadores,
     vehiculos,
     loading: loadingCatalogos,
+    refrescando: refrescandoCatalogos,
+    refrescarCatalogos,
   } = useCatalogos(["materiales", "bancos", "sindicatos", "operadores", "vehiculos"]);
 
   const materialesFiltrados = materiales.filter(
@@ -81,6 +82,7 @@ const ValeMaterialAsfalticoScreen = () => {
   const [showModalImpresion, setShowModalImpresion] = useState(false);
   const [valeParaImpresion, setValeParaImpresion] = useState(null);
   const [showModalBuscarVehiculo, setShowModalBuscarVehiculo] = useState(false);
+  const [showModalSeleccionarOperador, setShowModalSeleccionarOperador] = useState(false);
 
   // Hooks de formulario y lógica
   const {
@@ -135,12 +137,6 @@ const ValeMaterialAsfalticoScreen = () => {
     }
   }, [formData.sindicatoId, formData.selectedVehiculo, setFormData]);
 
-  // Presupuesto disponible para obra + material seleccionado
-  const { presupuestoMaterial, materialConsultado } = usePresupuestoObra({
-    id_obra: obraSeleccionada,
-    id_material: formData.materialId,
-  });
-
   const obraSeleccionadaData = obras.find((o) => o.id === obraSeleccionada);
   const {
     foto,
@@ -157,10 +153,6 @@ const ValeMaterialAsfalticoScreen = () => {
     radioConfigurado,
     resetEvidencia,
   } = useEvidenciaVale(obraSeleccionadaData);
-
-  const presupuestoAgotado =
-    presupuestoMaterial?.nivel === "blocked" ||
-    presupuestoMaterial?.sinConfigurar === true;
 
   useEffect(() => {
     return () => {
@@ -286,6 +278,18 @@ const ValeMaterialAsfalticoScreen = () => {
       selectedOperador: vehiculo.operador_sugerido || null,
     }));
   };
+
+  const handleOperadorSeleccionado = (operador) => {
+    setFormData((prev) => ({ ...prev, selectedOperador: operador }));
+    setShowModalSeleccionarOperador(false);
+  };
+
+  const operadoresDelSindicato = operadores.filter(
+    (op) => op.id_sindicato === formData.sindicatoId,
+  );
+  const sindicatoSeleccionadoNombre = sindicatos.find(
+    (s) => s.id_sindicato === formData.sindicatoId,
+  )?.sindicato;
 
   const handleCrearVale = () => {
     if (!validateForm(false, false)) {
@@ -433,22 +437,6 @@ const ValeMaterialAsfalticoScreen = () => {
 
   return (
     <View style={styles.container}>
-      {materialConsultado && formData.materialId && (
-        <View style={styles.presupuestoFijo}>
-          <PresupuestoIndicator
-            sinConfigurar={presupuestoMaterial?.sinConfigurar}
-            label={materialSeleccionado?.material || "Material Asfáltico"}
-            disponible={presupuestoMaterial?.disponible}
-            presupuesto={presupuestoMaterial?.presupuestados}
-            consumidos={presupuestoMaterial?.consumidos}
-            porcentaje={presupuestoMaterial?.porcentaje}
-            nivel={presupuestoMaterial?.nivel}
-            tipo="material"
-            ocultarCantidades={esChecador}
-          />
-        </View>
-      )}
-
       <KeyboardAvoidingScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -484,6 +472,11 @@ const ValeMaterialAsfalticoScreen = () => {
             }
             onChangeText={() => {}}
             editable={false}
+          />
+
+          <RefrescarCatalogoButton
+            onPress={refrescarCatalogos}
+            refrescando={refrescandoCatalogos}
           />
 
           <CustomModalPicker
@@ -602,6 +595,23 @@ const ValeMaterialAsfalticoScreen = () => {
             error={errors.operadorId}
           />
 
+          <PrimaryButton
+            title="Cambiar Operador"
+            onPress={() => {
+              if (!formData.sindicatoId) {
+                Alert.alert(
+                  "Selecciona un sindicato",
+                  "Debes seleccionar el sindicato antes de cambiar el operador.",
+                );
+                return;
+              }
+              setShowModalSeleccionarOperador(true);
+            }}
+            icon="account-hard-hat"
+            backgroundColor={colors.secondary}
+            disabled={!formData.sindicatoId}
+          />
+
           <FormInput
             label="Notas"
             value={formData.notasAdicionales}
@@ -633,12 +643,11 @@ const ValeMaterialAsfalticoScreen = () => {
 
         <View style={styles.buttonContainer}>
           <PrimaryButton
-            title={presupuestoAgotado ? "Presupuesto Agotado" : "Crear Vale"}
+            title="Crear Vale"
             onPress={handleCrearVale}
             loading={submitting}
-            icon={presupuestoAgotado ? "cancel" : "check-circle"}
-            backgroundColor={presupuestoAgotado ? colors.disabled : colors.accent}
-            disabled={presupuestoAgotado}
+            icon="check-circle"
+            backgroundColor={colors.accent}
           />
         </View>
 
@@ -695,6 +704,15 @@ const ValeMaterialAsfalticoScreen = () => {
         expectedSindicatoId={formData.sindicatoId}
       />
 
+      <ModalSeleccionarOperador
+        visible={showModalSeleccionarOperador}
+        operadores={operadoresDelSindicato}
+        sindicatoNombre={sindicatoSeleccionadoNombre}
+        asignando={false}
+        onSeleccionar={handleOperadorSeleccionado}
+        onCancelar={() => setShowModalSeleccionarOperador(false)}
+      />
+
       <ModalImprimirTicketRenta
         visible={showModalImpresion}
         valeData={valeParaImpresion}
@@ -724,9 +742,4 @@ export default ValeMaterialAsfalticoScreen;
 
 const styles = {
   ...commonStyles,
-  presupuestoFijo: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    backgroundColor: colors.background,
-  },
 };

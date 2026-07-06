@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 // Config
 import { colors } from "../config/colors";
@@ -36,6 +37,7 @@ import SelectorCantidadVales from "../componets/vale/SelectorCantidadVales";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
 import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
 import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
+import RefrescarCatalogoButton from "../componets/common/RefrescarCatalogoButton";
 
 const ValeMaterialScreen = () => {
   const navigation = useNavigation();
@@ -43,6 +45,7 @@ const ValeMaterialScreen = () => {
   const isMounted = useRef(true);
   const selectorCantidadRef = useRef(null);
   const esChecador = userRole === "CHECADOR";
+  const esPlantaAsfaltos = userRole === "Planta de Asfaltos";
 
   const [cantidadVales, setCantidadVales] = useState(1);
 
@@ -57,9 +60,13 @@ const ValeMaterialScreen = () => {
     bancos,
     sindicatos,
     loading: loadingCatalogos,
+    refrescando: refrescandoCatalogos,
+    refrescarCatalogos,
   } = useCatalogos(catalogosRequeridos);
 
-  const materialesFiltrados = materiales;
+  const materialesFiltrados = materiales.filter(
+    (m) => m.id_tipo_de_material !== 2,
+  );
 
   // Estados locales
   const [valeCreado, setValeCreado] = useState(null);
@@ -150,8 +157,44 @@ const ValeMaterialScreen = () => {
   }, [obraSeleccionada, obras]);
 
   // Efecto: Calcular distancia cuando cambia banco u obra
+  // Si el rol es "Planta de Asfaltos", el material no se descarga en la
+  // obra sino en la planta: la distancia sale de distancias_banco_planta
+  // (banco -> planta), aunque el vale se sigue cargando a la obra elegida.
   useEffect(() => {
     const calcularDistancia = async () => {
+      if (esPlantaAsfaltos) {
+        if (!formData.bancoId) {
+          setFormData((prev) => ({ ...prev, distancia: "" }));
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase
+            .from("distancias_banco_planta")
+            .select("distancia_km")
+            .eq("id_banco", formData.bancoId)
+            .maybeSingle();
+
+          if (error) throw error;
+
+          if (data?.distancia_km) {
+            setFormData((prev) => ({
+              ...prev,
+              distancia: data.distancia_km.toString(),
+            }));
+          } else {
+            setFormData((prev) => ({ ...prev, distancia: "" }));
+            Alert.alert(
+              "Distancia no configurada",
+              "No hay una distancia registrada entre el banco seleccionado y la Planta de Asfaltos. Contacta al administrador.",
+            );
+          }
+        } catch (error) {
+          Alert.alert("Error", "No se pudo obtener la distancia");
+        }
+        return;
+      }
+
       if (!formData.bancoId || !obraSeleccionada) {
         setFormData((prev) => ({ ...prev, distancia: "" }));
         return;
@@ -189,7 +232,7 @@ const ValeMaterialScreen = () => {
     };
 
     calcularDistancia();
-  }, [formData.bancoId, obraSeleccionada, obras]);
+  }, [formData.bancoId, obraSeleccionada, obras, esPlantaAsfaltos]);
 
   // Efecto: Compartir PDF cuando QR esté listo
 
@@ -274,6 +317,7 @@ const ValeMaterialScreen = () => {
           generateFolio,
           materialesFiltrados,
           cantidad,
+          { esPlantaAsfaltos },
         );
 
         if (isMounted.current) {
@@ -287,6 +331,7 @@ const ValeMaterialScreen = () => {
           userProfile,
           generateFolio,
           materialesFiltrados,
+          { esPlantaAsfaltos },
         );
 
         if (isMounted.current) {
@@ -368,6 +413,19 @@ const ValeMaterialScreen = () => {
             loading={loadingObras}
           />
 
+          {esPlantaAsfaltos && (
+            <View style={styles.avisoPlantaAsfaltos}>
+              <MaterialCommunityIcons name="information-outline" size={18} color={colors.secondary} />
+              <Text style={styles.avisoPlantaAsfaltosTexto}>
+                Este vale se cargará a la obra{" "}
+                {obraSeleccionada
+                  ? obras.find((o) => o.id === obraSeleccionada)?.nombre || "seleccionada"
+                  : "seleccionada"}
+                {" "}pero el material se entrega en la Planta de Asfaltos.
+              </Text>
+            </View>
+          )}
+
           <FormInput
             label="Empresa"
             value={
@@ -378,6 +436,11 @@ const ValeMaterialScreen = () => {
             }
             onChangeText={() => {}}
             editable={false}
+          />
+
+          <RefrescarCatalogoButton
+            onPress={refrescarCatalogos}
+            refrescando={refrescandoCatalogos}
           />
 
           <CustomModalPicker
@@ -505,5 +568,21 @@ const styles = {
     paddingHorizontal: 16,
     paddingTop: 8,
     backgroundColor: colors.background,
+  },
+  avisoPlantaAsfaltos: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  avisoPlantaAsfaltosTexto: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textPrimary,
   },
 };

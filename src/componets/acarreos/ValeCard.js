@@ -65,6 +65,7 @@ const getMaterialInfo = (vale) => {
       requisicion: detalle.requisicion || null,
       material: detalle.material?.material || "N/A",
       folioValeFisico: detalle.folio_vale_fisico || null,
+      esPlantaAsfaltos: detalle.es_planta_asfaltos || false,
     };
   }
   return null;
@@ -112,6 +113,13 @@ const ValeCard = ({ vale, onPress }) => {
         </View>
         <StatusBadge estado={estadoActual} size="small" />
       </View>
+
+      {materialInfo?.esPlantaAsfaltos && (
+        <View style={styles.badgePlanta}>
+          <MaterialCommunityIcons name="factory" size={12} color={colors.secondary} />
+          <Text style={styles.badgePlantaTexto}>Planta de Asfaltos</Text>
+        </View>
+      )}
 
       {/* Información del operador */}
       <View style={styles.row}>
@@ -309,5 +317,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.accent,
     fontWeight: "500",
+  },
+  badgePlanta: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginBottom: 6,
+  },
+  badgePlantaTexto: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.secondary,
   },
 });

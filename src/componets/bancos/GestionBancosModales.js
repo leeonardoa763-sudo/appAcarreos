@@ -198,6 +198,107 @@ export function ModalDistancia({ visible, distancia, listaBancos, obras, onGuard
   );
 }
 
+export function ModalDistanciaPlanta({ visible, distancia, listaBancos, onGuardar, onCerrar }) {
+  const esEdicion = !!distancia;
+  const [bancoSelId, setBancoSelId] = useState(null);
+  const [distKm, setDistKm] = useState("");
+  const [errMsg, setErrMsg] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setBancoSelId(distancia?.id_banco ?? null);
+      setDistKm(distancia ? String(distancia.distancia_km) : "");
+      setErrMsg("");
+    }
+  }, [visible, distancia]);
+
+  const handleGuardar = async () => {
+    if (!esEdicion && !bancoSelId) { setErrMsg("Selecciona un banco"); return; }
+    const km = parseFloat(distKm);
+    if (!distKm.trim() || isNaN(km) || km <= 0) { setErrMsg("Ingresa una distancia valida en km"); return; }
+    setGuardando(true);
+    try {
+      if (esEdicion) {
+        await onGuardar(distancia.id_distancia_banco_planta, km);
+      } else {
+        await onGuardar({ id_banco: bancoSelId, distancia_km: km });
+      }
+      onCerrar();
+    } catch (e) {
+      setErrMsg(e.message ?? "Error al guardar");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCerrar}>
+      <View style={estilos.overlay}>
+        <View style={[estilos.caja, { maxHeight: "88%" }]}>
+          <View style={estilos.header}>
+            <Text style={estilos.titulo}>{esEdicion ? "Editar distancia a planta" : "Nueva distancia a planta"}</Text>
+            <TouchableOpacity onPress={onCerrar}>
+              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={estilos.cuerpo} keyboardShouldPersistTaps="handled">
+            {esEdicion ? (
+              <View style={estilos.infoRow}>
+                <MaterialCommunityIcons name="map-marker-distance" size={16} color={colors.secondary} />
+                <Text style={estilos.infoTexto}>
+                  {distancia?.bancos?.banco}{"  →  "}Planta de Asfaltos
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={estilos.inputLabel}>Banco</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.chipsScroll}>
+                  {listaBancos.map((b) => (
+                    <TouchableOpacity
+                      key={b.id_banco}
+                      style={[estilos.chip, bancoSelId === b.id_banco && estilos.chipActivo]}
+                      onPress={() => { setBancoSelId(b.id_banco); setErrMsg(""); }}
+                    >
+                      <Text style={[estilos.chipTexto, bancoSelId === b.id_banco && estilos.chipTextoActivo]}>
+                        {b.banco}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
+            <Text style={[estilos.inputLabel, { marginTop: esEdicion ? 0 : 14 }]}>Distancia (km)</Text>
+            <TextInput
+              style={[estilos.input, errMsg ? estilos.inputError : null]}
+              value={distKm}
+              onChangeText={(v) => { setDistKm(v); setErrMsg(""); }}
+              keyboardType="decimal-pad"
+              placeholder="Ej: 12.5"
+              placeholderTextColor={colors.textSecondary}
+            />
+            {errMsg ? <Text style={estilos.errorTexto}>{errMsg}</Text> : null}
+          </ScrollView>
+
+          <View style={estilos.pie}>
+            <TouchableOpacity style={estilos.btnCancelar} onPress={onCerrar}>
+              <Text style={estilos.btnCancelarTexto}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={estilos.btnGuardar} onPress={handleGuardar} disabled={guardando}>
+              {guardando
+                ? <ActivityIndicator size="small" color={colors.surface} />
+                : <Text style={estilos.btnGuardarTexto}>Guardar</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export function ModalPesoEspecifico({ visible, peso, listaBancos, materiales, onGuardar, onCerrar }) {
   const esEdicion = !!peso;
   const [bancoSelId, setBancoSelId] = useState(null);

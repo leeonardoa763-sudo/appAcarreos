@@ -1,5 +1,5 @@
 // src/screens/PresupuestosObraScreen.js
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -32,7 +32,15 @@ export default function PresupuestosObraScreen() {
     userProfile?.id_persona,
     true
   );
-  const { materiales } = useCatalogos(["materiales"]);
+  const { materiales, refrescarCatalogos } = useCatalogos(["materiales"]);
+
+  // Esta pantalla crea presupuestos para materiales que pueden acabar de
+  // crearse (incluso manualmente en Supabase) — siempre pide el catálogo
+  // fresco al abrir, sin depender de la caché de useCatalogos.
+  useEffect(() => {
+    refrescarCatalogos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [modal, setModal] = useState(null);

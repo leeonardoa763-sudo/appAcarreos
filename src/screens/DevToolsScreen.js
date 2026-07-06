@@ -29,6 +29,12 @@ const OPCIONES = [
     label: "Bancos de material",
     descripcion: "Crear y configurar bancos, distancias y pesos especificos",
   },
+  {
+    destino: "GestionObras",
+    icono: "office-building-marker-outline",
+    label: "Gestion de obras",
+    descripcion: "Crear, editar y asignar obras a usuarios",
+  },
 ];
 
 export default function DevToolsScreen({ navigation }) {

@@ -38,6 +38,7 @@ export const useObras = (personaId, esAdmin = false) => {
           .from("obras")
           .select(OBRAS_SELECT)
           .neq("id_obra", 888)
+          .eq("activo", true)
           .order("id_obra", { ascending: true });
 
         if (obrasError) throw obrasError;
@@ -62,10 +63,11 @@ export const useObras = (personaId, esAdmin = false) => {
               id,
               persona_id,
               obra_id,
-              obras!obra_id (${OBRAS_SELECT})
+              obras!obra_id!inner (${OBRAS_SELECT})
             `,
             )
             .eq("persona_id", personaId)
+            .eq("obras.activo", true)
             .order("created_at", { ascending: true });
 
         if (personaObrasError) throw personaObrasError;

@@ -176,6 +176,15 @@ export const useViajesMaterial = (
   const registrarViaje = useCallback(
     async ({ pesoTon, volumenDirecto, folioValeFisico } = {}) => {
       const esAdministrador = userProfile?.roles?.role === "Administrador";
+      const esChecador = userProfile?.roles?.role === "CHECADOR";
+
+      if (esChecador && detalle?.es_planta_asfaltos) {
+        Alert.alert(
+          "No disponible",
+          "Este vale es de la Planta de Asfaltos. Solo un perfil de Planta de Asfaltos puede registrar viajes aqui.",
+        );
+        return false;
+      }
 
       if (!esAdministrador && !esDentroJornada(fechaCreacionVale)) {
         Alert.alert(

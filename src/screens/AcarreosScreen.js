@@ -36,12 +36,15 @@ import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
 import CollapsibleSection from "../componets/common/CollapsibleSection";
 import BotonVerMas from "../componets/common/BotonVerMas";
 import ModalPruebaImpresion from "../componets/dev/ModalPruebaImpresion";
+import TutorialValeDetalleModal from "../componets/tutorial/TutorialValeDetalleModal";
+import { useTutorialSeen } from "../hooks/useTutorialSeen";
 
 const AcarreosScreen = () => {
   const { userProfile, userRole } = useAuth();
   const route = useRoute();
   const esChecador = userRole === "CHECADOR";
   const esAdministrador = userRole === "Administrador";
+  const esPlantaAsfaltos = userRole === "Planta de Asfaltos";
 
   const { obras, loading: obrasLoading } = useObras(userProfile?.id_persona, esAdministrador);
 
@@ -138,6 +141,29 @@ const AcarreosScreen = () => {
     return () => clearTimeout(timer);
   }, [route.params?.valeEscaneado]);
 
+  // ─── Tutorial guiado (checador): vale ficticio simulado ────────────────────
+  // Independiente del efecto de valeEscaneado real (arriba): usa un nombre de
+  // parámetro distinto para nunca disparar un fetch real a Supabase con un
+  // id_vale ficticio. Ver src/componets/tutorial/TutorialValeDetalleModal.js.
+
+  const tutorialSeenAcarreos = useTutorialSeen(esChecador ? "CHECADOR" : null);
+  const [tutorialValeVisible, setTutorialValeVisible] = useState(false);
+  const [tutorialValeFake, setTutorialValeFake] = useState(null);
+
+  useEffect(() => {
+    const valeFicticio = route.params?.tutorialValeFicticio;
+    if (!valeFicticio) return;
+
+    const timer = setTimeout(() => {
+      if (isMounted.current) {
+        setTutorialValeFake(valeFicticio);
+        setTutorialValeVisible(true);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [route.params?.tutorialValeFicticio, route.params?.tutorialTs]);
+
   // ─── Fetch ────────────────────────────────────────────────────────────────
 
   const fetchVales = async (silent = false, force = false) => {
@@ -205,8 +231,17 @@ const AcarreosScreen = () => {
         valesData = data || [];
       }
 
-      const material = valesData.filter((v) => v.tipo_vale === "material");
-      const renta = valesData.filter((v) => v.tipo_vale === "renta");
+      let material = valesData.filter((v) => v.tipo_vale === "material");
+      let renta = valesData.filter((v) => v.tipo_vale === "renta");
+
+      // El rol Planta de Asfaltos solo gestiona vales de material para la
+      // planta — no ve renta ni vales normales de obra en esta pantalla.
+      if (esPlantaAsfaltos) {
+        material = material.filter(
+          (v) => v.vale_material_detalles?.[0]?.es_planta_asfaltos,
+        );
+        renta = [];
+      }
 
       if (isMounted.current) {
         setValesMaterial(material);
@@ -672,6 +707,13 @@ const AcarreosScreen = () => {
         vale={selectedVale}
         onClose={handleCloseModal}
         onRefresh={() => fetchVales(true, true)}
+      />
+
+      <TutorialValeDetalleModal
+        visible={tutorialValeVisible}
+        vale={tutorialValeFake}
+        onClose={() => setTutorialValeVisible(false)}
+        onFinalizarTutorial={() => tutorialSeenAcarreos.markSeen()}
       />
     </>
   );

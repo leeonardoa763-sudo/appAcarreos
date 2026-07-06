@@ -4,6 +4,7 @@ import { supabase } from "../config/supabase";
 export function useGestionBancos() {
   const [bancos, setBancos] = useState([]);
   const [distancias, setDistancias] = useState([]);
+  const [distanciasPlanta, setDistanciasPlanta] = useState([]);
   const [pesosEspecificos, setPesosEspecificos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -29,6 +30,18 @@ export function useGestionBancos() {
       .order("id_banco");
     if (err) setError(err.message);
     else setDistancias(data ?? []);
+    setLoading(false);
+  };
+
+  const fetchDistanciasPlanta = async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error: err } = await supabase
+      .from("distancias_banco_planta")
+      .select("id_distancia_banco_planta, id_banco, distancia_km, bancos(banco)")
+      .order("id_banco");
+    if (err) setError(err.message);
+    else setDistanciasPlanta(data ?? []);
     setLoading(false);
   };
 
@@ -87,6 +100,32 @@ export function useGestionBancos() {
     await fetchDistancias();
   };
 
+  const crearDistanciaPlanta = async ({ id_banco, distancia_km }) => {
+    const { error: err } = await supabase
+      .from("distancias_banco_planta")
+      .insert({ id_banco, distancia_km: parseFloat(distancia_km) });
+    if (err) throw err;
+    await fetchDistanciasPlanta();
+  };
+
+  const editarDistanciaPlanta = async (idDistanciaPlanta, distancia_km) => {
+    const { error: err } = await supabase
+      .from("distancias_banco_planta")
+      .update({ distancia_km: parseFloat(distancia_km) })
+      .eq("id_distancia_banco_planta", idDistanciaPlanta);
+    if (err) throw err;
+    await fetchDistanciasPlanta();
+  };
+
+  const eliminarDistanciaPlanta = async (idDistanciaPlanta) => {
+    const { error: err } = await supabase
+      .from("distancias_banco_planta")
+      .delete()
+      .eq("id_distancia_banco_planta", idDistanciaPlanta);
+    if (err) throw err;
+    await fetchDistanciasPlanta();
+  };
+
   const crearPeso = async ({ id_banco, id_material, peso_especifico }) => {
     const { error: err } = await supabase
       .from("peso_especifico")
@@ -116,17 +155,22 @@ export function useGestionBancos() {
   return {
     bancos,
     distancias,
+    distanciasPlanta,
     pesosEspecificos,
     loading,
     error,
     fetchBancos,
     fetchDistancias,
+    fetchDistanciasPlanta,
     fetchPesos,
     crearBanco,
     editarBanco,
     crearDistancia,
     editarDistancia,
     eliminarDistancia,
+    crearDistanciaPlanta,
+    editarDistanciaPlanta,
+    eliminarDistanciaPlanta,
     crearPeso,
     editarPeso,
     eliminarPeso,

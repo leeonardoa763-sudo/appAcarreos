@@ -92,6 +92,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const tieneDatosPendientes = !vale?.id_operador || !vale?.id_vehiculo;
   const esTipo3 = detalleMaterial?.material?.id_tipo_de_material === 3;
   const tipoMaterial = detalleMaterial?.material?.id_tipo_de_material ?? null;
+  const esPlantaAsfaltosVale = detalleMaterial?.es_planta_asfaltos ?? false;
+  const bloqueadoPlantaAsfaltos = esChecador && esPlantaAsfaltosVale;
 
   // ─── Lógica de fecha operacional ──────────────────────────────────────────
   const ahora = new Date();
@@ -233,6 +235,15 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           <StatusBadge estado={vale.estado} />
         </View>
 
+        {esPlantaAsfaltosVale && (
+          <View style={styles.badgePlantaAsfaltos}>
+            <MaterialCommunityIcons name="factory" size={16} color={colors.secondary} />
+            <Text style={styles.badgePlantaAsfaltosTexto}>
+              Vale para Planta de Asfaltos
+            </Text>
+          </View>
+        )}
+
         {/* Vale programado */}
         {vale?.estado === "en_proceso" && vale?.fecha_programada && (
           <View style={styles.programadoContainer}>
@@ -339,6 +350,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             esResidente={esResidente}
             onEliminarUltimoViaje={eliminarUltimoViaje}
             eliminandoViaje={eliminandoViaje}
+            bloqueadoPlantaAsfaltos={bloqueadoPlantaAsfaltos}
           />
         )}
         {/* Botón reimprimir PDF — todos los estados excepto en_proceso */}

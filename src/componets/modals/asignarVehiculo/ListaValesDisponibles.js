@@ -47,6 +47,9 @@ const getBanco = (vale) =>
     ? vale.vale_material_detalles?.[0]?.banco?.banco ?? null
     : null;
 
+const esPlantaAsfaltosVale = (vale) =>
+  !!vale.vale_material_detalles?.[0]?.es_planta_asfaltos;
+
 const getEmpresa = (vale) => vale.empresas?.empresa ?? null;
 
 const sortByMaterial = (a, b) => {
@@ -71,6 +74,7 @@ const ModalConfirmacion = ({ vale, onConfirmar, onCancelar }) => {
   const tipoTexto = esMaterial ? "Material" : "Renta de Equipo";
   const tipoColor = esMaterial ? colors.primary : colors.secondary;
   const tipoIcono = esMaterial ? "package-variant" : "truck-cargo-container";
+  const esPlanta = esPlantaAsfaltosVale(vale);
 
   return (
     <Modal
@@ -137,6 +141,36 @@ const ModalConfirmacion = ({ vale, onConfirmar, onCancelar }) => {
                 </Text>
               </View>
             </View>
+
+            {/* Planta de Asfaltos */}
+            {esPlanta && (
+              <>
+                <View style={confirmStyles.separador} />
+                <View style={confirmStyles.fila}>
+                  <MaterialCommunityIcons
+                    name="factory"
+                    size={16}
+                    color={colors.secondary}
+                  />
+                  <Text style={confirmStyles.filaLabel}>Destino</Text>
+                  <View
+                    style={[
+                      confirmStyles.tipoBadge,
+                      { backgroundColor: `${colors.secondary}15` },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        confirmStyles.tipoBadgeTexto,
+                        { color: colors.secondary },
+                      ]}
+                    >
+                      Planta de Asfaltos
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
 
             {/* Material */}
             {materialNombre && (
@@ -353,6 +387,7 @@ const ItemVale = ({ vale, asignando, onSeleccionar }) => {
   const materialNombre = getMaterialNombre(vale);
   const banco = getBanco(vale);
   const empresa = getEmpresa(vale);
+  const esPlanta = esPlantaAsfaltosVale(vale);
   const obra = vale.obras
     ? `${vale.obras.cc ? vale.obras.cc + " - " : ""}${vale.obras.obra}`
     : "Sin obra";
@@ -389,6 +424,12 @@ const ItemVale = ({ vale, asignando, onSeleccionar }) => {
             </Text>
           </View>
         </View>
+        {esPlanta && (
+          <View style={styles.itemValeBadgePlanta}>
+            <MaterialCommunityIcons name="factory" size={11} color={colors.secondary} />
+            <Text style={styles.itemValeBadgePlantaTexto}>Planta de Asfaltos</Text>
+          </View>
+        )}
         {materialNombre && (
           <Text style={styles.itemValeMaterial} numberOfLines={1}>
             {banco ? `${materialNombre} · ${banco}` : materialNombre}

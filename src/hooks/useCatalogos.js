@@ -18,12 +18,16 @@
  * const { materiales, sindicatos, bancos, loading } = useCatalogos(['materiales', 'sindicatos', 'bancos']);
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../config/supabase";
 import { getCached, setCached } from "../utils/storageUtils";
 
 const CATALOG_TTL = {
-  materiales: 4 * 3600 * 1000,
+  // Bajado de 4h a 10min: la creación de materiales desde el panel admin
+  // solo invalida la caché en el propio dispositivo del admin, no en el
+  // resto — con TTL de 4h otros usuarios tardaban hasta 4h en ver
+  // materiales/presupuestos nuevos aunque ya existieran en Supabase.
+  materiales: 10 * 60 * 1000,
   sindicatos: 24 * 3600 * 1000,
   bancos: 24 * 3600 * 1000,
   preciosRenta: 4 * 3600 * 1000,
@@ -44,59 +48,67 @@ export const useCatalogos = (catalogosRequeridos = []) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchers = {
-      materiales: () =>
-        supabase
-          .from("material")
-          .select(
-            `id_material, material, id_tipo_de_material,
-            tipo_de_material:id_tipo_de_material (id_tipo_de_material, tipo_de_material)`,
-          )
-          .eq("activo", true)
-          .order("material"),
-      sindicatos: () =>
-        supabase
-          .from("sindicatos")
-          .select("id_sindicato, sindicato")
-          .order("sindicato"),
-      bancos: () =>
-        supabase.from("bancos").select("id_banco, banco").order("banco"),
-      preciosRenta: () => supabase.from("precios_renta").select("*"),
-      operadores: () =>
-        supabase
-          .from("operadores")
-          .select("id_operador, nombre_completo, id_sindicato")
-          .eq("activo", true)
-          .order("nombre_completo"),
-      vehiculos: () =>
-        supabase
-          .from("vehiculos")
-          .select("id_vehiculo, placas, id_sindicato, capacidad_m3")
-          .eq("activo", true)
-          .order("placas"),
-    };
+  const [refrescando, setRefrescando] = useState(false);
 
-    const setters = {
-      materiales: setMateriales,
-      sindicatos: setSindicatos,
-      bancos: setBancos,
-      preciosRenta: setPreciosRenta,
-      operadores: setOperadores,
-      vehiculos: setVehiculos,
-    };
+  const fetchCatalogos = useCallback(
+    async (ignorarCache = false) => {
+      const fetchers = {
+        materiales: () =>
+          supabase
+            .from("material")
+            .select(
+              `id_material, material, id_tipo_de_material,
+              tipo_de_material:id_tipo_de_material (id_tipo_de_material, tipo_de_material)`,
+            )
+            .eq("activo", true)
+            .order("material"),
+        sindicatos: () =>
+          supabase
+            .from("sindicatos")
+            .select("id_sindicato, sindicato")
+            .order("sindicato"),
+        bancos: () =>
+          supabase.from("bancos").select("id_banco, banco").order("banco"),
+        preciosRenta: () => supabase.from("precios_renta").select("*"),
+        operadores: () =>
+          supabase
+            .from("operadores")
+            .select("id_operador, nombre_completo, id_sindicato")
+            .eq("activo", true)
+            .order("nombre_completo"),
+        vehiculos: () =>
+          supabase
+            .from("vehiculos")
+            .select("id_vehiculo, placas, id_sindicato, capacidad_m3")
+            .eq("activo", true)
+            .order("placas"),
+      };
 
-    const fetchCatalogos = async () => {
+      const setters = {
+        materiales: setMateriales,
+        sindicatos: setSindicatos,
+        bancos: setBancos,
+        preciosRenta: setPreciosRenta,
+        operadores: setOperadores,
+        vehiculos: setVehiculos,
+      };
+
       try {
-        setLoading(true);
+        if (ignorarCache) {
+          setRefrescando(true);
+        } else {
+          setLoading(true);
+        }
         setError(null);
 
         await Promise.all(
           catalogosRequeridos.map(async (nombre) => {
-            const cached = await getCached(`cat_${nombre}`, CATALOG_TTL[nombre]);
-            if (cached) {
-              setters[nombre](cached);
-              return;
+            if (!ignorarCache) {
+              const cached = await getCached(`cat_${nombre}`, CATALOG_TTL[nombre]);
+              if (cached) {
+                setters[nombre](cached);
+                return;
+              }
             }
             const { data, error } = await fetchers[nombre]();
             if (error) throw error;
@@ -109,15 +121,28 @@ export const useCatalogos = (catalogosRequeridos = []) => {
         setError(err);
       } finally {
         setLoading(false);
+        setRefrescando(false);
       }
-    };
+    },
+    [catalogosRequeridos],
+  );
 
+  useEffect(() => {
     if (catalogosRequeridos.length > 0) {
       fetchCatalogos();
     } else {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Vuelve a pedir los catálogos a Supabase ignorando la caché local —
+  // para cuando un usuario necesita ver un material/catálogo recién
+  // creado sin esperar el TTL.
+  const refrescarCatalogos = useCallback(
+    () => fetchCatalogos(true),
+    [fetchCatalogos],
+  );
 
   // Retornar todos los estados para que el componente los use
   return {
@@ -129,5 +154,7 @@ export const useCatalogos = (catalogosRequeridos = []) => {
     vehiculos,
     loading,
     error,
+    refrescando,
+    refrescarCatalogos,
   };
 };

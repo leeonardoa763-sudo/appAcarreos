@@ -264,6 +264,7 @@ const ViajesMaterialSection = ({
   esResidente = false,
   onEliminarUltimoViaje,
   eliminandoViaje = false,
+  bloqueadoPlantaAsfaltos = false,
 }) => {
   // Para materiales asfálticos (tipo 2) siempre será 1 viaje; ocultar sección
   if (typeof tipoMaterial !== "undefined" && tipoMaterial === 2) return null;
@@ -322,6 +323,13 @@ const ViajesMaterialSection = ({
   // ─── Manejar registro de viaje ────────────────────────────────────────────
 
   const handleRegistrar = useCallback(async () => {
+    if (bloqueadoPlantaAsfaltos) {
+      Alert.alert(
+        "No disponible",
+        "Este vale es de la Planta de Asfaltos. Solo un perfil de Planta de Asfaltos puede registrar viajes aqui.",
+      );
+      return;
+    }
     if (!tieneTicketPendiente) {
       Alert.alert(
         "Ticket requerido",
@@ -347,7 +355,7 @@ const ViajesMaterialSection = ({
       debugTicketEnConsola(vale, detalle, resultado);
       setViajeParaFoto(resultado);
     }
-  }, [validarFormulario, onRegistrarViaje, esTipo3, valores, tieneTicketPendiente]);
+  }, [validarFormulario, onRegistrarViaje, esTipo3, valores, tieneTicketPendiente, bloqueadoPlantaAsfaltos]);
 
   const handleFotoGuardada = useCallback(
     async (idViaje, fotoUrl, ubicacion, distanciaObra) => {
@@ -488,50 +496,59 @@ const ViajesMaterialSection = ({
       )}
 
       {/* Botón registrar */}
-      {(() => {
-        const botonActivo = puedeRegistrar && tieneTicketPendiente && !registrando;
-        const labelViaje =
-          totalViajes === 0
-            ? "Registrar Primer Viaje"
-            : `Registrar Viaje ${totalViajes + 1}`;
-        return (
-          <TouchableOpacity
-            style={[
-              styles.botonRegistrar,
-              !botonActivo && styles.botonDeshabilitado,
-            ]}
-            onPress={handleRegistrar}
-            disabled={registrando}
-            activeOpacity={0.8}
-          >
-            {registrando ? (
-              <ActivityIndicator size="small" color={colors.surface} />
-            ) : (
-              <>
-                <MaterialCommunityIcons
-                  name="plus-circle"
-                  size={20}
-                  color={botonActivo ? colors.surface : colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.botonTexto,
-                    !botonActivo && { color: colors.textSecondary },
-                  ]}
-                >
-                  {labelViaje}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        );
-      })()}
-      {!tieneTicketPendiente && (
+      {bloqueadoPlantaAsfaltos ? (
+        <View style={styles.avisoBloqueoPlanta}>
+          <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textSecondary} />
+          <Text style={styles.avisoBloqueoPlantaTexto}>
+            Vale de Planta de Asfaltos. Solo un perfil de Planta de Asfaltos puede registrar viajes.
+          </Text>
+        </View>
+      ) : (
+        (() => {
+          const botonActivo = puedeRegistrar && tieneTicketPendiente && !registrando;
+          const labelViaje =
+            totalViajes === 0
+              ? "Registrar Primer Viaje"
+              : `Registrar Viaje ${totalViajes + 1}`;
+          return (
+            <TouchableOpacity
+              style={[
+                styles.botonRegistrar,
+                !botonActivo && styles.botonDeshabilitado,
+              ]}
+              onPress={handleRegistrar}
+              disabled={registrando}
+              activeOpacity={0.8}
+            >
+              {registrando ? (
+                <ActivityIndicator size="small" color={colors.surface} />
+              ) : (
+                <>
+                  <MaterialCommunityIcons
+                    name="plus-circle"
+                    size={20}
+                    color={botonActivo ? colors.surface : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.botonTexto,
+                      !botonActivo && { color: colors.textSecondary },
+                    ]}
+                  >
+                    {labelViaje}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          );
+        })()
+      )}
+      {!bloqueadoPlantaAsfaltos && !tieneTicketPendiente && (
         <Text style={styles.avisoTicket}>
           Imprime el ticket antes de registrar el siguiente viaje
         </Text>
       )}
-      {tieneTicketPendiente && !puedeRegistrar && (
+      {!bloqueadoPlantaAsfaltos && tieneTicketPendiente && !puedeRegistrar && (
         <Text style={styles.avisoTicket}>
           Espera {minutosRestantes} min antes del siguiente viaje
         </Text>
@@ -736,6 +753,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
     fontStyle: "italic",
+  },
+  avisoBloqueoPlanta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: 12,
+  },
+  avisoBloqueoPlantaTexto: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   botonEliminarViaje: {
     flexDirection: "row",

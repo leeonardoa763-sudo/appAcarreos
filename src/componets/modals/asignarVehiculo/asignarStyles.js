@@ -330,6 +330,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontStyle: "italic",
   },
+  itemValeBadgePlanta: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  itemValeBadgePlantaTexto: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.secondary,
+  },
 });
 
 export default styles;

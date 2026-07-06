@@ -7,6 +7,7 @@ import { Alert } from "react-native";
 // 3. Local - Config
 import { supabase } from "../config/supabase";
 import { esDentroJornada } from "../utils/jornadaLaboral";
+import { useAuth } from "./useAuth";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -37,6 +38,10 @@ const ERRORES = {
  * - (próximo) AsignacionVehiculoScreen o modal equivalente
  */
 const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
+  const { userRole } = useAuth();
+  const esPlantaAsfaltos = userRole === "Planta de Asfaltos";
+  const esAdministrador = userRole === "Administrador";
+
   // ─── Estado ───────────────────────────────────────────────────────────────
 
   const [vehiculo, setVehiculo] = useState(null);
@@ -233,6 +238,7 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
           obras ( obra, cc ),
           vale_material_detalles (
             id_sindicato,
+            es_planta_asfaltos,
             banco:id_banco ( id_banco, banco ),
             material:id_material ( id_tipo_de_material, material )
           ),
@@ -256,6 +262,15 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
 
       const valesFiltrados = (data ?? []).filter((vale) => {
         if (!esDentroJornada(vale.fecha_creacion)) return false;
+        // Exclusión mutua: un perfil de Planta de Asfaltos solo asigna
+        // vehiculos a vales de planta; cualquier otro rol (Residente,
+        // CHECADOR, etc.) solo ve vales que NO son de planta. Administrador
+        // ve todos. Evita que se mezclen vales de obra con los de planta.
+        const valeEsPlanta = !!vale.vale_material_detalles?.[0]?.es_planta_asfaltos;
+        if (!esAdministrador) {
+          if (esPlantaAsfaltos && !valeEsPlanta) return false;
+          if (!esPlantaAsfaltos && valeEsPlanta) return false;
+        }
         if (vale.tipo_vale === "material") {
           return vale.vale_material_detalles?.[0]?.id_sindicato === idSindicato;
         }
@@ -276,7 +291,7 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
         { text: "OK" },
       ]);
     }
-  }, []);
+  }, [esPlantaAsfaltos, esAdministrador]);
   // ─── 2b. Cargar operadores activos del sindicato ─────────────────────────
 
   const _cargarOperadoresSindicato = useCallback(async (idSindicato) => {
@@ -321,6 +336,33 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
       try {
         setAsignando(true);
         setError(null);
+
+        // ── Guardia: exclusión mutua planta de asfaltos / resto de roles ──────
+        if (!esAdministrador) {
+          const { data: detalleCheck } = await supabase
+            .from("vale_material_detalles")
+            .select("es_planta_asfaltos")
+            .eq("id_vale", idVale)
+            .maybeSingle();
+
+          const valeEsPlanta = !!detalleCheck?.es_planta_asfaltos;
+
+          if (esPlantaAsfaltos && !valeEsPlanta) {
+            Alert.alert(
+              "No disponible",
+              "Este vale no es de la Planta de Asfaltos. Un perfil de Planta de Asfaltos solo puede asignar vehiculo a vales de planta.",
+            );
+            return false;
+          }
+
+          if (!esPlantaAsfaltos && valeEsPlanta) {
+            Alert.alert(
+              "No disponible",
+              "Este vale es de la Planta de Asfaltos. Solo un perfil de Planta de Asfaltos puede asignar vehiculo aqui.",
+            );
+            return false;
+          }
+        }
 
         // ── Re-verificar límite justo antes de escribir ──────────────────────
         const { data: vistaCheck, error: errorCheck } = await supabase
@@ -427,7 +469,7 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
         setAsignando(false);
       }
     },
-    [vehiculo, asignacionActual],
+    [vehiculo, asignacionActual, esPlantaAsfaltos, esAdministrador],
   );
 
   // ─── API pública ──────────────────────────────────────────────────────────
