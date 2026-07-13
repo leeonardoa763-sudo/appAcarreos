@@ -220,10 +220,12 @@ function MainTabs() {
           height: Platform.select({
             ios: 85, // iPhone con n otch/isla dinámica
             android: 115, // Android estándar
+            web: 70,
           }),
           paddingBottom: Platform.select({
             ios: 25, // Espacio para el área segura en iOS
             android: 25,
+            web: 10,
           }),
           paddingTop: 8,
           elevation: 8,

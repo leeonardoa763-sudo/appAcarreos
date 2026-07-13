@@ -16,6 +16,7 @@ import { useNavigation } from "@react-navigation/native";
 
 // 4. Local - Config
 import { colors } from "../config/colors";
+import { HIDE_ON_WEB } from "../config/features";
 import { getTourForRole, TUTORIAL_HELP_BUTTON_ENABLED } from "../config/tutorialSteps";
 
 // 5. Local - Hooks
@@ -35,6 +36,7 @@ import ButtonsGrid from "../componets/ButtonsGrid/ButtonsGrid";
 import TarifasModal from "../componets/TarifasModal";
 import QRScannerModal from "../componets/common/QRScannerModal";
 import ModalAgregarOperador from "../componets/modals/ModalAgregarOperador";
+import ModalAsignarPlacas from "../componets/modals/ModalAsignarPlacas";
 import ModalAsignarVehiculo from "../componets/modals/asignarVehiculo/ModalAsignarVehiculo";
 import ModalSeleccionarVale from "../componets/modals/ModalSeleccionarVale";
 import SeccionOperadoresSindicato from "../componets/operadores/SeccionOperadoresSindicato";
@@ -64,6 +66,8 @@ const ValesScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [tarifasModalVisible, setTarifasModalVisible] = useState(false);
   const [modalOperadorVisible, setModalOperadorVisible] = useState(false);
+  const [modalAsignarPlacasVisible, setModalAsignarPlacasVisible] = useState(false);
+  const [operadoresRefreshKey, setOperadoresRefreshKey] = useState(0);
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
   const [modalSeleccionarVisible, setModalSeleccionarVisible] = useState(false);
   const [valesParaSeleccionar, setValesParaSeleccionar] = useState([]);
@@ -147,6 +151,7 @@ const ValesScreen = () => {
   const handleVerArchivados = () => navigation.navigate("Archivados");
   const handleVerTarifas = () => setTarifasModalVisible(true);
   const handleAgregarOperador = () => setModalOperadorVisible(true);
+  const handleAsignarPlacas = () => setModalAsignarPlacasVisible(true);
 
   // ─── Tutorial guiado (checador) ───────────────────────────────────────────
   // Se calcula aquí (antes del early return de authLoading) porque
@@ -202,6 +207,11 @@ const ValesScreen = () => {
 
   const esResidente = userRole === "Residente";
   const esAdministrador = userRole === "Administrador";
+  const esPlantaAsfaltos = userRole === "Planta de Asfaltos";
+  // Planta de Asfaltos tiene los mismos accesos operativos que Residente
+  // (operadores, eliminar viajes). Ver navegacion/gates por rol.
+  const puedeGestionarOperadores =
+    esResidente || esAdministrador || esPlantaAsfaltos;
 
   const buttonConfigs = [
     !esChecador && {
@@ -212,7 +222,7 @@ const ValesScreen = () => {
       backgroundColor: "#C0460F",
       isMain: true,
     },
-    !esChecador && {
+    !esChecador && !HIDE_ON_WEB && {
       onPress: requestPermissionAndOpen,
       iconName: loadingVale ? "loading" : "qrcode-scan",
       buttonText: "Escanear Vale",
@@ -221,7 +231,7 @@ const ValesScreen = () => {
       isMain: true,
       loading: loadingVale,
     },
-    {
+    !HIDE_ON_WEB && {
       onPress: tutorialArmed
         ? handleStartFakeAsignarFlow
         : () => setModalAsignarVisible(true),
@@ -232,7 +242,7 @@ const ValesScreen = () => {
       isMain: true,
       tutorialId: "asignar-vehiculo",
     },
-    {
+    !HIDE_ON_WEB && {
       onPress: abrirEscanerNav,
       iconName: buscandoVehiculo ? "loading" : "truck-check",
       buttonText: "Registrar Viaje",
@@ -242,11 +252,19 @@ const ValesScreen = () => {
       loading: buscandoVehiculo,
       tutorialId: "registrar-viaje",
     },
-    (esResidente || esAdministrador) && {
+    puedeGestionarOperadores && {
       onPress: handleAgregarOperador,
       iconName: "account-hard-hat",
       buttonText: "Añadir Operador",
-      subtitle: "Registrar operador y vehículo",
+      subtitle: "Operador o placa nueva",
+      backgroundColor: "#2E4057",
+      isMain: true,
+    },
+    puedeGestionarOperadores && {
+      onPress: handleAsignarPlacas,
+      iconName: "card-account-details-outline",
+      buttonText: "Asignar Placas",
+      subtitle: "A un operador ya registrado",
       backgroundColor: "#2E4057",
       isMain: true,
     },
@@ -299,9 +317,9 @@ const ValesScreen = () => {
 
         <ButtonsGrid buttons={buttonConfigs} registerRef={tutorial.registerTarget} />
 
-        {(esResidente || esAdministrador) && (
+        {puedeGestionarOperadores && (
           <View style={styles.seccionOperadores}>
-            <SeccionOperadoresSindicato />
+            <SeccionOperadoresSindicato refreshSignal={operadoresRefreshKey} />
           </View>
         )}
 
@@ -322,7 +340,16 @@ const ValesScreen = () => {
         <ModalAgregarOperador
           visible={modalOperadorVisible}
           onClose={() => setModalOperadorVisible(false)}
-          onOperadorAgregado={() => setModalOperadorVisible(false)}
+          onOperadorAgregado={() => {
+            setModalOperadorVisible(false);
+            setOperadoresRefreshKey((k) => k + 1);
+          }}
+        />
+
+        <ModalAsignarPlacas
+          visible={modalAsignarPlacasVisible}
+          onClose={() => setModalAsignarPlacasVisible(false)}
+          onAsignado={() => setOperadoresRefreshKey((k) => k + 1)}
         />
 
         <ModalSeleccionarVale

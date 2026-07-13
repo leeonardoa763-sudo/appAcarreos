@@ -23,6 +23,7 @@ import { useOperadoresSindicato } from "../../hooks/useOperadoresSindicato";
 import {
   generarPDFOperadorIndividual,
   generarPDFOperadoresMasivo,
+  generarPDFPlacasIndividual,
 } from "../../services/pdfOperadoresGenerator";
 
 // 6. Local - Componentes
@@ -40,7 +41,7 @@ import TarjetaOperador from "./TarjetaOperador";
  * - Exporta PDF masivo con todos los operadores
  * - Todos los grupos expandidos por defecto, colapsables al tocar
  */
-const SeccionOperadoresSindicato = () => {
+const SeccionOperadoresSindicato = ({ refreshSignal }) => {
   const { grupos, loading, error, cargar } = useOperadoresSindicato();
 
   const [expandidos, setExpandidos] = useState({});
@@ -51,7 +52,7 @@ const SeccionOperadoresSindicato = () => {
 
   useEffect(() => {
     cargar();
-  }, [cargar]);
+  }, [cargar, refreshSignal]);
 
   const toggleGrupo = (id_sindicato) => {
     setExpandidos((prev) => ({
@@ -66,18 +67,20 @@ const SeccionOperadoresSindicato = () => {
     ? grupos
         .map((g) => ({
           ...g,
-          operadores: g.operadores.filter((o) =>
-            o.nombre_completo
-              .toLowerCase()
-              .includes(busqueda.toLowerCase().trim()),
-          ),
+          operadores: g.operadores.filter((o) => {
+            const query = busqueda.toLowerCase().trim();
+            const nombre = o.nombre_completo?.toLowerCase() || "";
+            const placas = o.placas?.toLowerCase() || "";
+            return nombre.includes(query) || placas.includes(query);
+          }),
         }))
         .filter((g) => g.operadores.length > 0)
     : grupos;
 
   const handleCompartirIndividual = async (operador) => {
+    const claveTarjeta = `${operador.id_operador}-${operador.id_vehiculo ?? "sin-vehiculo"}`;
     try {
-      setCompartiendo(operador.id_operador);
+      setCompartiendo(claveTarjeta);
       await generarPDFOperadorIndividual(operador);
     } catch (e) {
       Alert.alert("Error", "No se pudo generar el QR del operador.");
@@ -86,7 +89,18 @@ const SeccionOperadoresSindicato = () => {
     }
   };
 
-  const handleExportarTodos = async () => {
+  const correrExport = async (fn, setBusy, valorActivo, valorInactivo) => {
+    try {
+      setBusy(valorActivo);
+      await fn();
+    } catch (e) {
+      Alert.alert("Error", "No se pudo generar el PDF.");
+    } finally {
+      setBusy(valorInactivo);
+    }
+  };
+
+  const handleExportarTodos = () => {
     const totalConQR = grupos.reduce(
       (acc, g) => acc + g.operadores.filter((o) => o.qr_uid).length,
       0,
@@ -99,27 +113,34 @@ const SeccionOperadoresSindicato = () => {
 
     Alert.alert(
       "Exportar todos",
-      `Se generará un PDF con los ${totalConQR} operadores que tienen QR. ¿Continuar?`,
+      `Hay ${totalConQR} placas con QR. ¿Cómo quieres el PDF?`,
       [
         { text: "Cancelar", style: "cancel" },
         {
-          text: "Exportar",
-          onPress: async () => {
-            try {
-              setExportandoTodos(true);
-              await generarPDFOperadoresMasivo(grupos);
-            } catch (e) {
-              Alert.alert("Error", "No se pudo generar el PDF masivo.");
-            } finally {
-              setExportandoTodos(false);
-            }
-          },
+          text: "Compacto",
+          onPress: () =>
+            correrExport(
+              () => generarPDFOperadoresMasivo(grupos),
+              setExportandoTodos,
+              true,
+              false,
+            ),
+        },
+        {
+          text: "Una por hoja",
+          onPress: () =>
+            correrExport(
+              () => generarPDFPlacasIndividual(grupos),
+              setExportandoTodos,
+              true,
+              false,
+            ),
         },
       ],
     );
   };
 
-  const handleExportarSindicato = async (grupo) => {
+  const handleExportarSindicato = (grupo) => {
     const conQR = grupo.operadores.filter((o) => o.qr_uid);
 
     if (conQR.length === 0) {
@@ -132,21 +153,28 @@ const SeccionOperadoresSindicato = () => {
 
     Alert.alert(
       "Exportar sindicato",
-      `Se generará un PDF con ${conQR.length} operadores de ${grupo.sindicato}. ¿Continuar?`,
+      `${grupo.sindicato}: ${conQR.length} placas con QR. ¿Cómo quieres el PDF?`,
       [
         { text: "Cancelar", style: "cancel" },
         {
-          text: "Exportar",
-          onPress: async () => {
-            try {
-              setExportandoSindicato(grupo.id_sindicato);
-              await generarPDFOperadoresMasivo([grupo]);
-            } catch (e) {
-              Alert.alert("Error", "No se pudo generar el PDF.");
-            } finally {
-              setExportandoSindicato(null);
-            }
-          },
+          text: "Compacto",
+          onPress: () =>
+            correrExport(
+              () => generarPDFOperadoresMasivo([grupo]),
+              setExportandoSindicato,
+              grupo.id_sindicato,
+              null,
+            ),
+        },
+        {
+          text: "Una por hoja",
+          onPress: () =>
+            correrExport(
+              () => generarPDFPlacasIndividual([grupo]),
+              setExportandoSindicato,
+              grupo.id_sindicato,
+              null,
+            ),
         },
       ],
     );
@@ -237,7 +265,7 @@ const SeccionOperadoresSindicato = () => {
         />
         <TextInput
           style={styles.buscadorInput}
-          placeholder="Buscar operador..."
+          placeholder="Buscar operador o placas..."
           placeholderTextColor={colors.textSecondary}
           value={busqueda}
           onChangeText={setBusqueda}
@@ -308,14 +336,17 @@ const SeccionOperadoresSindicato = () => {
 
             {estaExpandido && (
               <View style={styles.listaOperadores}>
-                {grupo.operadores.map((operador) => (
-                  <TarjetaOperador
-                    key={operador.id_operador}
-                    operador={operador}
-                    onCompartirQR={handleCompartirIndividual}
-                    compartiendo={compartiendo === operador.id_operador}
-                  />
-                ))}
+                {grupo.operadores.map((operador) => {
+                  const claveTarjeta = `${operador.id_operador}-${operador.id_vehiculo ?? "sin-vehiculo"}`;
+                  return (
+                    <TarjetaOperador
+                      key={claveTarjeta}
+                      operador={operador}
+                      onCompartirQR={handleCompartirIndividual}
+                      compartiendo={compartiendo === claveTarjeta}
+                    />
+                  );
+                })}
               </View>
             )}
           </View>

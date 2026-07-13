@@ -36,7 +36,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 // 4. Local - Config
 import { colors } from "../../../config/colors";
-import { BLUETOOTH_ENABLED } from "../../../config/features";
+import { BLUETOOTH_ENABLED, IS_WEB } from "../../../config/features";
 
 // 5. Local - Hooks
 import { useTicketsMaterial } from "../../../hooks/useTicketsMaterial";
@@ -429,6 +429,22 @@ const TicketsMaterialSection = ({
         </View>
       )}
 
+      {/* Aviso — en web el Bluetooth del navegador no puede hablar con impresoras térmicas */}
+      {IS_WEB && (
+        <View style={styles.avisoWeb}>
+          <MaterialCommunityIcons
+            name="alert-outline"
+            size={18}
+            color={colors.warning}
+          />
+          <Text style={styles.avisoWebTexto}>
+            Estás en la versión web: el ticket se registra, pero la impresión
+            Bluetooth no va a funcionar aquí. Usa la app desde el celular
+            para imprimirlo.
+          </Text>
+        </View>
+      )}
+
       {/* Botón imprimir ticket */}
       <TouchableOpacity
         style={[
@@ -695,6 +711,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: colors.danger,
+  },
+  avisoWeb: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF6E7",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    padding: 12,
+    gap: 8,
+    marginBottom: 10,
+  },
+  avisoWebTexto: {
+    fontSize: 12,
+    color: colors.textPrimary,
+    flex: 1,
+    lineHeight: 17,
   },
 });
 

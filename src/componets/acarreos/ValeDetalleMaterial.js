@@ -15,7 +15,7 @@ import { View, Text, Alert, TouchableOpacity, ActivityIndicator } from "react-na
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { useAuth } from "../../hooks/useAuth";
-import { BLUETOOTH_ENABLED } from "../../config/features";
+import { BLUETOOTH_ENABLED, HIDE_ON_WEB } from "../../config/features";
 
 import KeyboardAvoidingScrollView from "../common/KeyboardAvoidingScrollView";
 import StatusBadge from "../common/StatusBadge";
@@ -46,6 +46,9 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const { userProfile, userRole } = useAuth();
   const esChecador = userRole === "CHECADOR";
   const esResidente = userRole === "Residente";
+  const esPlantaAsfaltos = userRole === "Planta de Asfaltos";
+  // Planta de Asfaltos gestiona viajes/tickets igual que Residente
+  const puedeEliminar = esResidente || esPlantaAsfaltos;
 
   const {
     yaReimprimio,
@@ -313,8 +316,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
           </View>
         )}
 
-        {/* Tickets de material — visible siempre en_proceso (primer ticket no requiere operador) */}
-        {valeLocal?.estado === "en_proceso" && detalleMaterial && (
+        {/* Tickets de material — impresión Bluetooth, fuera de alcance en web */}
+        {!HIDE_ON_WEB && valeLocal?.estado === "en_proceso" && detalleMaterial && (
           <TicketsMaterialSection
             vale={valeLocal}
             detalle={detalleMaterial}
@@ -322,7 +325,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             onTotalTicketsChange={setTotalTickets}
             esTipo3={esTipo3}
             ultimoIdViaje={viajes[viajes.length - 1]?.id_viaje ?? null}
-            esResidente={esResidente}
+            esResidente={puedeEliminar}
           />
         )}
 
@@ -347,14 +350,15 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             esChecador={esChecador}
             notasAdicionales={notasAdicionales}
             setNotasAdicionales={setNotasAdicionales}
-            esResidente={esResidente}
+            esResidente={puedeEliminar}
             onEliminarUltimoViaje={eliminarUltimoViaje}
             eliminandoViaje={eliminandoViaje}
             bloqueadoPlantaAsfaltos={bloqueadoPlantaAsfaltos}
           />
         )}
-        {/* Botón reimprimir PDF — todos los estados excepto en_proceso */}
-        {vale?.estado !== "en_proceso" &&
+        {/* Botón reimprimir PDF — todos los estados excepto en_proceso, fuera de alcance en web */}
+        {!HIDE_ON_WEB &&
+          vale?.estado !== "en_proceso" &&
           !loadingReimpresion &&
           (yaReimprimio ? (
             <View style={styles.reimprimirAgotado}>
@@ -421,8 +425,8 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
         onClose={handleCloseSuccess}
       />
 
-      {/* Generador de PDF invisible */}
-      {updatedVale && triggerPDF && (
+      {/* Generador de PDF invisible — fuera de alcance en web */}
+      {!HIDE_ON_WEB && updatedVale && triggerPDF && (
         <View style={{ position: "absolute", left: -9999 }}>
           <GenerarPDFButton
             valeData={updatedVale}

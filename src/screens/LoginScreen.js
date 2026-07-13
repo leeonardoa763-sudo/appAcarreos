@@ -40,6 +40,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../config/supabase";
 import { colors } from "../config/colors";
+import { IS_WEB } from "../config/features";
 import {
   promiseWithTimeout,
   TIMEOUT_DURATIONS,
@@ -51,6 +52,12 @@ import {
   clearCredentials,
   hasRememberedCredentials,
 } from "../utils/rememberAccount";
+
+// En web, expo-secure-store no existe (ver rememberAccount.js), así que
+// "recordar cuenta" se delega al propio gestor de contraseñas del navegador
+// (iCloud Keychain en Safari) envolviendo el formulario en un <form> real y
+// disparando su submit — así el navegador detecta el login y ofrece guardarlo.
+const FormWrapper = IS_WEB ? "form" : React.Fragment;
 
 const { width, height } = Dimensions.get("window");
 
@@ -69,6 +76,7 @@ const LoginScreen = ({ navigation }) => {
 
   const timeoutRef = useRef(null);
   const isMounted = useRef(true);
+  const formRef = useRef(null);
 
   useEffect(() => {
     isMounted.current = true;
@@ -413,104 +421,125 @@ const LoginScreen = ({ navigation }) => {
         </View>
 
         {/* Formulario */}
-        <View style={styles.form}>
-          {/* Campo Email */}
-          <View style={styles.inputContainer}>
-            <MaterialCommunityIcons
-              name="email-outline"
-              size={20}
-              color="#FFFFFF"
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              placeholderTextColor="rgba(255, 255, 255, 0.6)"
-              editable={!loading}
-            />
-          </View>
-
-          {/* Campo Contraseña */}
-          <View style={styles.inputContainer}>
-            <MaterialCommunityIcons
-              name="lock-outline"
-              size={20}
-              color="#FFFFFF"
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={[styles.input, styles.passwordInput]}
-              placeholder="Contraseña"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              placeholderTextColor="rgba(255, 255, 255, 0.6)"
-              editable={!loading}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={styles.eyeIcon}
-              disabled={loading}
-            >
+        <FormWrapper
+          {...(IS_WEB
+            ? {
+                ref: formRef,
+                onSubmit: (e) => {
+                  e.preventDefault();
+                  if (!loading) handleLogin();
+                },
+              }
+            : {})}
+        >
+          <View style={styles.form}>
+            {/* Campo Email */}
+            <View style={styles.inputContainer}>
               <MaterialCommunityIcons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                name="email-outline"
                 size={20}
                 color="#FFFFFF"
+                style={styles.inputIcon}
               />
-            </TouchableOpacity>
-          </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="username"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                editable={!loading}
+              />
+            </View>
 
-          {/* Checkbox "Recordar en este dispositivo" */}
-          <TouchableOpacity
-            style={styles.rememberMeContainer}
-            onPress={() => setRememberMe(!rememberMe)}
-            disabled={loading}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons
-              name={rememberMe ? "checkbox-marked" : "checkbox-blank-outline"}
-              size={24}
-              color="#FFFFFF"
-            />
-            <Text style={styles.rememberMeText}>
-              Recordar en este dispositivo
-            </Text>
-          </TouchableOpacity>
-
-          {/* Advertencia de timeout */}
-          {loginTimeout !== null && (
-            <View style={styles.timeoutWarning}>
+            {/* Campo Contraseña */}
+            <View style={styles.inputContainer}>
               <MaterialCommunityIcons
-                name="clock-alert-outline"
-                size={16}
+                name="lock-outline"
+                size={20}
+                color="#FFFFFF"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Contraseña"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoComplete="current-password"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                editable={!loading}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+                disabled={loading}
+              >
+                <MaterialCommunityIcons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="#FFFFFF"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Checkbox "Recordar en este dispositivo" */}
+            <TouchableOpacity
+              style={styles.rememberMeContainer}
+              onPress={() => setRememberMe(!rememberMe)}
+              disabled={loading}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={rememberMe ? "checkbox-marked" : "checkbox-blank-outline"}
+                size={24}
                 color="#FFFFFF"
               />
-              <Text style={styles.timeoutWarningText}>
-                Conexión lenta detectada...
+              <Text style={styles.rememberMeText}>
+                Recordar en este dispositivo
               </Text>
-            </View>
-          )}
+            </TouchableOpacity>
 
-          {/* Botón de Login */}
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#D84315" />
-                <Text style={styles.buttonText}>Iniciando sesión...</Text>
+            {/* Advertencia de timeout */}
+            {loginTimeout !== null && (
+              <View style={styles.timeoutWarning}>
+                <MaterialCommunityIcons
+                  name="clock-alert-outline"
+                  size={16}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.timeoutWarningText}>
+                  Conexión lenta detectada...
+                </Text>
               </View>
-            ) : (
-              <Text style={styles.buttonText}>Iniciar Sesión</Text>
             )}
-          </TouchableOpacity>
-        </View>
+
+            {/* Botón de Login */}
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={() => {
+                if (loading) return;
+                if (IS_WEB && formRef.current) {
+                  formRef.current.requestSubmit();
+                } else {
+                  handleLogin();
+                }
+              }}
+              disabled={loading}
+            >
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#D84315" />
+                  <Text style={styles.buttonText}>Iniciando sesión...</Text>
+                </View>
+              ) : (
+                <Text style={styles.buttonText}>Iniciar Sesión</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </FormWrapper>
 
         {/* Footer */}
         <View style={styles.footer}>

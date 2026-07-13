@@ -98,6 +98,10 @@ Al escanear QR de un camión (`VH-{PLACAS}`):
 
 ---
 
+## ValesScreen — botones filtrados por plataforma
+
+`buttonConfigs` ya usa `.filter(Boolean)` con entradas condicionales por rol (`!esChecador && {...}`). El mismo patrón se usa para ocultar botones fuera de alcance en web (`!IS_WEB && {...}`) — ver CLAUDE.md raíz, sección "SOPORTE WEB". Al agregar un botón nuevo, decidir explícitamente si aplica a web o no.
+
 ## Manejo de errores en pantallas
 
 ```javascript

@@ -14,7 +14,12 @@
  * - Opción para borrar credenciales (olvidar dispositivo)
  */
 
+import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
+
+// expo-secure-store no tiene implementación funcional en web (su .web.js
+// exporta un objeto vacío), por lo que "recordar cuenta" se deshabilita ahí.
+const IS_WEB = Platform.OS === "web";
 
 // Claves para SecureStore
 const KEYS = {
@@ -31,6 +36,7 @@ const KEYS = {
  * @returns {Promise<boolean>} - true si guardó exitosamente
  */
 export const saveCredentials = async (email, password) => {
+  if (IS_WEB) return false;
   try {
     await SecureStore.setItemAsync(KEYS.EMAIL, email);
     await SecureStore.setItemAsync(KEYS.PASSWORD, password);
@@ -49,6 +55,7 @@ export const saveCredentials = async (email, password) => {
  * @returns {Promise<{email: string|null, password: string|null, rememberEnabled: boolean}>}
  */
 export const getCredentials = async () => {
+  if (IS_WEB) return { email: null, password: null, rememberEnabled: false };
   try {
     const rememberEnabled = await SecureStore.getItemAsync(
       KEYS.REMEMBER_ENABLED
@@ -79,6 +86,7 @@ export const getCredentials = async () => {
  * @returns {Promise<boolean>} - true si borró exitosamente
  */
 export const clearCredentials = async () => {
+  if (IS_WEB) return false;
   try {
     await SecureStore.deleteItemAsync(KEYS.EMAIL);
     await SecureStore.deleteItemAsync(KEYS.PASSWORD);
@@ -97,6 +105,7 @@ export const clearCredentials = async () => {
  * @returns {Promise<boolean>}
  */
 export const hasRememberedCredentials = async () => {
+  if (IS_WEB) return false;
   try {
     const rememberEnabled = await SecureStore.getItemAsync(
       KEYS.REMEMBER_ENABLED
@@ -118,6 +127,7 @@ export const hasRememberedCredentials = async () => {
  * @returns {Promise<boolean>}
  */
 export const setRememberEnabled = async (enabled) => {
+  if (IS_WEB) return false;
   try {
     if (enabled) {
       await SecureStore.setItemAsync(KEYS.REMEMBER_ENABLED, "true");

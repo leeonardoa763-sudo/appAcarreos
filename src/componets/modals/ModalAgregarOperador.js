@@ -1,4 +1,7 @@
+// 1. React
 import React, { useState, useEffect, useRef } from "react";
+
+// 2. React Native
 import {
   View,
   Text,
@@ -11,14 +14,29 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+
+// 3. Third party
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+// 4. Config
 import { colors } from "../../config/colors";
 import { supabase } from "../../config/supabase";
-import FormInput from "../forms/FormInput";
-import SelectorSindicato from "./agregarOperador/SelectorSindicato";
+
+// 5. Hooks
+import { useOperadoresParaPlacas } from "../../hooks/useOperadoresParaPlacas";
+import { useVehiculosParaAsignar } from "../../hooks/useVehiculosParaAsignar";
+
+// 6. Subcomponentes
+import ModoSelector from "./agregarOperador/ModoSelector";
+import CamposOperador from "./agregarOperador/CamposOperador";
+import CamposPlaca from "./agregarOperador/CamposPlaca";
 import PantallaResultadoOperador from "./agregarOperador/PantallaResultadoOperador";
-import { validarFormulario, generarQrUid } from "./agregarOperador/validacion";
+import {
+  validarModoOperador,
+  validarModoPlaca,
+  generarQrUid,
+} from "./agregarOperador/validacion";
 
 const ESTADO_INICIAL = {
   nombre: "",
@@ -29,11 +47,25 @@ const ESTADO_INICIAL = {
   capacidad: "",
 };
 
+const fechaLocalHoy = () => {
+  const hoy = new Date();
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+};
+
 const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
   const isMounted = useRef(true);
   const insets = useSafeAreaInsets();
 
+  const { operadores, loading: loadingOperadores, cargar: cargarOperadores } =
+    useOperadoresParaPlacas();
+  const { vehiculos, loading: loadingVehiculos, cargar: cargarVehiculos } =
+    useVehiculosParaAsignar();
+
+  const [modo, setModo] = useState("operador");
   const [form, setForm] = useState(ESTADO_INICIAL);
+  const [asignar, setAsignar] = useState(false);
+  const [operadorAsignadoId, setOperadorAsignadoId] = useState(null);
+  const [vehiculoAsignadoId, setVehiculoAsignadoId] = useState(null);
   const [errores, setErrores] = useState({});
   const [sindicatos, setSindicatos] = useState([]);
   const [loadingSindicatos, setLoadingSindicatos] = useState(true);
@@ -50,10 +82,16 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
   useEffect(() => {
     if (!visible) return;
     cargarSindicatos();
+    cargarOperadores();
+    cargarVehiculos();
+    setModo("operador");
     setForm(ESTADO_INICIAL);
+    setAsignar(false);
+    setOperadorAsignadoId(null);
+    setVehiculoAsignadoId(null);
     setErrores({});
     setResultado(null);
-  }, [visible]);
+  }, [visible, cargarOperadores, cargarVehiculos]);
 
   const cargarSindicatos = async () => {
     try {
@@ -72,15 +110,214 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
     }
   };
 
+  const handleCambiarModo = (nuevoModo) => {
+    if (nuevoModo === modo) return;
+    setModo(nuevoModo);
+    setAsignar(false);
+    setOperadorAsignadoId(null);
+    setVehiculoAsignadoId(null);
+    setErrores({});
+  };
+
   const handleCampo = (campo, valor) => {
     setForm((prev) => ({ ...prev, [campo]: valor }));
     if (errores[campo]) {
       setErrores((prev) => ({ ...prev, [campo]: null }));
     }
+    // Al cambiar de sindicato, la placa/operador elegido (de otro sindicato)
+    // deja de ser válido — no se pueden mezclar sindicatos.
+    if (campo === "sindicatoId") {
+      setOperadorAsignadoId(null);
+      setVehiculoAsignadoId(null);
+    }
+  };
+
+  const handleSelectOperador = (id) => {
+    setOperadorAsignadoId(id);
+    if (errores.operador) setErrores((prev) => ({ ...prev, operador: null }));
+  };
+
+  const handleSelectVehiculo = (id) => {
+    setVehiculoAsignadoId(id);
+    if (errores.placas) setErrores((prev) => ({ ...prev, placas: null }));
+  };
+
+  // ── Crea (o reutiliza) el operador y devuelve su fila ──────────────────────
+  const crearOReusarOperador = async () => {
+    const nombreCompleto = [
+      form.nombre.trim(),
+      form.primerApellido.trim(),
+      form.segundoApellido.trim(),
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const { data: operadorExistente } = await supabase
+      .from("operadores")
+      .select("id_operador, nombre_completo, id_sindicato")
+      .ilike("nombre_completo", nombreCompleto)
+      .maybeSingle();
+
+    if (operadorExistente) return { operador: operadorExistente, nuevo: false };
+
+    const { data: operadorNuevo, error } = await supabase
+      .from("operadores")
+      .insert({
+        nombre: form.nombre.trim(),
+        primer_apellido: form.primerApellido.trim(),
+        segundo_apellido: form.segundoApellido.trim() || null,
+        id_sindicato: form.sindicatoId,
+        activo: true,
+      })
+      .select("id_operador, nombre_completo, id_sindicato")
+      .single();
+
+    if (error) throw error;
+    return { operador: operadorNuevo, nuevo: true };
+  };
+
+  // ── Crea el vehiculo (validando placa duplicada). Devuelve fila o null si
+  //    la placa ya existía (deja el error en el campo) ────────────────────────
+  const crearVehiculo = async (idOperador) => {
+    const placas = form.placas.trim().toUpperCase();
+
+    const { data: vehiculoExistente } = await supabase
+      .from("vehiculos")
+      .select("id_vehiculo, placas")
+      .eq("placas", placas)
+      .maybeSingle();
+
+    if (vehiculoExistente) {
+      setErrores((prev) => ({
+        ...prev,
+        placas: `La placa "${placas}" ya está registrada en el sistema`,
+      }));
+      return null;
+    }
+
+    const { data: vehiculoNuevo, error } = await supabase
+      .from("vehiculos")
+      .insert({
+        placas,
+        capacidad_m3: parseFloat(form.capacidad),
+        id_sindicato: form.sindicatoId,
+        id_operador_sugerido: idOperador ?? null,
+        qr_uid: generarQrUid(placas),
+        activo: true,
+      })
+      .select("id_vehiculo, placas, capacidad_m3, qr_uid")
+      .single();
+
+    if (error) throw error;
+    return vehiculoNuevo;
+  };
+
+  const registrarAsignacion = async (idVehiculo, idOperador) => {
+    const { error } = await supabase
+      .from("asignacion_operador_vehiculo")
+      .insert({
+        id_vehiculo: idVehiculo,
+        id_operador: idOperador,
+        fecha_inicio: fechaLocalHoy(),
+      });
+
+    if (error) {
+      console.error(
+        "[ModalAgregarOperador] Error al crear asignación:",
+        error.message,
+      );
+    }
+  };
+
+  // ── Enlaza una placa YA existente a un operador (genera QR si falta y cierra
+  //    la asignación abierta anterior). Devuelve la fila del vehiculo ──────────
+  const enlazarVehiculoExistente = async (vehiculo, idOperador) => {
+    const qrUid = vehiculo.qr_uid || generarQrUid(vehiculo.placas);
+
+    const updatePayload = { id_operador_sugerido: idOperador };
+    if (!vehiculo.qr_uid) updatePayload.qr_uid = qrUid;
+
+    const { error: errorUpdate } = await supabase
+      .from("vehiculos")
+      .update(updatePayload)
+      .eq("id_vehiculo", vehiculo.id_vehiculo);
+
+    if (errorUpdate) throw errorUpdate;
+
+    await supabase
+      .from("asignacion_operador_vehiculo")
+      .update({ fecha_fin: fechaLocalHoy() })
+      .eq("id_vehiculo", vehiculo.id_vehiculo)
+      .is("fecha_fin", null);
+
+    await registrarAsignacion(vehiculo.id_vehiculo, idOperador);
+
+    return {
+      id_vehiculo: vehiculo.id_vehiculo,
+      placas: vehiculo.placas,
+      capacidad_m3: vehiculo.capacidad_m3,
+      qr_uid: qrUid,
+    };
+  };
+
+  const guardarModoOperador = async () => {
+    const { operador, nuevo } = await crearOReusarOperador();
+
+    if (!asignar) {
+      return {
+        operador,
+        vehiculo: null,
+        mensaje: nuevo
+          ? `${operador.nombre_completo} fue registrado. Puedes asignarle placas cuando quieras.`
+          : `El operador "${operador.nombre_completo}" ya existía; no se duplicó.`,
+      };
+    }
+
+    const vehiculoSel = vehiculos.find(
+      (v) => v.id_vehiculo === vehiculoAsignadoId,
+    );
+    if (!vehiculoSel) return null;
+
+    const vehiculo = await enlazarVehiculoExistente(
+      vehiculoSel,
+      operador.id_operador,
+    );
+
+    return {
+      operador,
+      vehiculo,
+      mensaje: `La placa "${vehiculo.placas}" fue asignada a ${operador.nombre_completo}.`,
+    };
+  };
+
+  const guardarModoPlaca = async () => {
+    const idOperador = asignar ? operadorAsignadoId : null;
+
+    const vehiculo = await crearVehiculo(idOperador);
+    if (!vehiculo) return null; // placa duplicada, error ya mostrado
+
+    let operador = null;
+    if (idOperador) {
+      await registrarAsignacion(vehiculo.id_vehiculo, idOperador);
+      operador =
+        operadores.find((op) => op.id_operador === idOperador) ?? null;
+    }
+
+    return {
+      operador,
+      vehiculo,
+      mensaje: operador
+        ? `La placa "${vehiculo.placas}" fue registrada y asignada a ${operador.nombre_completo}.`
+        : `La placa "${vehiculo.placas}" fue registrada sin operador. Puedes asignarle uno cuando quieras.`,
+    };
   };
 
   const handleGuardar = async () => {
-    const erroresNuevos = validarFormulario(form);
+    const erroresNuevos =
+      modo === "operador"
+        ? validarModoOperador(form, asignar, vehiculoAsignadoId)
+        : validarModoPlaca(form, asignar, operadorAsignadoId);
+
     if (Object.keys(erroresNuevos).length > 0) {
       setErrores(erroresNuevos);
       return;
@@ -89,123 +326,32 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
     try {
       setGuardando(true);
 
-      // ── 1. Verificar si la placa ya existe ANTES de crear nada ──────────────
-      const placas = form.placas.trim().toUpperCase();
+      const res =
+        modo === "operador"
+          ? await guardarModoOperador()
+          : await guardarModoPlaca();
 
-      const { data: vehiculoExistente } = await supabase
-        .from("vehiculos")
-        .select("id_vehiculo, placas")
-        .eq("placas", placas)
-        .maybeSingle();
-
-      if (vehiculoExistente) {
-        setErrores((prev) => ({
-          ...prev,
-          placas: `La placa "${placas}" ya está registrada en el sistema`,
-        }));
-        return;
-      }
-
-      // ── 2. Verificar si el operador ya existe por nombre ────────────────────
-      const nombreCompleto = [
-        form.nombre.trim(),
-        form.primerApellido.trim(),
-        form.segundoApellido.trim(),
-      ]
-        .filter(Boolean)
-        .join(" ");
-
-      const { data: operadorExistente } = await supabase
-        .from("operadores")
-        .select("id_operador, nombre_completo, id_sindicato")
-        .ilike("nombre_completo", nombreCompleto)
-        .maybeSingle();
-
-      let operadorFinal;
-      let operadorEsNuevo = false;
-
-      if (operadorExistente) {
-        operadorFinal = operadorExistente;
-      } else {
-        const { data: operadorNuevo, error: errorOperador } = await supabase
-          .from("operadores")
-          .insert({
-            nombre: form.nombre.trim(),
-            primer_apellido: form.primerApellido.trim(),
-            segundo_apellido: form.segundoApellido.trim() || null,
-            id_sindicato: form.sindicatoId,
-            activo: true,
-          })
-          .select("id_operador, nombre_completo, id_sindicato")
-          .single();
-
-        if (errorOperador) throw errorOperador;
-        operadorFinal = operadorNuevo;
-        operadorEsNuevo = true;
-      }
-
-      // ── 3. Crear el vehículo ────────────────────────────────────────────────
-      const qrUid = generarQrUid(placas);
-
-      const { data: vehiculoNuevo, error: errorVehiculo } = await supabase
-        .from("vehiculos")
-        .insert({
-          placas,
-          capacidad_m3: parseFloat(form.capacidad),
-          id_sindicato: form.sindicatoId,
-          id_operador_sugerido: operadorFinal.id_operador,
-          qr_uid: qrUid,
-          activo: true,
-        })
-        .select("id_vehiculo, placas, capacidad_m3, qr_uid")
-        .single();
-
-      if (errorVehiculo) throw errorVehiculo;
-
-      // ── 4. Crear asignación inicial en el historial de rotaciones ───────────
-      const hoy = new Date();
-      const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
-
-      const { error: errorAsignacion } = await supabase
-        .from("asignacion_operador_vehiculo")
-        .insert({
-          id_vehiculo: vehiculoNuevo.id_vehiculo,
-          id_operador: operadorFinal.id_operador,
-          fecha_inicio: fechaHoy,
-        });
-
-      if (errorAsignacion) {
-        console.error(
-          "[ModalAgregarOperador] Error al crear asignación inicial:",
-          errorAsignacion.message,
-        );
-      }
-
-      if (!isMounted.current) return;
-
-      const mensaje = operadorEsNuevo
-        ? `${operadorFinal.nombre_completo} y su vehículo (${vehiculoNuevo.placas}) fueron agregados correctamente.`
-        : `La placa "${vehiculoNuevo.placas}" fue agregada. El operador "${operadorFinal.nombre_completo}" ya existía y no fue duplicado.`;
-
-      setResultado({
-        operador: operadorFinal,
-        vehiculo: vehiculoNuevo,
-        mensaje,
-      });
+      if (!res || !isMounted.current) return;
+      setResultado(res);
     } catch (error) {
       console.error("[ModalAgregarOperador] Error al guardar:", error);
       Alert.alert(
         "Error",
-        "No se pudo registrar el operador. Por favor intenta de nuevo.",
+        "No se pudo completar el registro. Por favor intenta de nuevo.",
       );
     } finally {
       if (isMounted.current) setGuardando(false);
     }
   };
 
-  const sindicatoSeleccionado = sindicatos.find(
-    (s) => s.id_sindicato === form.sindicatoId,
-  );
+  const tituloHeader = resultado
+    ? "Registro completado"
+    : modo === "operador"
+      ? "Nuevo Operador"
+      : "Nueva Placa";
+
+  const textoBoton =
+    modo === "operador" ? "Registrar operador" : "Registrar placa";
 
   return (
     <Modal
@@ -223,13 +369,11 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <MaterialCommunityIcons
-                name="account-hard-hat"
+                name={modo === "operador" ? "account-hard-hat" : "dump-truck"}
                 size={24}
                 color={colors.primary}
               />
-              <Text style={styles.headerTitulo}>
-                {resultado ? "Operador Registrado" : "Nuevo Operador"}
-              </Text>
+              <Text style={styles.headerTitulo}>{tituloHeader}</Text>
             </View>
             <TouchableOpacity
               onPress={onClose}
@@ -244,7 +388,6 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
             </TouchableOpacity>
           </View>
 
-          {/* ── Pantalla de resultado ── */}
           {resultado ? (
             <PantallaResultadoOperador
               operador={resultado.operador}
@@ -257,133 +400,49 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
             />
           ) : (
             <>
+              <ModoSelector
+                modo={modo}
+                onCambiar={handleCambiarModo}
+                disabled={guardando}
+              />
+
               <ScrollView
                 style={styles.scroll}
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
-                {/* ── Datos del operador ── */}
-                <View style={styles.seccion}>
-                  <View style={styles.seccionHeader}>
-                    <MaterialCommunityIcons
-                      name="account-outline"
-                      size={18}
-                      color={colors.secondary}
-                    />
-                    <Text style={styles.seccionTitulo}>Datos del operador</Text>
-                  </View>
-
-                  <FormInput
-                    label="Nombre(s)"
-                    value={form.nombre}
-                    onChangeText={(v) => handleCampo("nombre", v)}
-                    placeholder="Ej: Juan Carlos"
-                    autoCapitalize="words"
-                    error={errores.nombre}
-                    editable={!guardando}
+                {modo === "operador" ? (
+                  <CamposOperador
+                    form={form}
+                    errores={errores}
+                    guardando={guardando}
+                    onCampo={handleCampo}
+                    sindicatos={sindicatos}
+                    loadingSindicatos={loadingSindicatos}
+                    asignarPlacas={asignar}
+                    onToggleAsignar={setAsignar}
+                    vehiculos={vehiculos}
+                    loadingVehiculos={loadingVehiculos}
+                    vehiculoAsignadoId={vehiculoAsignadoId}
+                    onSelectVehiculo={handleSelectVehiculo}
                   />
-
-                  <FormInput
-                    label="Primer apellido"
-                    value={form.primerApellido}
-                    onChangeText={(v) => handleCampo("primerApellido", v)}
-                    placeholder="Ej: García"
-                    autoCapitalize="words"
-                    error={errores.primerApellido}
-                    editable={!guardando}
+                ) : (
+                  <CamposPlaca
+                    form={form}
+                    errores={errores}
+                    guardando={guardando}
+                    onCampo={handleCampo}
+                    sindicatos={sindicatos}
+                    loadingSindicatos={loadingSindicatos}
+                    asignarOperador={asignar}
+                    onToggleAsignar={setAsignar}
+                    operadores={operadores}
+                    loadingOperadores={loadingOperadores}
+                    operadorAsignadoId={operadorAsignadoId}
+                    onSelectOperador={handleSelectOperador}
                   />
-
-                  <FormInput
-                    label="Segundo apellido (opcional)"
-                    value={form.segundoApellido}
-                    onChangeText={(v) => handleCampo("segundoApellido", v)}
-                    placeholder="Ej: López"
-                    autoCapitalize="words"
-                    editable={!guardando}
-                  />
-
-                  {loadingSindicatos ? (
-                    <View style={styles.cargandoSindicatos}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                      <Text style={styles.cargandoTexto}>
-                        Cargando sindicatos...
-                      </Text>
-                    </View>
-                  ) : (
-                    <SelectorSindicato
-                      sindicatos={sindicatos}
-                      value={form.sindicatoId}
-                      onSelect={(id) => handleCampo("sindicatoId", id)}
-                      error={errores.sindicatoId}
-                      disabled={guardando}
-                    />
-                  )}
-                </View>
-
-                {/* ── Datos del vehículo ── */}
-                <View style={styles.seccion}>
-                  <View style={styles.seccionHeader}>
-                    <MaterialCommunityIcons
-                      name="dump-truck"
-                      size={18}
-                      color={colors.secondary}
-                    />
-                    <Text style={styles.seccionTitulo}>Datos del vehículo</Text>
-                  </View>
-
-                  {form.sindicatoId && (
-                    <View style={styles.sindicatoVisor}>
-                      <MaterialCommunityIcons
-                        name="check-circle"
-                        size={16}
-                        color={colors.accent}
-                      />
-                      <Text style={styles.sindicatoVisorTexto}>
-                        Vehículo asignado a: {sindicatoSeleccionado?.sindicato}
-                      </Text>
-                    </View>
-                  )}
-
-                  <FormInput
-                    label="Placas"
-                    value={form.placas}
-                    onChangeText={(v) =>
-                      handleCampo("placas", v.replace(/[^A-Z0-9-]/g, ""))
-                    }
-                    placeholder="Ej: ABC-123"
-                    autoCapitalize="characters"
-                    maxLength={10}
-                    error={errores.placas}
-                    editable={!guardando}
-                  />
-
-                  <FormInput
-                    label="Capacidad del camión"
-                    value={form.capacidad}
-                    onChangeText={(v) =>
-                      handleCampo("capacidad", v.replace(/[^0-9.]/g, ""))
-                    }
-                    placeholder="Ej: 7.5"
-                    keyboardType="decimal-pad"
-                    suffix="m³"
-                    error={errores.capacidad}
-                    editable={!guardando}
-                  />
-                </View>
-
-                {/* ── Nota informativa ── */}
-                <View style={styles.nota}>
-                  <MaterialCommunityIcons
-                    name="information-outline"
-                    size={16}
-                    color={colors.info}
-                  />
-                  <Text style={styles.notaTexto}>
-                    El operador y su vehículo quedarán disponibles de inmediato
-                    para crear vales.
-                  </Text>
-                </View>
+                )}
               </ScrollView>
 
               {/* ── Footer ── */}
@@ -398,10 +457,7 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[
-                    styles.btnGuardar,
-                    guardando && styles.btnGuardarDisabled,
-                  ]}
+                  style={[styles.btnGuardar, guardando && styles.btnGuardarDisabled]}
                   onPress={handleGuardar}
                   disabled={guardando}
                   activeOpacity={0.8}
@@ -410,13 +466,13 @@ const ModalAgregarOperador = ({ visible, onClose, onOperadorAgregado }) => {
                     <ActivityIndicator size="small" color={colors.surface} />
                   ) : (
                     <MaterialCommunityIcons
-                      name="account-plus"
+                      name="check"
                       size={20}
                       color={colors.surface}
                     />
                   )}
                   <Text style={styles.btnGuardarTexto}>
-                    {guardando ? "Registrando..." : "Registrar operador"}
+                    {guardando ? "Registrando..." : textoBoton}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -467,75 +523,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 24,
     gap: 4,
-  },
-  seccion: {
-    marginBottom: 20,
-    gap: 2,
-  },
-  seccionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
-  },
-  seccionTitulo: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.secondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  cargandoSindicatos: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    backgroundColor: colors.background,
-    borderRadius: 10,
-    marginBottom: 8,
-  },
-  cargandoTexto: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  sindicatoVisor: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: `${colors.accent}15`,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: `${colors.accent}30`,
-  },
-  sindicatoVisorTexto: {
-    fontSize: 13,
-    color: colors.accent,
-    fontWeight: "500",
-    flex: 1,
-  },
-  nota: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: `${colors.info}12`,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: `${colors.info}25`,
-  },
-  notaTexto: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    flex: 1,
-    lineHeight: 19,
   },
   footer: {
     flexDirection: "row",

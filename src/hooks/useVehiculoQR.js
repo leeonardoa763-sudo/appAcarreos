@@ -68,7 +68,105 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
     setOperadoresSindicato([]);
   }, []);
 
-  // ─── 1. Buscar vehículo por QR ────────────────────────────────────────────
+  // ─── 1. Cargar vales en_proceso sin vehículo ─────────────────────────────
+
+  /**
+   * Trae todos los vales en_proceso que no tienen vehículo asignado.
+   * Se filtra por id_obra del usuario activo (RLS lo maneja automáticamente).
+   */
+  const _cargarValesDisponibles = useCallback(async (idSindicato) => {
+    try {
+      const { data, error: errorVales } = await supabase
+        .from("vales")
+        .select(
+          `
+          id_vale,
+          folio,
+          tipo_vale,
+          estado,
+          id_operador,
+          id_vehiculo,
+          fecha_creacion,
+          empresas:id_empresa ( empresa, sufijo ),
+          obras ( obra, cc ),
+          vale_material_detalles (
+            id_sindicato,
+            es_planta_asfaltos,
+            banco:id_banco ( id_banco, banco ),
+            material:id_material ( id_tipo_de_material, material )
+          ),
+          vale_renta_detalle (
+            id_sindicato,
+            material:id_material ( material )
+          )
+        `,
+        )
+        .eq("estado", "en_proceso")
+        .is("id_vehiculo", null)
+        .order("fecha_creacion", { ascending: false });
+
+      if (errorVales) {
+        console.error(
+          "[useVehiculoQR] Error cargando vales disponibles:",
+          errorVales.message,
+        );
+        throw new Error(`Error BD al cargar vales: ${errorVales.message}`);
+      }
+
+      const valesFiltrados = (data ?? []).filter((vale) => {
+        if (!esDentroJornada(vale.fecha_creacion)) return false;
+        // Exclusión mutua: un perfil de Planta de Asfaltos solo asigna
+        // vehiculos a vales de planta; cualquier otro rol (Residente,
+        // CHECADOR, etc.) solo ve vales que NO son de planta. Administrador
+        // ve todos. Evita que se mezclen vales de obra con los de planta.
+        const valeEsPlanta = !!vale.vale_material_detalles?.[0]?.es_planta_asfaltos;
+        if (!esAdministrador) {
+          if (esPlantaAsfaltos && !valeEsPlanta) return false;
+          if (!esPlantaAsfaltos && valeEsPlanta) return false;
+        }
+        if (vale.tipo_vale === "material") {
+          return vale.vale_material_detalles?.[0]?.id_sindicato === idSindicato;
+        }
+        if (vale.tipo_vale === "renta") {
+          return vale.vale_renta_detalle?.[0]?.id_sindicato === idSindicato;
+        }
+        return false;
+      });
+
+      setValesDisponibles(valesFiltrados);
+    } catch (err) {
+      console.error(
+        "[useVehiculoQR] _cargarValesDisponibles falló:",
+        err.message,
+      );
+      setError(ERRORES.CARGA_FALLO);
+      Alert.alert("Error al cargar vales", ERRORES.CARGA_FALLO, [
+        { text: "OK" },
+      ]);
+    }
+  }, [esPlantaAsfaltos, esAdministrador]);
+
+  // ─── 1b. Cargar operadores activos del sindicato ─────────────────────────
+
+  const _cargarOperadoresSindicato = useCallback(async (idSindicato) => {
+    try {
+      const { data, error } = await supabase
+        .from("operadores")
+        .select("id_operador, nombre_completo")
+        .eq("id_sindicato", idSindicato)
+        .eq("activo", true)
+        .order("nombre_completo");
+      if (error) throw error;
+      setOperadoresSindicato(data ?? []);
+    } catch (err) {
+      console.error(
+        "[useVehiculoQR] _cargarOperadoresSindicato falló:",
+        err.message,
+      );
+    }
+  }, []);
+
+  // ─── 2. Buscar vehículo por QR ────────────────────────────────────────────
 
   /**
    * Recibe el string crudo del QR escaneado (ej. "VH-ABC123D")
@@ -214,103 +312,6 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
     },
     [_cargarValesDisponibles, _cargarOperadoresSindicato, expectedSindicatoId],
   );
-
-  // ─── 2. Cargar vales en_proceso sin vehículo ─────────────────────────────
-
-  /**
-   * Trae todos los vales en_proceso que no tienen vehículo asignado.
-   * Se filtra por id_obra del usuario activo (RLS lo maneja automáticamente).
-   */
-  const _cargarValesDisponibles = useCallback(async (idSindicato) => {
-    try {
-      const { data, error: errorVales } = await supabase
-        .from("vales")
-        .select(
-          `
-          id_vale,
-          folio,
-          tipo_vale,
-          estado,
-          id_operador,
-          id_vehiculo,
-          fecha_creacion,
-          empresas:id_empresa ( empresa, sufijo ),
-          obras ( obra, cc ),
-          vale_material_detalles (
-            id_sindicato,
-            es_planta_asfaltos,
-            banco:id_banco ( id_banco, banco ),
-            material:id_material ( id_tipo_de_material, material )
-          ),
-          vale_renta_detalle (
-            id_sindicato,
-            material:id_material ( material )
-          )
-        `,
-        )
-        .eq("estado", "en_proceso")
-        .is("id_vehiculo", null)
-        .order("fecha_creacion", { ascending: false });
-
-      if (errorVales) {
-        console.error(
-          "[useVehiculoQR] Error cargando vales disponibles:",
-          errorVales.message,
-        );
-        throw new Error(`Error BD al cargar vales: ${errorVales.message}`);
-      }
-
-      const valesFiltrados = (data ?? []).filter((vale) => {
-        if (!esDentroJornada(vale.fecha_creacion)) return false;
-        // Exclusión mutua: un perfil de Planta de Asfaltos solo asigna
-        // vehiculos a vales de planta; cualquier otro rol (Residente,
-        // CHECADOR, etc.) solo ve vales que NO son de planta. Administrador
-        // ve todos. Evita que se mezclen vales de obra con los de planta.
-        const valeEsPlanta = !!vale.vale_material_detalles?.[0]?.es_planta_asfaltos;
-        if (!esAdministrador) {
-          if (esPlantaAsfaltos && !valeEsPlanta) return false;
-          if (!esPlantaAsfaltos && valeEsPlanta) return false;
-        }
-        if (vale.tipo_vale === "material") {
-          return vale.vale_material_detalles?.[0]?.id_sindicato === idSindicato;
-        }
-        if (vale.tipo_vale === "renta") {
-          return vale.vale_renta_detalle?.[0]?.id_sindicato === idSindicato;
-        }
-        return false;
-      });
-
-      setValesDisponibles(valesFiltrados);
-    } catch (err) {
-      console.error(
-        "[useVehiculoQR] _cargarValesDisponibles falló:",
-        err.message,
-      );
-      setError(ERRORES.CARGA_FALLO);
-      Alert.alert("Error al cargar vales", ERRORES.CARGA_FALLO, [
-        { text: "OK" },
-      ]);
-    }
-  }, [esPlantaAsfaltos, esAdministrador]);
-  // ─── 2b. Cargar operadores activos del sindicato ─────────────────────────
-
-  const _cargarOperadoresSindicato = useCallback(async (idSindicato) => {
-    try {
-      const { data, error } = await supabase
-        .from("operadores")
-        .select("id_operador, nombre_completo")
-        .eq("id_sindicato", idSindicato)
-        .eq("activo", true)
-        .order("nombre_completo");
-      if (error) throw error;
-      setOperadoresSindicato(data ?? []);
-    } catch (err) {
-      console.error(
-        "[useVehiculoQR] _cargarOperadoresSindicato falló:",
-        err.message,
-      );
-    }
-  }, []);
 
   // ─── 3. Asignar vehículo a un vale ───────────────────────────────────────
 

@@ -148,6 +148,208 @@ const construirHTML = (operadores) => {
   `;
 };
 
+// ── Tarjeta individual por PLACA (sin operador), una por página ──────────────
+// El operador es dinámico (una placa la pueden usar varios operadores), por eso
+// esta tarjeta muestra solo el QR + placas + capacidad. Reutiliza el diseño de
+// la tarjeta individual de PantallaResultadoOperador. Se pintan varias en un
+// mismo PDF, una por hoja, para poder enviarlas todas en un solo archivo.
+
+const ESTILOS_TARJETA_PLACA = `
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #ffffff; }
+  @page { size: A4 portrait; margin: 0; }
+  .pagina {
+    width: 210mm;
+    height: 297mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20mm;
+    page-break-after: always;
+    break-after: page;
+  }
+  .card {
+    width: 100%;
+    max-width: 320px;
+    border: 2px solid #004E89;
+    border-radius: 16px;
+    overflow: hidden;
+    margin: 0 auto;
+  }
+  .header {
+    background-color: #004E89;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    padding: 16px 20px;
+    text-align: center;
+  }
+  .header-titulo {
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .header-subtitulo { color: rgba(255,255,255,0.75); font-size: 11px; }
+  .body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .qr-wrapper {
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 14px;
+    background: #F5F6FA;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .qr-wrapper img { display: block; width: 160px; height: 160px; }
+  .info {
+    width: 100%;
+    border-top: 1px solid #E5E7EB;
+    padding-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .fila { display: flex; flex-direction: column; gap: 2px; }
+  .fila-label {
+    font-size: 10px;
+    color: #7F8C8D;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .fila-valor { font-size: 15px; font-weight: 700; color: #2C3E50; }
+  .fila-valor-placas {
+    font-size: 22px;
+    font-weight: 800;
+    color: #004E89;
+    letter-spacing: 2px;
+  }
+  .footer {
+    background: #F5F6FA;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    padding: 10px 20px;
+    text-align: center;
+    border-top: 1px solid #E5E7EB;
+  }
+  .footer-texto { font-size: 10px; color: #7F8C8D; }
+
+  .indice-pagina {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 18mm 16mm;
+    page-break-after: always;
+    break-after: page;
+  }
+  .indice-header {
+    border-bottom: 2px solid #004E89;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+  }
+  .indice-titulo { font-size: 20pt; font-weight: 800; color: #004E89; }
+  .indice-sub { font-size: 10pt; color: #7F8C8D; margin-top: 2px; }
+  .indice-lista { column-count: 2; column-gap: 12mm; }
+  .indice-fila {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 5px 0;
+    border-bottom: 1px dotted #E5E7EB;
+    break-inside: avoid;
+  }
+  .indice-placa {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #2C3E50;
+    letter-spacing: 1px;
+  }
+  .indice-pag { font-size: 9pt; color: #7F8C8D; }
+`;
+
+const cuerpoTarjetaPlaca = (vehiculo) => {
+  const qrUrl = generarUrlQR(vehiculo.qr_uid);
+  const placas = vehiculo.placas ?? "";
+  const capacidad = vehiculo.capacidad_m3;
+
+  return `
+    <div class="pagina">
+      <div class="card">
+        <div class="header">
+          <div class="header-titulo">Control de Acarreos</div>
+          <div class="header-subtitulo">Identificación de Vehículo</div>
+        </div>
+        <div class="body">
+          <div class="qr-wrapper">
+            <img src="${qrUrl}" />
+          </div>
+          <div class="info">
+            <div class="fila">
+              <span class="fila-label">Placas</span>
+              <span class="fila-valor-placas">${placas}</span>
+            </div>
+            ${
+              capacidad
+                ? `<div class="fila">
+                     <span class="fila-label">Capacidad</span>
+                     <span class="fila-valor">${capacidad} m³</span>
+                   </div>`
+                : ""
+            }
+          </div>
+        </div>
+        <div class="footer">
+          <span class="footer-texto">Escanea el QR para asignar este vehículo a un vale</span>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// Índice en la primera página: placas en orden alfabético + su página.
+// La primera tarjeta va en la página 2 (el índice ocupa la 1).
+const htmlIndicePlacas = (vehiculos) => {
+  const filas = vehiculos
+    .map(
+      (v, i) => `
+        <div class="indice-fila">
+          <span class="indice-placa">${v.placas ?? ""}</span>
+          <span class="indice-pag">pág. ${i + 2}</span>
+        </div>
+      `,
+    )
+    .join("");
+
+  return `
+    <div class="indice-pagina">
+      <div class="indice-header">
+        <div class="indice-titulo">Índice de placas</div>
+        <div class="indice-sub">${vehiculos.length} placas · orden alfabético</div>
+      </div>
+      <div class="indice-lista">${filas}</div>
+    </div>
+  `;
+};
+
+const construirHTMLPlacas = (vehiculos) => `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="UTF-8" />
+      <style>${ESTILOS_TARJETA_PLACA}</style>
+    </head>
+    <body>
+      ${htmlIndicePlacas(vehiculos)}
+      ${vehiculos.map(cuerpoTarjetaPlaca).join("")}
+    </body>
+  </html>
+`;
+
 // ── Función compartida para generar y compartir el PDF ───────────────────────
 
 const generarYCompartir = async (html, nombreArchivo) => {
@@ -234,6 +436,49 @@ export const generarPDFOperadoresMasivo = async (grupos) => {
     grupos.length === 1
       ? `QR_${grupos[0].sindicato.replace(/\s+/g, "_")}.pdf`
       : "QR_Operadores_Todos.pdf";
+
+  return generarYCompartir(html, nombreArchivo);
+};
+
+/**
+ * Genera y comparte UN SOLO PDF con la tarjeta individual (sin operador) de cada
+ * placa, una por página. Así se pueden enviar todas juntas en un solo archivo /
+ * mensaje, sin compartir uno por uno.
+ *
+ * @param {array} grupos - [{ sindicato, operadores: [{ ...operador }] }]
+ * @returns {number} cantidad de placas exportadas
+ */
+export const generarPDFPlacasIndividual = async (grupos) => {
+  const vistos = new Set();
+  const vehiculos = [];
+
+  grupos.forEach((grupo) =>
+    grupo.operadores.forEach((op) => {
+      if (op.qr_uid && !vistos.has(op.qr_uid)) {
+        vistos.add(op.qr_uid);
+        vehiculos.push({
+          placas: op.placas,
+          capacidad_m3: op.capacidad_m3,
+          qr_uid: op.qr_uid,
+        });
+      }
+    }),
+  );
+
+  if (vehiculos.length === 0) {
+    throw new Error("No hay placas con QR para exportar.");
+  }
+
+  vehiculos.sort((a, b) =>
+    (a.placas ?? "").localeCompare(b.placas ?? "", "es", { numeric: true }),
+  );
+
+  const html = construirHTMLPlacas(vehiculos);
+
+  const nombreArchivo =
+    grupos.length === 1
+      ? `QR_Placas_${grupos[0].sindicato.replace(/\s+/g, "_")}.pdf`
+      : "QR_Placas_Todos.pdf";
 
   return generarYCompartir(html, nombreArchivo);
 };

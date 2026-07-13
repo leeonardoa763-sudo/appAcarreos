@@ -37,6 +37,7 @@ import React from "react";
 import { View, Text } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../../config/colors";
+import { HIDE_ON_WEB } from "../../../config/features";
 import { rentaStyles as styles } from "./rentaStyles";
 
 import ViajesRentaSection from "../ViajesRentaSection";
@@ -111,84 +112,89 @@ const SeccionCompletarVale = ({
         esMaterialDescarga={esMaterialDescarga}
       />
 
-      <FormCheckbox
-        label="Renta por día completo"
-        value={esRentaPorDia}
-        onChange={onChangeRentaPorDia}
-      />
-
-      <FormCheckbox
-        label="Renta por medio día"
-        value={esRentaPorMedioDia}
-        onChange={onChangeRentaPorMedioDia}
-      />
-
-      <CustomTimePicker
-        label="Hora de Fin"
-        value={horaFin}
-        onChange={onChangeHoraFin}
-        disabled={esRentaPorDia || esRentaPorMedioDia}
-      />
-
-      <FormInput
-        label="Notas (opcional)"
-        value={notasAdicionales}
-        onChangeText={onChangeNotas}
-        placeholder=""
-        multiline
-        maxLength={200}
-      />
-
-      <EvidenciaCaptura
-        folioVale={vale?.folio}
-        foto={evidenciaProps.foto}
-        fotoUrl={evidenciaProps.fotoUrl}
-        ubicacion={evidenciaProps.ubicacion}
-        distanciaObra={evidenciaProps.distanciaObra}
-        dentroDelRadio={evidenciaProps.dentroDelRadio}
-        obraTieneCoordenadas={evidenciaProps.obraTieneCoordenadas}
-        radioConfigurado={evidenciaProps.radioConfigurado}
-        loadingFoto={evidenciaProps.loadingFoto}
-        loadingUbicacion={evidenciaProps.loadingUbicacion}
-        errorFoto={evidenciaProps.errorFoto}
-        errorUbicacion={evidenciaProps.errorUbicacion}
-        onTomarFoto={evidenciaProps.onTomarFoto}
-        onCapturarUbicacion={evidenciaProps.onCapturarUbicacion}
-      />
-
-      {mensajeBloqueo && (
-        <View style={styles.bloqueoContainer}>
-          <MaterialCommunityIcons
-            name="alert-circle"
-            size={18}
-            color={colors.primary}
+      {/* Completar vale — fuera de alcance en web */}
+      {!HIDE_ON_WEB && (
+        <>
+          <FormCheckbox
+            label="Renta por día completo"
+            value={esRentaPorDia}
+            onChange={onChangeRentaPorDia}
           />
-          <Text style={styles.bloqueoText}>{mensajeBloqueo}</Text>
-        </View>
-      )}
 
-      {ticketsViajesDesbalanceados && (
-        <View style={styles.bloqueoContainer}>
-          <MaterialCommunityIcons
-            name="alert-circle"
-            size={18}
-            color={colors.danger}
+          <FormCheckbox
+            label="Renta por medio día"
+            value={esRentaPorMedioDia}
+            onChange={onChangeRentaPorMedioDia}
           />
-          <Text style={styles.bloqueoText}>
-            {`Tickets y viajes no coinciden: ${totalTickets} ticket(s), ${totalViajes} viaje(s). Deben ser iguales para completar.`}
-          </Text>
-        </View>
-      )}
-      <PrimaryButton
-        title="Completar Vale"
-        onPress={onCompletar}
-        loading={saving}
-        disabled={botonDeshabilitado}
-        icon="check-circle"
-        backgroundColor={colors.accent}
-      />
 
-      <Text style={styles.helperText}>{helperText}</Text>
+          <CustomTimePicker
+            label="Hora de Fin"
+            value={horaFin}
+            onChange={onChangeHoraFin}
+            disabled={esRentaPorDia || esRentaPorMedioDia}
+          />
+
+          <FormInput
+            label="Notas (opcional)"
+            value={notasAdicionales}
+            onChangeText={onChangeNotas}
+            placeholder=""
+            multiline
+            maxLength={200}
+          />
+
+          <EvidenciaCaptura
+            folioVale={vale?.folio}
+            foto={evidenciaProps.foto}
+            fotoUrl={evidenciaProps.fotoUrl}
+            ubicacion={evidenciaProps.ubicacion}
+            distanciaObra={evidenciaProps.distanciaObra}
+            dentroDelRadio={evidenciaProps.dentroDelRadio}
+            obraTieneCoordenadas={evidenciaProps.obraTieneCoordenadas}
+            radioConfigurado={evidenciaProps.radioConfigurado}
+            loadingFoto={evidenciaProps.loadingFoto}
+            loadingUbicacion={evidenciaProps.loadingUbicacion}
+            errorFoto={evidenciaProps.errorFoto}
+            errorUbicacion={evidenciaProps.errorUbicacion}
+            onTomarFoto={evidenciaProps.onTomarFoto}
+            onCapturarUbicacion={evidenciaProps.onCapturarUbicacion}
+          />
+
+          {mensajeBloqueo && (
+            <View style={styles.bloqueoContainer}>
+              <MaterialCommunityIcons
+                name="alert-circle"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={styles.bloqueoText}>{mensajeBloqueo}</Text>
+            </View>
+          )}
+
+          {ticketsViajesDesbalanceados && (
+            <View style={styles.bloqueoContainer}>
+              <MaterialCommunityIcons
+                name="alert-circle"
+                size={18}
+                color={colors.danger}
+              />
+              <Text style={styles.bloqueoText}>
+                {`Tickets y viajes no coinciden: ${totalTickets} ticket(s), ${totalViajes} viaje(s). Deben ser iguales para completar.`}
+              </Text>
+            </View>
+          )}
+          <PrimaryButton
+            title="Completar Vale"
+            onPress={onCompletar}
+            loading={saving}
+            disabled={botonDeshabilitado}
+            icon="check-circle"
+            backgroundColor={colors.accent}
+          />
+
+          <Text style={styles.helperText}>{helperText}</Text>
+        </>
+      )}
     </View>
   );
 };

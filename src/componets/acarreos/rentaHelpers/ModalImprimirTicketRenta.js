@@ -37,7 +37,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 // 4. Local - Config
 import { colors } from "../../../config/colors";
-import { BLUETOOTH_ENABLED } from "../../../config/features";
+import { BLUETOOTH_ENABLED, IS_WEB } from "../../../config/features";
 
 // 5. Imports condicionales de Bluetooth y generador
 let verificarBluetooth, escanearImpresoras, conectarImpresora, imprimirTicket, solicitarPermisos;
@@ -542,6 +542,22 @@ const ModalImprimirTicketRenta = ({
           </View>
         )}
 
+        {/* Aviso — en web el Bluetooth del navegador no puede hablar con impresoras térmicas */}
+        {IS_WEB && (
+          <View style={styles.avisoWeb}>
+            <MaterialCommunityIcons
+              name="alert-outline"
+              size={18}
+              color={colors.warning}
+            />
+            <Text style={styles.avisoWebTexto}>
+              Estás en la versión web: la impresión Bluetooth no va a
+              funcionar aquí. Usa la app desde el celular para imprimir el
+              ticket físico.
+            </Text>
+          </View>
+        )}
+
         {/* Solo mostrar botón de Bluetooth si está habilitado */}
         {BLUETOOTH_ENABLED ? (
           <TouchableOpacity
@@ -889,6 +905,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     flex: 1,
+  },
+  avisoWeb: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF6E7",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    padding: 12,
+    gap: 8,
+    width: "100%",
+    marginBottom: 10,
+  },
+  avisoWebTexto: {
+    fontSize: 12,
+    color: colors.textPrimary,
+    flex: 1,
+    lineHeight: 17,
   },
 
   // ─── Error ────────────────────────────────────────────────────────────────

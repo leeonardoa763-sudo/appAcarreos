@@ -40,6 +40,18 @@ import CustomButton from "../CustomButton";
 
 ---
 
+## Ocultar UI fuera de alcance en web
+
+Usar el flag `IS_WEB` de `src/config/features.js` (no `Platform.OS === "web"` inline repetido). Ver CLAUDE.md raíz, sección "SOPORTE WEB", para qué funciones están fuera de alcance en la v1 web (registrar/completar viaje, asignar vehículo post-creación, impresión Bluetooth, PDF).
+
+```javascript
+import { IS_WEB } from "../../config/features";
+
+{!IS_WEB && <BotonRegistrarViaje ... />}
+```
+
+Si el botón/acción usa `Alert.alert` con botones que disparan la acción, usar `crossAlert` (`src/utils/crossAlert.js`) — `Alert.alert` no hace nada en web.
+
 ## Dos modales en Android — TRAMPA CRÍTICA
 
 Android no apila dos `<Modal>` confiablemente. Siempre usar ref + setTimeout:

@@ -98,6 +98,14 @@ Si un join devuelve `null` inesperadamente, verificar constraints en `informatio
 
 ---
 
+## Alert.alert no funciona en web
+
+`react-native-web` no implementa `Alert.alert` (es un no-op silencioso). En cualquier hook que corra también en la versión web (ver CLAUDE.md raíz, sección "SOPORTE WEB"), si el `Alert.alert` tiene botones cuyo `onPress` dispara una acción o cierra un flujo (confirmaciones, éxito con callback), usar `crossAlert` de `src/utils/crossAlert.js` en su lugar — mismo API (`title, message, buttons`). Alertas de solo error/notificación (un botón, sin `onPress` relevante) pueden dejarse con `Alert.alert` normal.
+
+## Orden de declaración en useCallback — TDZ real en web
+
+Babel transpila `let`/`const` en modo *loose* para nativo (sin TDZ real), por lo que un `useCallback` que referencia en su arreglo de dependencias una función `const` declarada MÁS ABAJO en el mismo hook "funciona por accidente" en Android/iOS. El build web sí aplica TDZ estricta y truena con `Cannot access 'X' before initialization`. Siempre declarar las funciones dependientes (`_cargarX`, helpers internos) ANTES del `useCallback` que las usa, sin depender del hoisting.
+
 ## Estado stale en callbacks
 
 ```javascript

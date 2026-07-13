@@ -5,7 +5,7 @@
 // El vale debe estar en estado "en_proceso".
 
 import { useState } from "react";
-import { Alert } from "react-native";
+import crossAlert from "../utils/crossAlert";
 import { supabase } from "../config/supabase";
 import { useAuth } from "./useAuth";
 
@@ -82,11 +82,11 @@ export const useCancelarVale = (vale, onExito) => {
       setModalVisible(false);
       setMotivo("");
 
-      Alert.alert("Vale cancelado", "El vale fue cancelado exitosamente.", [
+      crossAlert("Vale cancelado", "El vale fue cancelado exitosamente.", [
         { text: "OK", onPress: onExito },
       ]);
     } catch (error) {
-      Alert.alert(
+      crossAlert(
         "Error",
         "No se pudo cancelar el vale. Por favor intenta de nuevo.",
         [{ text: "OK" }],

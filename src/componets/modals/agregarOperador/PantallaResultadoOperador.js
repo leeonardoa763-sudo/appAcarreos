@@ -113,10 +113,14 @@ const generarHtmlTarjeta = (vehiculo, operador, qrDataUrl) => `
               <span class="fila-label">Placas</span>
               <span class="fila-valor-placas">${vehiculo.placas}</span>
             </div>
-            <div class="fila">
-              <span class="fila-label">Operador</span>
-              <span class="fila-valor">${operador.nombre_completo}</span>
-            </div>
+            ${
+              operador?.nombre_completo
+                ? `<div class="fila">
+                     <span class="fila-label">Operador</span>
+                     <span class="fila-valor">${operador.nombre_completo}</span>
+                   </div>`
+                : ""
+            }
             ${
               vehiculo.capacidad_m3
                 ? `<div class="fila">
@@ -138,6 +142,8 @@ const generarHtmlTarjeta = (vehiculo, operador, qrDataUrl) => `
 const PantallaResultadoOperador = ({ operador, vehiculo, mensaje, onCerrar }) => {
   const [qrDataUrl, setQrDataUrl] = useState(null);
   const [generandoPDF, setGenerandoPDF] = useState(false);
+
+  const tieneVehiculo = !!vehiculo?.qr_uid;
 
   const handleExportarPDF = async () => {
     if (!qrDataUrl) {
@@ -172,7 +178,7 @@ const PantallaResultadoOperador = ({ operador, vehiculo, mensaje, onCerrar }) =>
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
-      {vehiculo.qr_uid && (
+      {tieneVehiculo && (
         <QRCodeGenerator
           value={vehiculo.qr_uid}
           onGenerated={(dataUrl) => setQrDataUrl(dataUrl)}
@@ -186,65 +192,73 @@ const PantallaResultadoOperador = ({ operador, vehiculo, mensaje, onCerrar }) =>
         <Text style={styles.bannerMensaje}>{mensaje}</Text>
       </View>
 
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <MaterialCommunityIcons name="dump-truck" size={20} color={colors.surface} />
-          <Text style={styles.cardHeaderTexto}>Identificación del vehículo</Text>
-        </View>
-
-        <View style={styles.qrContainer}>
-          {qrDataUrl ? (
-            <Image source={{ uri: qrDataUrl }} style={styles.qrImagen} />
-          ) : (
-            <View style={styles.qrCargando}>
-              <ActivityIndicator size="small" color={colors.secondary} />
-              <Text style={styles.qrCargandoTexto}>Generando QR...</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.datosContainer}>
-          <View style={styles.datoFila}>
-            <Text style={styles.datoLabel}>PLACAS</Text>
-            <Text style={styles.datoValorPlacas}>{vehiculo.placas}</Text>
+      {tieneVehiculo && (
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="dump-truck" size={20} color={colors.surface} />
+            <Text style={styles.cardHeaderTexto}>Identificación del vehículo</Text>
           </View>
-          <View style={styles.separador} />
-          <View style={styles.datoFila}>
-            <Text style={styles.datoLabel}>OPERADOR</Text>
-            <Text style={styles.datoValor}>{operador.nombre_completo}</Text>
-          </View>
-          {vehiculo.capacidad_m3 && (
-            <>
-              <View style={styles.separador} />
-              <View style={styles.datoFila}>
-                <Text style={styles.datoLabel}>CAPACIDAD</Text>
-                <Text style={styles.datoValor}>{vehiculo.capacidad_m3} m³</Text>
+
+          <View style={styles.qrContainer}>
+            {qrDataUrl ? (
+              <Image source={{ uri: qrDataUrl }} style={styles.qrImagen} />
+            ) : (
+              <View style={styles.qrCargando}>
+                <ActivityIndicator size="small" color={colors.secondary} />
+                <Text style={styles.qrCargandoTexto}>Generando QR...</Text>
               </View>
-            </>
-          )}
-        </View>
+            )}
+          </View>
 
-        <Text style={styles.qrHint}>
-          Pega este QR en el vehículo para asignarlo rápidamente a un vale
-        </Text>
-      </View>
+          <View style={styles.datosContainer}>
+            <View style={styles.datoFila}>
+              <Text style={styles.datoLabel}>PLACAS</Text>
+              <Text style={styles.datoValorPlacas}>{vehiculo.placas}</Text>
+            </View>
+            {operador?.nombre_completo && (
+              <>
+                <View style={styles.separador} />
+                <View style={styles.datoFila}>
+                  <Text style={styles.datoLabel}>OPERADOR</Text>
+                  <Text style={styles.datoValor}>{operador.nombre_completo}</Text>
+                </View>
+              </>
+            )}
+            {vehiculo.capacidad_m3 && (
+              <>
+                <View style={styles.separador} />
+                <View style={styles.datoFila}>
+                  <Text style={styles.datoLabel}>CAPACIDAD</Text>
+                  <Text style={styles.datoValor}>{vehiculo.capacidad_m3} m³</Text>
+                </View>
+              </>
+            )}
+          </View>
+
+          <Text style={styles.qrHint}>
+            Pega este QR en el vehículo para asignarlo rápidamente a un vale
+          </Text>
+        </View>
+      )}
 
       <View style={styles.botones}>
-        <TouchableOpacity
-          style={[styles.btnPDF, (!qrDataUrl || generandoPDF) && styles.btnDisabled]}
-          onPress={handleExportarPDF}
-          disabled={!qrDataUrl || generandoPDF}
-          activeOpacity={0.8}
-        >
-          {generandoPDF ? (
-            <ActivityIndicator size="small" color={colors.surface} />
-          ) : (
-            <MaterialCommunityIcons name="file-pdf-box" size={22} color={colors.surface} />
-          )}
-          <Text style={styles.btnPDFTexto}>
-            {generandoPDF ? "Generando..." : "Exportar QR en PDF"}
-          </Text>
-        </TouchableOpacity>
+        {tieneVehiculo && (
+          <TouchableOpacity
+            style={[styles.btnPDF, (!qrDataUrl || generandoPDF) && styles.btnDisabled]}
+            onPress={handleExportarPDF}
+            disabled={!qrDataUrl || generandoPDF}
+            activeOpacity={0.8}
+          >
+            {generandoPDF ? (
+              <ActivityIndicator size="small" color={colors.surface} />
+            ) : (
+              <MaterialCommunityIcons name="file-pdf-box" size={22} color={colors.surface} />
+            )}
+            <Text style={styles.btnPDFTexto}>
+              {generandoPDF ? "Generando..." : "Exportar QR en PDF"}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={styles.btnListo} onPress={onCerrar} activeOpacity={0.8}>
           <MaterialCommunityIcons name="check" size={20} color={colors.secondary} />

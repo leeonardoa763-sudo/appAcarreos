@@ -12,8 +12,9 @@
 |---|---|---|
 | **App móvil** (`appAcarreos-1`) | Expo / React Native | Operación en campo — Android |
 | **Web de verificación** | `web-acarreos.vercel.app` | Consulta pública de vales por folio/QR, sin login |
+| **Web operativa (v1, en progreso)** | Este mismo repo, build `react-native-web` | Crear vales, cancelar vale, eliminar viaje, crear operadores — ver sección "SOPORTE WEB" |
 
-La web es solo lectura. Usa RLS `anon` de Supabase. Rutas: `https://web-acarreos.vercel.app/vale/{folio}`
+La web de verificación es solo lectura. Usa RLS `anon` de Supabase. Rutas: `https://web-acarreos.vercel.app/vale/{folio}`
 
 ---
 
@@ -71,6 +72,44 @@ src/
 - Screens orquestan. La lógica va en hooks. La UI en componentes helper.
 - Un hook = una responsabilidad. No crear hooks dios.
 - Archivos < 600 líneas. Si crece más, dividir.
+
+---
+
+## SOPORTE WEB (v1 — react-native-web)
+
+La misma app corre también como build web (`react-native-web`, ya instalado) para uso operativo real (no solo demo), con alcance **intencionalmente acotado**:
+
+| Función | En web v1 |
+|---|---|
+| Crear vales (material, renta, asfáltico) | Sí |
+| Cancelar vale / Eliminar viaje | Sí |
+| Crear operadores | Sí |
+| Estadísticas | Sí |
+| Registrar viaje / Completar vale | **No** — solo nativo por ahora |
+| Asignar vehículo a un vale ya creado (post-creación, vía QR) | **No** — solo nativo por ahora |
+| Imprimir ticket (Bluetooth) / Generar / compartir PDF | **No** — oculto sin reemplazo |
+
+No expandir este alcance (agregar registrar/completar viaje, asignar vehículo, impresión) sin que el usuario lo pida explícitamente.
+
+**Flag de plataforma:** `IS_WEB` en `src/config/features.js` (`Platform.OS === "web"`). Patrón para ocultar UI fuera de alcance:
+
+```javascript
+import { IS_WEB } from "../../config/features";
+
+{!IS_WEB && <BotonRegistrarViaje ... />}
+```
+
+**Gotchas de plataforma ya resueltos — tenerlos en cuenta en cambios futuros:**
+
+1. **`Alert.alert` es un no-op en `react-native-web`** (no muestra nada, no ejecuta ningún `onPress`). Cualquier confirmación o alerta cuyo botón dispare una acción (eliminar, cancelar, etc.) debe usar `src/utils/crossAlert.js` en vez de `Alert.alert` directo. Los `Alert.alert` de solo-notificación de error (un botón, sin `onPress` relevante) se dejaron tal cual — degradan a "sin feedback visual" en web, no bloquean nada.
+2. **`expo-secure-store` no tiene implementación funcional en web** (su `.web.js` es `export default {}`). Ver `src/utils/rememberAccount.js` — todas sus funciones retornan temprano si `Platform.OS === "web"`.
+3. **`react-native-bluetooth-classic` no tiene build web.** Se resuelve con `src/services/bluetoothPrinter.web.js` (stub no-op) — Metro lo prioriza automáticamente sobre `bluetoothPrinter.js` en builds web. Si se agrega otro paquete nativo sin soporte web, replicar este patrón (`nombre.web.js`).
+4. **Babel transpila `let`/`const` en modo *loose* para nativo** (sin TDZ real), pero el build web sí aplica TDZ estricta. Un hook que referencia una función en su arreglo de dependencias de `useCallback` antes de que esa función esté declarada más abajo en el archivo "funciona por accidente" en nativo pero truena en web (`Cannot access 'X' before initialization`). Ya pasó en `useVehiculoQR.js` — declarar siempre las dependencias de un `useCallback`/`useEffect` **antes** de usarlas, sin depender del orden de hoisting.
+5. **Iconos (`MaterialCommunityIcons`) como cuadros vacíos en iPhone (Safari y Chrome iOS — ambos corren sobre WebKit).** En web la fuente de iconos se descarga por red después del primer render; si el texto con esos glifos pinta antes de que la fuente cargue, WebKit no lo repinta cuando por fin llega (Chrome de escritorio sí). Además, `expo-font` **evita a propósito** su mecanismo de espera en WebKit (comentario en su código: *"WebKit is broken"*) y resuelve la carga de fuente de inmediato sin confirmar la descarga real — por eso no basta con `useFonts`. `App.js` espera explícitamente con la API nativa `document.fonts.load(...)` / `document.fonts.ready` (con timeout de 4s de respaldo) antes de renderizar nada. Verificado con el motor WebKit real de Playwright (`playwright install webkit`), no con Chromium — Chromium no reproduce este bug.
+
+6. **Los íconos (`.ttf`) dan 404 en Vercel aunque el build local/`localhost` los sirva bien.** `expo export -p web` copia los fonts de `@expo/vector-icons` a `dist/assets/node_modules/@expo/vector-icons/...` (mantiene la ruta relativa original, que incluye `node_modules` porque el paquete vive ahí). El `.gitignore` de la raíz del repo tiene `node_modules/`, y como `dist/` está dentro del mismo repo git, Vercel hereda esa regla al subir el deploy y excluye esos archivos — el sitio carga pero los iconos quedan en blanco. Por eso siempre usar `npm run export:web` (no `npx expo export -p web` directo) para desplegar: ese script genera un `dist/.vercelignore` vacío que anula la herencia del `.gitignore` padre para ese deploy. `dist/.vercelignore` se pierde en cada export porque `expo export` limpia la carpeta — por eso el script lo regenera cada vez, no basta con crearlo una sola vez a mano.
+
+**Deploy:** `npm run export:web` genera build estático en `dist/` (ya en `.gitignore`) y crea el `.vercelignore` necesario (ver gotcha 6). Desplegado como proyecto Vercel existente llamado `dist` (no confundir con `web-acarreos.vercel.app`, que es la web de verificación pública). Vincular con `vercel link --yes` desde dentro de `dist/` si `dist/.vercel` no existe (se pierde en cada export), luego `vercel deploy .` (agregar `--prod` solo si se pide explícitamente producción).
 
 ---
 

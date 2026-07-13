@@ -68,8 +68,12 @@ const ButtonsGrid = ({ buttons, registerRef }) => {
               />
             )}
             <View style={styles.mainCardText}>
-              <Text style={styles.mainCardTitle}>{button.buttonText}</Text>
-              <Text style={styles.mainCardSubtitle}>{button.subtitle}</Text>
+              <Text style={styles.mainCardTitle} numberOfLines={1}>
+                {button.buttonText}
+              </Text>
+              <Text style={styles.mainCardSubtitle} numberOfLines={1}>
+                {button.subtitle}
+              </Text>
             </View>
             <MaterialCommunityIcons
               name="chevron-right"

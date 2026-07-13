@@ -9,6 +9,8 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
+import { HIDE_ON_WEB } from "../../config/features";
+import crossAlert from "../../utils/crossAlert";
 
 const formatHora = (isoString) => {
   if (!isoString) return "--:--";
@@ -98,7 +100,7 @@ const ViajesRentaSection = ({
               style={[styles.botonEliminarViaje, eliminandoViaje && styles.botonDeshabilitado]}
               onPress={() => {
                 const ultimoViaje = viajes[viajes.length - 1];
-                Alert.alert(
+                crossAlert(
                   "Eliminar Viaje",
                   `¿Eliminar el Viaje #${totalViajes}? Esta accion no se puede deshacer.`,
                   [
@@ -131,41 +133,46 @@ const ViajesRentaSection = ({
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            style={[
-              styles.botonRegistrar,
-              (!puedeRegistrar || !tieneTicketPendiente || registrando) && styles.botonDeshabilitado,
-            ]}
-            onPress={onRegistrarViaje}
-            disabled={!puedeRegistrar || !tieneTicketPendiente || registrando}
-            activeOpacity={0.8}
-          >
-            {registrando ? (
-              <ActivityIndicator size="small" color={colors.surface} />
-            ) : (
-              <>
-                <MaterialCommunityIcons
-                  name="plus-circle"
-                  size={20}
-                  color={(puedeRegistrar && tieneTicketPendiente) ? colors.surface : colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.botonTexto,
-                    (!puedeRegistrar || !tieneTicketPendiente) && styles.botonTextoDeshabilitado,
-                  ]}
-                >
-                  {totalViajes === 0
-                    ? "Registrar Primer Viaje"
-                    : `Registrar Viaje ${totalViajes + 1}`}
+          {/* Registrar viaje — fuera de alcance en web */}
+          {!HIDE_ON_WEB && (
+            <>
+              <TouchableOpacity
+                style={[
+                  styles.botonRegistrar,
+                  (!puedeRegistrar || !tieneTicketPendiente || registrando) && styles.botonDeshabilitado,
+                ]}
+                onPress={onRegistrarViaje}
+                disabled={!puedeRegistrar || !tieneTicketPendiente || registrando}
+                activeOpacity={0.8}
+              >
+                {registrando ? (
+                  <ActivityIndicator size="small" color={colors.surface} />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons
+                      name="plus-circle"
+                      size={20}
+                      color={(puedeRegistrar && tieneTicketPendiente) ? colors.surface : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.botonTexto,
+                        (!puedeRegistrar || !tieneTicketPendiente) && styles.botonTextoDeshabilitado,
+                      ]}
+                    >
+                      {totalViajes === 0
+                        ? "Registrar Primer Viaje"
+                        : `Registrar Viaje ${totalViajes + 1}`}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              {esMaterialDescarga && !tieneTicketPendiente && (
+                <Text style={styles.avisoTicket}>
+                  Imprime el ticket antes de registrar el siguiente viaje
                 </Text>
-              </>
-            )}
-          </TouchableOpacity>
-          {esMaterialDescarga && !tieneTicketPendiente && (
-            <Text style={styles.avisoTicket}>
-              Imprime el ticket antes de registrar el siguiente viaje
-            </Text>
+              )}
+            </>
           )}
         </>
       )}

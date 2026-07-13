@@ -15,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import { colors } from "../config/colors";
 import { commonStyles } from "../styles/";
 import { supabase } from "../config/supabase";
+import crossAlert from "../utils/crossAlert";
 
 // Hooks personalizados
 import { useAuth } from "../hooks/useAuth";
@@ -41,7 +42,7 @@ import ModalImprimirTicketRenta from "../componets/acarreos/rentaHelpers/ModalIm
 import ModalBuscarVehiculoPlacas from "../componets/acarreos/ModalBuscarVehiculoPlacas";
 import ModalSeleccionarOperador from "../componets/modals/asignarVehiculo/ModalSeleccionarOperador";
 import { generarYCompartirPDFTicket } from "../services/pdfTicketGenerator";
-import { BLUETOOTH_ENABLED } from "../config/features";
+import { BLUETOOTH_ENABLED, HIDE_ON_WEB } from "../config/features";
 
 let generarTicketMaterial;
 if (BLUETOOTH_ENABLED) {
@@ -291,12 +292,23 @@ const ValeMaterialAsfalticoScreen = () => {
     (s) => s.id_sindicato === formData.sindicatoId,
   )?.sindicato;
 
+  const alertarCamposIncompletos = () => {
+    if (formData.selectedVehiculo && !formData.selectedVehiculo.capacidad_m3) {
+      Alert.alert(
+        "Vehículo sin capacidad",
+        "El vehículo seleccionado no tiene capacidad registrada. Contacta al administrador para actualizarla.",
+      );
+      return;
+    }
+    Alert.alert(
+      "Campos incompletos",
+      "Por favor completa todos los campos requeridos",
+    );
+  };
+
   const handleCrearVale = () => {
     if (!validateForm(false, false)) {
-      Alert.alert(
-        "Campos incompletos",
-        "Por favor completa todos los campos requeridos",
-      );
+      alertarCamposIncompletos();
       return;
     }
     if (!obraSeleccionada) {
@@ -312,10 +324,7 @@ const ValeMaterialAsfalticoScreen = () => {
 
   const ejecutarCreacionValeAsfaltico = async () => {
     if (!validateForm(false, false)) {
-      Alert.alert(
-        "Campos incompletos",
-        "Por favor completa todos los campos requeridos",
-      );
+      alertarCamposIncompletos();
       return;
     }
 
@@ -557,7 +566,11 @@ const ValeMaterialAsfalticoScreen = () => {
               }
 
               resetVehiculoQR();
-              Alert.alert(
+              if (HIDE_ON_WEB) {
+                setShowModalBuscarVehiculo(true);
+                return;
+              }
+              crossAlert(
                 "Asignar Vehículo",
                 "¿Cómo deseas buscar el vehículo?",
                 [
@@ -584,6 +597,7 @@ const ValeMaterialAsfalticoScreen = () => {
             onChangeText={() => {}}
             placeholder="Escanea un vehículo"
             editable={false}
+            error={errors.vehiculoId}
           />
 
           <FormInput
@@ -651,7 +665,16 @@ const ValeMaterialAsfalticoScreen = () => {
           />
         </View>
 
-        {valeCreado && (
+        {valeCreado && HIDE_ON_WEB && (
+          <View style={styles.section}>
+            <SectionHeader title="Vale Creado" infoTitle="Vale Creado" />
+            <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
+              Vale creado: folio {folioCreado}
+            </Text>
+          </View>
+        )}
+
+        {valeCreado && !HIDE_ON_WEB && (
           <View style={styles.section}>
             <SectionHeader
               title="Verificación de Foto"

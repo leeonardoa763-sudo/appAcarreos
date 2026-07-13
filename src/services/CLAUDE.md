@@ -7,9 +7,10 @@ Servicios de integración: Bluetooth, PDF, impresión térmica.
 ## bluetoothPrinter.js — Impresión térmica
 
 - Protocolo: ESC/POS para impresoras 58mm
-- Biblioteca: `react-native-ble-manager`
+- Biblioteca: `react-native-bluetooth-classic` (no `react-native-ble-manager` — corregido, la librería real no tiene build web)
 - Feature flag: `BLUETOOTH_ENABLED` en `src/config/features.js`
 - Si el flag está desactivado, no mostrar ningún botón ni UI de impresión
+- **Web:** existe `bluetoothPrinter.web.js` (stub no-op) — Metro lo resuelve automáticamente en builds web en vez de este archivo, porque `react-native-bluetooth-classic` no tiene variante `.web.js` y rompería el bundle. Si el API público de `bluetoothPrinter.js` cambia, actualizar también el stub.
 
 Flujo de impresión:
 1. Escanear dispositivos BLE

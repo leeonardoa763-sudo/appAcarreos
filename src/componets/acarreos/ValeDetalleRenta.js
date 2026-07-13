@@ -12,6 +12,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { View, Alert, TouchableOpacity } from "react-native";
 import { colors } from "../../config/colors";
+import { HIDE_ON_WEB } from "../../config/features";
 import { supabase } from "../../config/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import { useViajesRenta } from "../../hooks/useViajesRenta";
@@ -46,6 +47,9 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const { userProfile, userRole } = useAuth();
   const esResidente = userRole === "Residente";
   const esChecador = userRole === "CHECADOR";
+  const esPlantaAsfaltos = userRole === "Planta de Asfaltos";
+  // Planta de Asfaltos gestiona viajes/tickets igual que Residente
+  const puedeEliminar = esResidente || esPlantaAsfaltos;
   const {
     modalVisible: modalCancelarVisible,
     motivo,
@@ -498,16 +502,18 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           formatCurrency={formatCurrency}
         />
 
-        {/* Tickets de descarga — solo para materiales es_material_descarga = true */}
-        <TicketDescargaSection
-          vale={valeLocal}
-          detalleRenta={detalleRentaLocal}
-          viajes={viajes}
-          totalViajes={totalViajes}
-          onTotalTicketsChange={setTotalTicketsDescarga}
-          esResidente={esResidente}
-          esChecador={esChecador}
-        />
+        {/* Tickets de descarga — impresión Bluetooth, fuera de alcance en web */}
+        {!HIDE_ON_WEB && (
+          <TicketDescargaSection
+            vale={valeLocal}
+            detalleRenta={detalleRentaLocal}
+            viajes={viajes}
+            totalViajes={totalViajes}
+            onTotalTicketsChange={setTotalTicketsDescarga}
+            esResidente={puedeEliminar}
+            esChecador={esChecador}
+          />
+        )}
 
         {/* Viajes desglosados — solo cuando el vale ya está completado */}
         {!canComplete && (
@@ -566,7 +572,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             saving={saving}
             onCompletar={handleCompletar}
             totalTickets={totalTicketsDescarga}
-            esResidente={esResidente}
+            esResidente={puedeEliminar}
             esChecador={esChecador}
             onEliminarUltimoViaje={eliminarUltimoViaje}
             eliminandoViaje={eliminandoViaje}
@@ -588,8 +594,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
 
         <View style={{ height: 40 }} />
 
-        {/* Boton reimprimir PDF — todos los estados excepto en_proceso */}
-        {vale?.estado !== "en_proceso" && !loadingReimpresion && (
+        {/* Boton reimprimir PDF — todos los estados excepto en_proceso, fuera de alcance en web */}
+        {!HIDE_ON_WEB && vale?.estado !== "en_proceso" && !loadingReimpresion && (
           <View style={styles.reimprimirContainer}>
             {yaReimprimio ? (
               <View style={styles.reimprimirAgotado}>
@@ -649,7 +655,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         onClose={handleCloseSuccess}
       />
 
-      {updatedVale && triggerPDF && (
+      {!HIDE_ON_WEB && updatedVale && triggerPDF && (
         <View style={{ position: "absolute", left: -9999 }}>
           <GenerarPDFButton
             valeData={updatedVale}

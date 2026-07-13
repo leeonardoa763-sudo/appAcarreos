@@ -35,7 +35,8 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 // 4. Local - Config
 import { colors } from "../../../config/colors";
-import { BLUETOOTH_ENABLED } from "../../../config/features";
+import { BLUETOOTH_ENABLED, HIDE_ON_WEB } from "../../../config/features";
+import crossAlert from "../../../utils/crossAlert";
 
 // 5. Local - Componentes
 import FormInput from "../../forms/FormInput";
@@ -447,14 +448,16 @@ const ViajesMaterialSection = ({
         </>
       )}
 
-      {/* Formulario de captura */}
-      <FormularioViaje
-        tipoMaterial={tipoMaterial}
-        valores={valores}
-        onChange={setValores}
-        disabled={registrando}
-        capacidadVehiculo={capacidadVehiculo}
-      />
+      {/* Formulario de captura — fuera de alcance en web */}
+      {!HIDE_ON_WEB && (
+        <FormularioViaje
+          tipoMaterial={tipoMaterial}
+          valores={valores}
+          onChange={setValores}
+          disabled={registrando}
+          capacidadVehiculo={capacidadVehiculo}
+        />
+      )}
 
       {/* Botón eliminar último viaje — solo para Residente */}
       {esResidente && totalViajes > 0 && totalTickets === totalViajes && (
@@ -462,7 +465,7 @@ const ViajesMaterialSection = ({
           style={[styles.botonEliminarViaje, eliminandoViaje && styles.botonDeshabilitado]}
           onPress={() => {
             const ultimoViaje = viajes[viajes.length - 1];
-            Alert.alert(
+            crossAlert(
               "Eliminar Viaje",
               `¿Eliminar el Viaje #${totalViajes}? Esta accion no se puede deshacer.`,
               [
@@ -495,82 +498,73 @@ const ViajesMaterialSection = ({
         </TouchableOpacity>
       )}
 
-      {/* Botón registrar */}
-      {bloqueadoPlantaAsfaltos ? (
-        <View style={styles.avisoBloqueoPlanta}>
-          <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textSecondary} />
-          <Text style={styles.avisoBloqueoPlantaTexto}>
-            Vale de Planta de Asfaltos. Solo un perfil de Planta de Asfaltos puede registrar viajes.
-          </Text>
-        </View>
-      ) : (
-        (() => {
-          const botonActivo = puedeRegistrar && tieneTicketPendiente && !registrando;
-          const labelViaje =
-            totalViajes === 0
-              ? "Registrar Primer Viaje"
-              : `Registrar Viaje ${totalViajes + 1}`;
-          return (
-            <TouchableOpacity
-              style={[
-                styles.botonRegistrar,
-                !botonActivo && styles.botonDeshabilitado,
-              ]}
-              onPress={handleRegistrar}
-              disabled={registrando}
-              activeOpacity={0.8}
-            >
-              {registrando ? (
-                <ActivityIndicator size="small" color={colors.surface} />
-              ) : (
-                <>
-                  <MaterialCommunityIcons
-                    name="plus-circle"
-                    size={20}
-                    color={botonActivo ? colors.surface : colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.botonTexto,
-                      !botonActivo && { color: colors.textSecondary },
-                    ]}
-                  >
-                    {labelViaje}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          );
-        })()
-      )}
-      {!bloqueadoPlantaAsfaltos && !tieneTicketPendiente && (
-        <Text style={styles.avisoTicket}>
-          Imprime el ticket antes de registrar el siguiente viaje
-        </Text>
-      )}
-      {!bloqueadoPlantaAsfaltos && tieneTicketPendiente && !puedeRegistrar && (
-        <Text style={styles.avisoTicket}>
-          Espera {minutosRestantes} min antes del siguiente viaje
-        </Text>
-      )}
-      {/* Formulario de completar — tipo 1/2 */}
-      {!esTipo3 && (
-        <ValeFormCompletarNormal
-          notasAdicionales={notasAdicionales}
-          onChangeNotas={setNotasAdicionales}
-          savingToneladas={saving}
-          onCompletar={onCompletar}
-        />
-      )}
-
-      {/* Completar vale — tipo 3 */}
-      {esTipo3 && (
-        <ValeFormCompletarNormal
-          notasAdicionales={notasAdicionales}
-          onChangeNotas={setNotasAdicionales}
-          savingToneladas={saving}
-          onCompletar={onCompletar}
-        />
+      {/* Botón registrar y completar vale — fuera de alcance en web */}
+      {!HIDE_ON_WEB && (
+        <>
+          {bloqueadoPlantaAsfaltos ? (
+            <View style={styles.avisoBloqueoPlanta}>
+              <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textSecondary} />
+              <Text style={styles.avisoBloqueoPlantaTexto}>
+                Vale de Planta de Asfaltos. Solo un perfil de Planta de Asfaltos puede registrar viajes.
+              </Text>
+            </View>
+          ) : (
+            (() => {
+              const botonActivo = puedeRegistrar && tieneTicketPendiente && !registrando;
+              const labelViaje =
+                totalViajes === 0
+                  ? "Registrar Primer Viaje"
+                  : `Registrar Viaje ${totalViajes + 1}`;
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.botonRegistrar,
+                    !botonActivo && styles.botonDeshabilitado,
+                  ]}
+                  onPress={handleRegistrar}
+                  disabled={registrando}
+                  activeOpacity={0.8}
+                >
+                  {registrando ? (
+                    <ActivityIndicator size="small" color={colors.surface} />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons
+                        name="plus-circle"
+                        size={20}
+                        color={botonActivo ? colors.surface : colors.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.botonTexto,
+                          !botonActivo && { color: colors.textSecondary },
+                        ]}
+                      >
+                        {labelViaje}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              );
+            })()
+          )}
+          {!bloqueadoPlantaAsfaltos && !tieneTicketPendiente && (
+            <Text style={styles.avisoTicket}>
+              Imprime el ticket antes de registrar el siguiente viaje
+            </Text>
+          )}
+          {!bloqueadoPlantaAsfaltos && tieneTicketPendiente && !puedeRegistrar && (
+            <Text style={styles.avisoTicket}>
+              Espera {minutosRestantes} min antes del siguiente viaje
+            </Text>
+          )}
+          <ValeFormCompletarNormal
+            notasAdicionales={notasAdicionales}
+            onChangeNotas={setNotasAdicionales}
+            savingToneladas={saving}
+            onCompletar={onCompletar}
+          />
+        </>
       )}
 
       {/* Modal de foto obligatoria por viaje */}
