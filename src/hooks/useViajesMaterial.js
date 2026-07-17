@@ -25,6 +25,7 @@ export const useViajesMaterial = (
   detalle,
   idObra,
   fechaCreacionVale,
+  esProgramado = false,
 ) => {
   const { userProfile } = useAuth();
   const [viajes, setViajes] = useState([]);
@@ -186,7 +187,7 @@ export const useViajesMaterial = (
         return false;
       }
 
-      if (!esAdministrador && !esDentroJornada(fechaCreacionVale)) {
+      if (!esAdministrador && !esDentroJornada(fechaCreacionVale, esProgramado)) {
         Alert.alert(
           "Vale fuera de jornada",
           "Este vale fue creado en una jornada anterior y ya no puede recibir viajes. Usa un vale del dia de hoy.",
@@ -393,6 +394,7 @@ export const useViajesMaterial = (
       calcularVolumenDesdeTomeladas,
       iniciarCuentaRegresiva,
       fechaCreacionVale,
+      esProgramado,
     ],
   );
 

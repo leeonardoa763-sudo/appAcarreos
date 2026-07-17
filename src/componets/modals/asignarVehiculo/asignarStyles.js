@@ -347,6 +347,23 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.secondary,
   },
+  itemValeBadgeProgramado: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  itemValeBadgeProgramadoTexto: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.primary,
+  },
 });
 
 export default styles;

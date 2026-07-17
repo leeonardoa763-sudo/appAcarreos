@@ -2,11 +2,18 @@ import React from "react";
 import { View, Text, TouchableOpacity, Modal } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { colors } from "../../config/colors";
+import { useAuth } from "../../hooks/useAuth";
 import ValeOptionButton from "./ValeOptionButton";
 import styles from "./styles";
 
 const ValeSelectionModal = () => {
   const navigation = useNavigation();
+  const { userRole } = useAuth();
+
+  // Los vales de carpeta asfáltica solo los emite la planta. El Residente
+  // no los crea — el material asfáltico le llega ya despachado.
+  const puedeCrearAsfaltico =
+    userRole === "Planta de Asfaltos" || userRole === "Administrador";
 
   const handleRenta = () => {
     // CAMBIO: replace en lugar de navigate
@@ -45,13 +52,15 @@ const ValeSelectionModal = () => {
             color={colors.primary}
           />
 
-          {/* Botón para Asfálticos */}
-          <ValeOptionButton
-            iconName="road-variant"
-            text="Asfálticos"
-            onPress={handleMaterialAsfaltico}
-            color={colors.accent}
-          />
+          {/* Botón para Asfálticos - solo Planta de Asfaltos y Administrador */}
+          {puedeCrearAsfaltico && (
+            <ValeOptionButton
+              iconName="road-variant"
+              text="Asfálticos"
+              onPress={handleMaterialAsfaltico}
+              color={colors.accent}
+            />
+          )}
 
           {/* Botón para Renta */}
           <ValeOptionButton

@@ -135,6 +135,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     detalleMaterial,
     vale?.id_obra,
     vale?.fecha_creacion,
+    vale?.es_programado,
   );
 
   const [totalTickets, setTotalTickets] = useState(0);

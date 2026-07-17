@@ -8,6 +8,7 @@ import {
   Text,
   Alert,
   ActivityIndicator,
+  Switch,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -48,6 +49,9 @@ const ValeMaterialScreen = () => {
   const esPlantaAsfaltos = userRole === "Planta de Asfaltos";
 
   const [cantidadVales, setCantidadVales] = useState(1);
+  // Vale entregado hoy para que el camión llegue directo al banco mañana:
+  // admite viajes en su jornada y en la siguiente (ver utils/jornadaLaboral.js)
+  const [esProgramado, setEsProgramado] = useState(false);
 
   // Datos de obra
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
@@ -252,6 +256,7 @@ const ValeMaterialScreen = () => {
     setValeCreado(null);
     setFolioCreado(null);
     setMaterialSeleccionado(null);
+    setEsProgramado(false);
   };
 
   // Función: Crear vale
@@ -317,7 +322,7 @@ const ValeMaterialScreen = () => {
           generateFolio,
           materialesFiltrados,
           cantidad,
-          { esPlantaAsfaltos },
+          { esPlantaAsfaltos, esProgramado },
         );
 
         if (isMounted.current) {
@@ -331,7 +336,7 @@ const ValeMaterialScreen = () => {
           userProfile,
           generateFolio,
           materialesFiltrados,
-          { esPlantaAsfaltos },
+          { esPlantaAsfaltos, esProgramado },
         );
 
         if (isMounted.current) {
@@ -511,6 +516,30 @@ const ValeMaterialScreen = () => {
             />
           )}
         </View>
+        {/* SECCIÓN: PROGRAMAR PARA MAÑANA */}
+        <View style={styles.section}>
+          <View style={styles.programadoRow}>
+            <MaterialCommunityIcons
+              name="calendar-clock"
+              size={22}
+              color={colors.secondary}
+            />
+            <View style={styles.programadoTexto}>
+              <Text style={styles.programadoTitulo}>Programar para mañana</Text>
+              <Text style={styles.programadoSubtitulo}>
+                El camión recibe el ticket hoy y llega directo al banco mañana.
+                El vale acepta viajes hoy y mañana.
+              </Text>
+            </View>
+            <Switch
+              value={esProgramado}
+              onValueChange={setEsProgramado}
+              trackColor={{ false: colors.textSecondary, true: colors.primary }}
+              thumbColor={colors.surface}
+            />
+          </View>
+        </View>
+
         {/* SECCIÓN: CANTIDAD DE VALES */}
         <View style={styles.section}>
           <SelectorCantidadVales
@@ -584,5 +613,26 @@ const styles = {
     flex: 1,
     fontSize: 13,
     color: colors.textPrimary,
+  },
+  programadoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 12,
+  },
+  programadoTexto: {
+    flex: 1,
+  },
+  programadoTitulo: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  programadoSubtitulo: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 };

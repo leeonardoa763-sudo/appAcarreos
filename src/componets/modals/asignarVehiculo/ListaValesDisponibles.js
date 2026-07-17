@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../../config/colors";
+import { etiquetaProgramado } from "../../../utils/jornadaLaboral";
 import styles from "./asignarStyles";
 
 // ─── Constantes de grupos ─────────────────────────────────────────────────────
@@ -50,6 +51,8 @@ const getBanco = (vale) =>
 const esPlantaAsfaltosVale = (vale) =>
   !!vale.vale_material_detalles?.[0]?.es_planta_asfaltos;
 
+const esProgramadoVale = (vale) => !!vale.es_programado;
+
 const getEmpresa = (vale) => vale.empresas?.empresa ?? null;
 
 const sortByMaterial = (a, b) => {
@@ -75,6 +78,7 @@ const ModalConfirmacion = ({ vale, onConfirmar, onCancelar }) => {
   const tipoColor = esMaterial ? colors.primary : colors.secondary;
   const tipoIcono = esMaterial ? "package-variant" : "truck-cargo-container";
   const esPlanta = esPlantaAsfaltosVale(vale);
+  const esProgramado = esProgramadoVale(vale);
 
   return (
     <Modal
@@ -166,6 +170,36 @@ const ModalConfirmacion = ({ vale, onConfirmar, onCancelar }) => {
                       ]}
                     >
                       Planta de Asfaltos
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
+
+            {/* Vale programado */}
+            {esProgramado && (
+              <>
+                <View style={confirmStyles.separador} />
+                <View style={confirmStyles.fila}>
+                  <MaterialCommunityIcons
+                    name="calendar-clock"
+                    size={16}
+                    color={colors.primary}
+                  />
+                  <Text style={confirmStyles.filaLabel}>Jornada</Text>
+                  <View
+                    style={[
+                      confirmStyles.tipoBadge,
+                      { backgroundColor: `${colors.primary}15` },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        confirmStyles.tipoBadgeTexto,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      {etiquetaProgramado(vale.fecha_creacion)}
                     </Text>
                   </View>
                 </View>
@@ -388,6 +422,7 @@ const ItemVale = ({ vale, asignando, onSeleccionar }) => {
   const banco = getBanco(vale);
   const empresa = getEmpresa(vale);
   const esPlanta = esPlantaAsfaltosVale(vale);
+  const esProgramado = esProgramadoVale(vale);
   const obra = vale.obras
     ? `${vale.obras.cc ? vale.obras.cc + " - " : ""}${vale.obras.obra}`
     : "Sin obra";
@@ -428,6 +463,18 @@ const ItemVale = ({ vale, asignando, onSeleccionar }) => {
           <View style={styles.itemValeBadgePlanta}>
             <MaterialCommunityIcons name="factory" size={11} color={colors.secondary} />
             <Text style={styles.itemValeBadgePlantaTexto}>Planta de Asfaltos</Text>
+          </View>
+        )}
+        {esProgramado && (
+          <View style={styles.itemValeBadgeProgramado}>
+            <MaterialCommunityIcons
+              name="calendar-clock"
+              size={11}
+              color={colors.primary}
+            />
+            <Text style={styles.itemValeBadgeProgramadoTexto}>
+              {etiquetaProgramado(vale.fecha_creacion)}
+            </Text>
           </View>
         )}
         {materialNombre && (

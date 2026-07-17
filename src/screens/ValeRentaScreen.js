@@ -299,24 +299,6 @@ const ValeRentaScreen = () => {
     }
   };
 
-  const calcularMaximumDate = () => {
-    if (!formData.horaInicio) return new Date(); // Sin fecha seleccionada, bloquear futuro
-
-    const ahora = new Date();
-    const fechaSeleccionada = formData.horaInicio;
-
-    const esHoy =
-      fechaSeleccionada.getFullYear() === ahora.getFullYear() &&
-      fechaSeleccionada.getMonth() === ahora.getMonth() &&
-      fechaSeleccionada.getDate() === ahora.getDate();
-
-    if (!esHoy) return null;
-
-    const maximo = new Date(ahora);
-    maximo.setMinutes(ahora.getMinutes() + 10);
-    return maximo;
-  };
-
   if (loadingObras || loadingCatalogos) {
     return (
       <View style={styles.loadingContainer}>
@@ -426,14 +408,12 @@ const ValeRentaScreen = () => {
           />
 
           <CustomTimePicker
-            label="Fecha y Hora de Inicio"
+            label="Hora de Inicio"
             value={formData.horaInicio}
             onChange={(value) =>
               setFormData({ ...formData, horaInicio: value })
             }
             error={errors.horaInicio}
-            allowFutureDates={true}
-            maximumDate={calcularMaximumDate()}
           />
         </View>
 

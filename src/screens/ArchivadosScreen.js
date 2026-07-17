@@ -14,6 +14,7 @@ import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { formatearFecha } from "../utils/formatters";
+import { filtrarValesMaterialPorRol } from "../utils/plantaAsfaltos";
 
 import { useAcarreosFilters } from "../hooks/useAcarreosFilters";
 import { useCatalogos } from "../hooks/useCatalogos";
@@ -96,7 +97,7 @@ const ArchivadosScreen = () => {
           ),
           vale_material_detalles (
             es_planta_asfaltos,
-            material:id_material (id_material, material)
+            material:id_material (id_material, material, id_tipo_de_material)
           )
         `,
         )
@@ -109,11 +110,10 @@ const ArchivadosScreen = () => {
       let material = data.filter((v) => v.tipo_vale === "material");
       let renta = data.filter((v) => v.tipo_vale === "renta");
 
-      // El rol Planta de Asfaltos solo ve sus propios vales archivados.
+      // Mismo criterio que AcarreosScreen: cada rol solo ve los vales de su
+      // mundo (ver utils/plantaAsfaltos). Planta de Asfaltos no ve renta.
+      material = filtrarValesMaterialPorRol(material, userRole);
       if (esPlantaAsfaltos) {
-        material = material.filter(
-          (v) => v.vale_material_detalles?.[0]?.es_planta_asfaltos,
-        );
         renta = [];
       }
 

@@ -92,6 +92,7 @@ export const useValeMaterialLogic = (materiales) => {
             id_vehiculo: idVehiculo,
             estado: estadoInicial,
             qr_verification_url: verificationUrl,
+            es_programado: options.esProgramado ?? false,
           },
         ])
         .select()

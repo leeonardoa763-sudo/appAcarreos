@@ -87,6 +87,7 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
           id_operador,
           id_vehiculo,
           fecha_creacion,
+          es_programado,
           empresas:id_empresa ( empresa, sufijo ),
           obras ( obra, cc ),
           vale_material_detalles (
@@ -114,7 +115,7 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
       }
 
       const valesFiltrados = (data ?? []).filter((vale) => {
-        if (!esDentroJornada(vale.fecha_creacion)) return false;
+        if (!esDentroJornada(vale.fecha_creacion, vale.es_programado)) return false;
         // Exclusión mutua: un perfil de Planta de Asfaltos solo asigna
         // vehiculos a vales de planta; cualquier otro rol (Residente,
         // CHECADOR, etc.) solo ve vales que NO son de planta. Administrador

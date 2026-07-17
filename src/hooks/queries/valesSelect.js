@@ -30,7 +30,8 @@ export const VALE_SELECT_LISTA = `
     es_planta_asfaltos,
     material:id_material (
       id_material,
-      material
+      material,
+      id_tipo_de_material
     )
   ),
   vale_renta_detalle (

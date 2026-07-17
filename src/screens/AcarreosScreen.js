@@ -24,6 +24,7 @@ import { VALE_SELECT_LISTA } from "../hooks/queries/valesSelect";
 import { useAuth } from "../hooks/useAuth";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { useObras } from "../hooks/useObras";
+import { filtrarValesMaterialPorRol } from "../utils/plantaAsfaltos";
 import { commonStyles, listScreenStyles } from "../styles";
 
 import { useAcarreosFilters } from "../hooks/useAcarreosFilters";
@@ -234,12 +235,11 @@ const AcarreosScreen = () => {
       let material = valesData.filter((v) => v.tipo_vale === "material");
       let renta = valesData.filter((v) => v.tipo_vale === "renta");
 
-      // El rol Planta de Asfaltos solo gestiona vales de material para la
-      // planta — no ve renta ni vales normales de obra en esta pantalla.
+      // Vales de planta y vales de obra son mundos separados: cada rol solo
+      // ve los suyos (ver utils/plantaAsfaltos). Además, el rol Planta de
+      // Asfaltos no gestiona renta en esta pantalla.
+      material = filtrarValesMaterialPorRol(material, userRole);
       if (esPlantaAsfaltos) {
-        material = material.filter(
-          (v) => v.vale_material_detalles?.[0]?.es_planta_asfaltos,
-        );
         renta = [];
       }
 

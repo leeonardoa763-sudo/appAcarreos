@@ -104,7 +104,11 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
           numero_ticket,
           banco_descarga,
           fecha_impresion,
+          reimprimir_count,
           id_material_ticket,
+          material:id_material_ticket (
+            material
+          ),
           persona:id_persona_registro (
             nombre,
             primer_apellido
@@ -230,6 +234,10 @@ export const useTicketsDescarga = ({ vale, detalleRenta }) => {
             banco_descarga,
             fecha_impresion,
             reimprimir_count,
+            id_material_ticket,
+            material:id_material_ticket (
+              material
+            ),
             persona:id_persona_registro (
               nombre,
               primer_apellido

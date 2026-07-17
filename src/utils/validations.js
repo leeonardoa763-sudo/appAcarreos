@@ -139,39 +139,26 @@ export const validateDistancia = (distancia) => {
 // VALIDACIONES DE TIEMPO PARA VALES
 // ============================================
 
-const TOLERANCIA_MINUTOS = 60;
+const TOLERANCIA_PASADO_MINUTOS = 60;
+// Margen hacia adelante solo para absorber desfases de reloj del dispositivo
+const TOLERANCIA_FUTURO_MINUTOS = 10;
 
 /**
  * Valida la hora de inicio al crear un vale de renta.
- * - Si la fecha es futura (mañana o después): válido sin restricción de hora
- * - Si la fecha es hoy: no puede exceder 10 min al futuro ni ser muy antigua
- * - Si la fecha es pasada: siempre inválido
+ * El vale se crea siempre al momento, así que la hora debe estar alrededor de
+ * ahora: hasta 60 min atrás y hasta 10 min adelante.
  */
 export const validateHoraInicioNoFutura = (hora) => {
   if (!hora) return "La hora de inicio es requerida";
 
-  const ahora = new Date();
+  const diffMinutos = (hora.getTime() - Date.now()) / (1000 * 60);
 
-  const fechaHora = new Date(
-    hora.getFullYear(),
-    hora.getMonth(),
-    hora.getDate(),
-  );
-  const fechaHoy = new Date(
-    ahora.getFullYear(),
-    ahora.getMonth(),
-    ahora.getDate(),
-  );
-  const diffDias = Math.round((fechaHora - fechaHoy) / (1000 * 60 * 60 * 24));
+  if (diffMinutos > TOLERANCIA_FUTURO_MINUTOS) {
+    return "La hora de inicio no puede ser futura";
+  }
 
-  if (diffDias < 0) return "No puedes crear vales con fecha pasada";
-  if (diffDias > 0) return null;
-
-  const minutosHora = hora.getHours() * 60 + hora.getMinutes();
-  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
-
-  if (minutosHora < minutosAhora - TOLERANCIA_MINUTOS) {
-    return "La hora de inicio no puede ser más de 60 minutos en el pasado";
+  if (diffMinutos < -TOLERANCIA_PASADO_MINUTOS) {
+    return `La hora de inicio no puede ser más de ${TOLERANCIA_PASADO_MINUTOS} minutos en el pasado`;
   }
 
   return null;

@@ -27,6 +27,7 @@ import React, { useCallback } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
+import { etiquetaProgramado } from "../../utils/jornadaLaboral";
 import StatusBadge from "../common/StatusBadge";
 
 // ─── Helpers fuera del componente ────────────────────────────────────────────
@@ -118,6 +119,19 @@ const ValeCard = ({ vale, onPress }) => {
         <View style={styles.badgePlanta}>
           <MaterialCommunityIcons name="factory" size={12} color={colors.secondary} />
           <Text style={styles.badgePlantaTexto}>Planta de Asfaltos</Text>
+        </View>
+      )}
+
+      {vale.es_programado && (
+        <View style={styles.badgeProgramado}>
+          <MaterialCommunityIcons
+            name="calendar-clock"
+            size={12}
+            color={colors.primary}
+          />
+          <Text style={styles.badgeProgramadoTexto}>
+            {etiquetaProgramado(vale.fecha_creacion)}
+          </Text>
         </View>
       )}
 
@@ -335,5 +349,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     color: colors.secondary,
+  },
+  badgeProgramado: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginBottom: 6,
+  },
+  badgeProgramadoTexto: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.primary,
   },
 });
