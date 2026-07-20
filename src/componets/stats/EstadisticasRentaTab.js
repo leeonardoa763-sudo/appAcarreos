@@ -33,8 +33,12 @@ import LineChartCard from "./LineChartCard";
  * - periodo: string - 'semana' | 'mes' | 'trimestre' | 'semestre' | 'año'
  * - residenteId: number | null
  * - obraId: number | null
+ * - esPipa: boolean - true reutiliza esta pestaña para pipas de agua (datos
+ *   separados de la renta de equipo). Default false.
  */
-const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
+const EstadisticasRentaTab = ({ periodo, residenteId, obraId, esPipa = false }) => {
+  const nombreTipo = esPipa ? "pipa de agua" : "renta";
+
   const {
     totales,
     sindicatosUsados,
@@ -44,7 +48,7 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
     loading,
     error,
     refetch,
-  } = useEstadisticasRenta(periodo, residenteId, obraId);
+  } = useEstadisticasRenta(periodo, residenteId, obraId, esPipa);
 
   const {
     semanal,
@@ -54,7 +58,7 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
     setMaterialIdFiltroSemanal,
     materialIdFiltroPeriodo,
     setMaterialIdFiltroPeriodo,
-  } = useEstadisticasRentaTendencia(periodo, residenteId, obraId);
+  } = useEstadisticasRentaTendencia(periodo, residenteId, obraId, esPipa);
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
@@ -188,7 +192,7 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
           <TopOperadoresList
             data={topOperadoresAdaptado}
             title="Top 5 Operadores"
-            subtitle="Operadores con más vales de renta en el periodo"
+            subtitle={`Operadores con más vales de ${nombreTipo} en el periodo`}
           />
         </View>
       )}
@@ -197,13 +201,13 @@ const EstadisticasRentaTab = ({ periodo, residenteId, obraId }) => {
       {totales.totalVales === 0 && (
         <View style={styles.sinDatos}>
           <MaterialCommunityIcons
-            name="truck-cargo-container"
+            name={esPipa ? "water-pump" : "truck-cargo-container"}
             size={52}
             color={colors.border}
           />
-          <Text style={styles.sinDatosTitle}>Sin vales de renta</Text>
+          <Text style={styles.sinDatosTitle}>Sin vales de {nombreTipo}</Text>
           <Text style={styles.sinDatosSubtitle}>
-            No hay vales de renta en este periodo
+            No hay vales de {nombreTipo} en este periodo
             {obraId ? " para la obra seleccionada" : ""}
           </Text>
         </View>

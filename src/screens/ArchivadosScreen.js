@@ -41,6 +41,7 @@ const ArchivadosScreen = () => {
 
   const [valesMaterial, setValesMaterial] = useState([]);
   const [valesRenta, setValesRenta] = useState([]);
+  const [valesPipas, setValesPipas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,6 +75,7 @@ const ArchivadosScreen = () => {
         if (isMounted.current) {
           setValesMaterial([]);
           setValesRenta([]);
+          setValesPipas([]);
         }
         return;
       }
@@ -86,6 +88,7 @@ const ArchivadosScreen = () => {
           folio,
           fecha_creacion,
           tipo_vale,
+          es_pipa_agua,
           estado,
           id_obra,
           id_operador,
@@ -108,18 +111,27 @@ const ArchivadosScreen = () => {
       if (error) throw error;
 
       let material = data.filter((v) => v.tipo_vale === "material");
-      let renta = data.filter((v) => v.tipo_vale === "renta");
+      // Renta de equipo y pipas de agua son ambos tipo_vale="renta"; se separan
+      // por el sello es_pipa_agua (ver utils/pipasAgua).
+      let renta = data.filter(
+        (v) => v.tipo_vale === "renta" && !v.es_pipa_agua,
+      );
+      let pipas = data.filter(
+        (v) => v.tipo_vale === "renta" && v.es_pipa_agua,
+      );
 
       // Mismo criterio que AcarreosScreen: cada rol solo ve los vales de su
-      // mundo (ver utils/plantaAsfaltos). Planta de Asfaltos no ve renta.
+      // mundo (ver utils/plantaAsfaltos). Planta de Asfaltos no ve renta ni pipas.
       material = filtrarValesMaterialPorRol(material, userRole);
       if (esPlantaAsfaltos) {
         renta = [];
+        pipas = [];
       }
 
       if (isMounted.current) {
         setValesMaterial(material);
         setValesRenta(renta);
+        setValesPipas(pipas);
       }
     } catch (error) {
       console.error("[ArchivadosScreen] Error:", error);
@@ -229,6 +241,7 @@ const ArchivadosScreen = () => {
 
   const filteredMaterial = filterVales(valesMaterial);
   const filteredRenta = filterVales(valesRenta);
+  const filteredPipas = filterVales(valesPipas);
 
   return (
     <>
@@ -311,6 +324,39 @@ const ArchivadosScreen = () => {
                     {searchQuery
                       ? "No se encontraron vales"
                       : "No hay vales de renta archivados"}
+                  </Text>
+                </View>
+              )}
+              scrollEnabled={false}
+            />
+          </CollapsibleSection>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.categoryTitle}>Pipas de Agua</Text>
+          <CollapsibleSection
+            title="Archivados"
+            icon="archive"
+            count={filteredPipas.length}
+            defaultCollapsed={false}
+            iconColor={colors.textSecondary}
+            badgeColor={colors.textSecondary}
+          >
+            <FlatList
+              data={filteredPipas}
+              renderItem={renderValeItem}
+              keyExtractor={(item) => item.id_vale.toString()}
+              ListEmptyComponent={() => (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons
+                    name="archive-off"
+                    size={50}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.emptyText}>
+                    {searchQuery
+                      ? "No se encontraron vales"
+                      : "No hay vales de pipa de agua archivados"}
                   </Text>
                 </View>
               )}

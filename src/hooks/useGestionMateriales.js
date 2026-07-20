@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { supabase } from "../config/supabase";
 import { clearStorageKey } from "../utils/storageUtils";
+import { catCacheKey } from "./useCatalogos";
 
 export const useGestionMateriales = () => {
   const [materiales, setMateriales] = useState([]);
@@ -50,7 +51,7 @@ export const useGestionMateriales = () => {
   }, []);
 
   const invalidarCacheMateriales = async () => {
-    await clearStorageKey("cat_materiales");
+    await clearStorageKey(catCacheKey("materiales"));
     console.log("[GestionMat] cache invalidado");
   };
 

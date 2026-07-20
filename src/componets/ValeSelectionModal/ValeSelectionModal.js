@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Modal } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { colors } from "../../config/colors";
 import { useAuth } from "../../hooks/useAuth";
+import { MODO_PIPA } from "../../utils/pipasAgua";
 import ValeOptionButton from "./ValeOptionButton";
 import styles from "./styles";
 
@@ -18,6 +19,11 @@ const ValeSelectionModal = () => {
   const handleRenta = () => {
     // CAMBIO: replace en lugar de navigate
     navigation.replace("ValeRentaScreen");
+  };
+
+  const handlePipa = () => {
+    // Misma pantalla de renta, en modo pipa de agua (ver ValeRentaScreen).
+    navigation.replace("ValeRentaScreen", { modo: MODO_PIPA });
   };
 
   const handleMaterial = () => {
@@ -68,6 +74,14 @@ const ValeSelectionModal = () => {
             text="Renta"
             onPress={handleRenta}
             color={colors.secondary}
+          />
+
+          {/* Botón para Pipa de Agua */}
+          <ValeOptionButton
+            iconName="water-pump"
+            text="Pipa de Agua"
+            onPress={handlePipa}
+            color={colors.info}
           />
 
           {/* Botón Cancelar */}

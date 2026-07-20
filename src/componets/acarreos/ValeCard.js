@@ -88,6 +88,9 @@ const getRentaInfo = (vale) => {
 const ValeCard = ({ vale, onPress }) => {
   const isMaterial = vale.tipo_vale === "material";
   const isRenta = vale.tipo_vale === "renta";
+  // Las pipas son vales de renta (isRenta sigue true: comparten el bloque de
+  // horas y el footer con hora_inicio); isPipa solo agrega identidad visual.
+  const isPipa = isRenta && !!vale.es_pipa_agua;
   const materialInfo = getMaterialInfo(vale);
   const rentaInfo = getRentaInfo(vale);
   const estadoActual = vale.estado;
@@ -98,6 +101,7 @@ const ValeCard = ({ vale, onPress }) => {
         styles.card,
         isMaterial && styles.cardMaterial,
         isRenta && styles.cardRenta,
+        isPipa && styles.cardPipa,
       ]}
       onPress={handlePress}
       activeOpacity={0.7}
@@ -106,14 +110,29 @@ const ValeCard = ({ vale, onPress }) => {
       <View style={styles.header}>
         <View style={styles.folioContainer}>
           <MaterialCommunityIcons
-            name={isMaterial ? "package-variant" : "truck-cargo-container"}
+            name={
+              isMaterial
+                ? "package-variant"
+                : isPipa
+                  ? "water-pump"
+                  : "truck-cargo-container"
+            }
             size={20}
-            color={isMaterial ? colors.primary : colors.secondary}
+            color={
+              isMaterial ? colors.primary : isPipa ? colors.info : colors.secondary
+            }
           />
           <Text style={styles.folio}>{vale.folio}</Text>
         </View>
         <StatusBadge estado={estadoActual} size="small" />
       </View>
+
+      {isPipa && (
+        <View style={styles.badgePipa}>
+          <MaterialCommunityIcons name="water" size={12} color={colors.info} />
+          <Text style={styles.badgePipaTexto}>Pipa de Agua</Text>
+        </View>
+      )}
 
       {materialInfo?.esPlantaAsfaltos && (
         <View style={styles.badgePlanta}>
@@ -233,6 +252,7 @@ const ValeCard = ({ vale, onPress }) => {
             styles.button,
             isMaterial && styles.buttonMaterial,
             isRenta && styles.buttonRenta,
+            isPipa && styles.buttonPipa,
           ]}
           onPress={handlePress}
         >
@@ -268,6 +288,9 @@ const styles = StyleSheet.create({
   },
   cardRenta: {
     borderLeftColor: colors.secondary,
+  },
+  cardPipa: {
+    borderLeftColor: colors.info,
   },
   header: {
     flexDirection: "row",
@@ -321,6 +344,9 @@ const styles = StyleSheet.create({
   buttonRenta: {
     backgroundColor: colors.secondary,
   },
+  buttonPipa: {
+    backgroundColor: colors.info,
+  },
   buttonText: {
     color: "#FFFFFF",
     fontSize: 14,
@@ -349,6 +375,24 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     color: colors.secondary,
+  },
+  badgePipa: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.info,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginBottom: 6,
+  },
+  badgePipaTexto: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.info,
   },
   badgeProgramado: {
     flexDirection: "row",

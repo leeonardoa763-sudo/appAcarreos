@@ -34,6 +34,7 @@ import { useAuth } from "../hooks/useAuth";
 import LoginScreen from "../screens/LoginScreen";
 import UpdateRequiredScreen from "../screens/UpdateRequiredScreen"; // 🆕
 import { colors } from "../config/colors";
+import { IS_WEB } from "../config/features";
 import { checkAppVersion } from "../utils/versionChecker"; // 🆕
 
 const AuthGuard = ({ children }) => {
@@ -56,6 +57,17 @@ const AuthGuard = ({ children }) => {
    * 🆕 Verifica la versión de la app
    */
   const verifyAppVersion = async () => {
+    // En web la verificacion no aplica: la unica salida que ofrece
+    // UpdateRequiredScreen es descargar el APK, y en un navegador no hay nada
+    // que instalar. Ademas el bundle web siempre es el ultimo desplegado, asi
+    // que no existe una version "vieja" que bloquear. Sin esto, cada release
+    // que sube version_minima bloquea la web hasta re-exportarla.
+    if (IS_WEB) {
+      setVersionInfo(null);
+      setCheckingVersion(false);
+      return;
+    }
+
     try {
 
       const versionCheck = await checkAppVersion();

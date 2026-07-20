@@ -50,10 +50,14 @@ const rangoMesMatview = (periodo) => {
   return [primerDia(hoy), primerDia(hoy)];
 };
 
+// esPipa = false: estadisticas de renta de equipo (excluye pipas de agua).
+// esPipa = true:  estadisticas de pipas de agua (usa la matview mv_stats_pipas).
+// El default deja el comportamiento historico intacto.
 export const useEstadisticasRenta = (
   periodo = "mes",
   residenteId = null,
   obraId = null,
+  esPipa = false,
 ) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -83,6 +87,7 @@ export const useEstadisticasRenta = (
         .from("vales")
         .select("id_vale, fecha_creacion")
         .eq("tipo_vale", "renta")
+        .eq("es_pipa_agua", esPipa)
         .in("estado", ESTADOS_RENTA)
         .gte("fecha_creacion", toLocalISO(hace7Dias))
         .eq("id_obra", obraId);
@@ -97,16 +102,19 @@ export const useEstadisticasRenta = (
           .from("vales")
           .select("id_vale, vale_renta_detalle(total_horas, total_dias, costo_total)")
           .eq("tipo_vale", "renta")
+          .eq("es_pipa_agua", esPipa)
           .in("estado", ESTADOS_RENTA)
           .gte("fecha_creacion", fechaInicio)
           .lte("fecha_creacion", fechaFin)
           .eq("id_obra", obraId);
       } else {
         // ── Periodos largos: matview pre-agregada por mes ─────────────────────
+        // Cada tipo tiene su propia matview: renta -> mv_stats_renta (excluye
+        // pipas), pipas -> mv_stats_pipas.
         const [mesInicio, mesFin] = rangoMesMatview(periodo);
 
         filasPromise = supabase
-          .from("mv_stats_renta")
+          .from(esPipa ? "mv_stats_pipas" : "mv_stats_renta")
           .select("total_vales, total_horas, total_dias, costo_total")
           .gte("mes", mesInicio)
           .lte("mes", mesFin)
@@ -142,7 +150,7 @@ export const useEstadisticasRenta = (
     } finally {
       setLoading(false);
     }
-  }, [periodo, residenteId, obraId]);
+  }, [periodo, residenteId, obraId, esPipa]);
 
   useEffect(() => {
     fetchData();

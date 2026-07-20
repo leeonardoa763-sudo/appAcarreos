@@ -27,7 +27,15 @@ const GRUPOS = [
     titulo: "Renta de Equipo",
     icono: "truck-cargo-container",
     color: colors.secondary,
-    filtro: (vale) => vale.tipo_vale === "renta",
+    // Renta de equipo excluye pipas: un camion de agua no debe aparecer aqui.
+    filtro: (vale) => vale.tipo_vale === "renta" && !vale.es_pipa_agua,
+  },
+  {
+    key: "pipas",
+    titulo: "Pipa de Agua",
+    icono: "water-pump",
+    color: colors.info,
+    filtro: (vale) => vale.tipo_vale === "renta" && !!vale.es_pipa_agua,
   },
 ];
 
@@ -67,6 +75,7 @@ const ModalConfirmacion = ({ vale, onConfirmar, onCancelar }) => {
   if (!vale) return null;
 
   const esMaterial = vale.tipo_vale === "material";
+  const esPipa = vale.tipo_vale === "renta" && !!vale.es_pipa_agua;
   const materialNombre = getMaterialNombre(vale);
   const banco = getBanco(vale);
   const empresa = getEmpresa(vale);
@@ -74,9 +83,21 @@ const ModalConfirmacion = ({ vale, onConfirmar, onCancelar }) => {
     ? `${vale.obras.cc ? vale.obras.cc + " - " : ""}${vale.obras.obra}`
     : "Sin obra";
 
-  const tipoTexto = esMaterial ? "Material" : "Renta de Equipo";
-  const tipoColor = esMaterial ? colors.primary : colors.secondary;
-  const tipoIcono = esMaterial ? "package-variant" : "truck-cargo-container";
+  const tipoTexto = esMaterial
+    ? "Material"
+    : esPipa
+      ? "Pipa de Agua"
+      : "Renta de Equipo";
+  const tipoColor = esMaterial
+    ? colors.primary
+    : esPipa
+      ? colors.info
+      : colors.secondary;
+  const tipoIcono = esMaterial
+    ? "package-variant"
+    : esPipa
+      ? "water-pump"
+      : "truck-cargo-container";
   const esPlanta = esPlantaAsfaltosVale(vale);
   const esProgramado = esProgramadoVale(vale);
 
@@ -418,6 +439,7 @@ const confirmStyles = StyleSheet.create({
 
 const ItemVale = ({ vale, asignando, onSeleccionar }) => {
   const esMaterial = vale.tipo_vale === "material";
+  const esPipa = vale.tipo_vale === "renta" && !!vale.es_pipa_agua;
   const materialNombre = getMaterialNombre(vale);
   const banco = getBanco(vale);
   const empresa = getEmpresa(vale);
@@ -438,24 +460,34 @@ const ItemVale = ({ vale, asignando, onSeleccionar }) => {
         style={[
           styles.itemValeTipoBar,
           esMaterial ? styles.barMaterial : styles.barRenta,
+          esPipa && { backgroundColor: colors.info },
         ]}
       />
       <View style={styles.itemValeBody}>
         <View style={styles.itemValeTop}>
           <MaterialCommunityIcons
-            name={esMaterial ? "package-variant" : "truck-cargo-container"}
+            name={
+              esMaterial
+                ? "package-variant"
+                : esPipa
+                  ? "water-pump"
+                  : "truck-cargo-container"
+            }
             size={20}
-            color={esMaterial ? colors.primary : colors.secondary}
+            color={
+              esMaterial ? colors.primary : esPipa ? colors.info : colors.secondary
+            }
           />
           <Text style={styles.itemValeFolio}>{vale.folio}</Text>
           <View
             style={[
               styles.itemValeTipoBadge,
               esMaterial ? styles.badgeMaterial : styles.badgeRenta,
+              esPipa && { backgroundColor: colors.info },
             ]}
           >
             <Text style={styles.itemValeTipoTexto}>
-              {esMaterial ? "Material" : "Renta"}
+              {esMaterial ? "Material" : esPipa ? "Pipa" : "Renta"}
             </Text>
           </View>
         </View>

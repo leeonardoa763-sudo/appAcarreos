@@ -28,10 +28,13 @@ import { supabase } from "../config/supabase";
  * - materialIdFiltroPeriodo / setMaterialIdFiltroPeriodo
  * - refetchSemanal / refetchPeriodo
  */
+// esPipa = false: tendencia de renta de equipo (excluye pipas de agua).
+// esPipa = true:  tendencia de pipas de agua.
 export const useEstadisticasRentaTendencia = (
   periodo = "mes",
   residenteId = null,
   obraId = null,
+  esPipa = false,
 ) => {
   const [valesSemanal, setValesSemanal] = useState([]);
   const [valesPeriodo, setValesPeriodo] = useState([]);
@@ -169,6 +172,7 @@ export const useEstadisticasRentaTendencia = (
         `,
         )
         .eq("tipo_vale", "renta")
+        .eq("es_pipa_agua", esPipa)
         .in("estado", ["emitido", "verificado", "conciliado"])
         .gte("fecha_completado", fechaInicio)
         .lte("fecha_completado", fechaFin);
@@ -185,7 +189,7 @@ export const useEstadisticasRentaTendencia = (
       if (error) throw error;
       return data || [];
     },
-    [residenteId, obraId],
+    [residenteId, obraId, esPipa],
   );
 
   // ─── Fetch grafica 1: semana fija ──────────────────────────────────────────

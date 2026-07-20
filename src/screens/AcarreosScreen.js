@@ -15,7 +15,6 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
-  FlatList,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
@@ -32,10 +31,8 @@ import FilterBar from "../componets/acarreos/FilterBar";
 import { useCatalogos } from "../hooks/useCatalogos";
 import { useSectionPagination } from "../hooks/useSectionPagination";
 
-import ValeCard from "../componets/acarreos/ValeCard";
+import SeccionValesPorEstado from "../componets/acarreos/SeccionValesPorEstado";
 import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
-import CollapsibleSection from "../componets/common/CollapsibleSection";
-import BotonVerMas from "../componets/common/BotonVerMas";
 import ModalPruebaImpresion from "../componets/dev/ModalPruebaImpresion";
 import TutorialValeDetalleModal from "../componets/tutorial/TutorialValeDetalleModal";
 import { useTutorialSeen } from "../hooks/useTutorialSeen";
@@ -51,6 +48,7 @@ const AcarreosScreen = () => {
 
   const [valesMaterial, setValesMaterial] = useState([]);
   const [valesRenta, setValesRenta] = useState([]);
+  const [valesPipas, setValesPipas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -186,6 +184,7 @@ const AcarreosScreen = () => {
         if (isMounted.current) {
           setValesMaterial([]);
           setValesRenta([]);
+          setValesPipas([]);
           setLoading(false);
         }
         isFetching.current = false;
@@ -233,19 +232,28 @@ const AcarreosScreen = () => {
       }
 
       let material = valesData.filter((v) => v.tipo_vale === "material");
-      let renta = valesData.filter((v) => v.tipo_vale === "renta");
+      // Renta de equipo y pipas de agua son ambos tipo_vale="renta"; se separan
+      // por el sello es_pipa_agua (ver utils/pipasAgua).
+      let renta = valesData.filter(
+        (v) => v.tipo_vale === "renta" && !v.es_pipa_agua,
+      );
+      let pipas = valesData.filter(
+        (v) => v.tipo_vale === "renta" && v.es_pipa_agua,
+      );
 
       // Vales de planta y vales de obra son mundos separados: cada rol solo
       // ve los suyos (ver utils/plantaAsfaltos). Además, el rol Planta de
-      // Asfaltos no gestiona renta en esta pantalla.
+      // Asfaltos no gestiona renta ni pipas en esta pantalla.
       material = filtrarValesMaterialPorRol(material, userRole);
       if (esPlantaAsfaltos) {
         renta = [];
+        pipas = [];
       }
 
       if (isMounted.current) {
         setValesMaterial(material);
         setValesRenta(renta);
+        setValesPipas(pipas);
         lastFetchRef.current = Date.now();
       }
     } catch (error) {
@@ -318,6 +326,11 @@ const AcarreosScreen = () => {
     [valesRenta, searchQuery, filters, operadores],
   );
 
+  const filteredValesPipas = useMemo(
+    () => filterVales(valesPipas),
+    [valesPipas, searchQuery, filters, operadores],
+  );
+
   // ─── Separación por estado ────────────────────────────────────────────────
 
   const separateValesByStatus = (vales) => {
@@ -349,6 +362,11 @@ const AcarreosScreen = () => {
     [filteredValesRenta],
   );
 
+  const pipasSeparado = useMemo(
+    () => separateValesByStatus(filteredValesPipas),
+    [filteredValesPipas],
+  );
+
   // ─── Paginación visual por sección ────────────────────────────────────────
 
   const { secciones: matPag, resetear: resetMatPag } =
@@ -356,6 +374,9 @@ const AcarreosScreen = () => {
 
   const { secciones: rentaPag, resetear: resetRentaPag } =
     useSectionPagination(rentaSeparado);
+
+  const { secciones: pipasPag, resetear: resetPipasPag } =
+    useSectionPagination(pipasSeparado);
 
   // Resetear paginación al cambiar búsqueda o filtros
   const prevSearchRef = useRef(searchQuery);
@@ -368,49 +389,11 @@ const AcarreosScreen = () => {
     ) {
       resetMatPag();
       resetRentaPag();
+      resetPipasPag();
       prevSearchRef.current = searchQuery;
       prevFiltersRef.current = filters;
     }
   }, [searchQuery, filters]);
-
-  // ─── Render helpers ───────────────────────────────────────────────────────
-
-  const renderValeItem = useCallback(({ item }) => (
-    <ValeCard vale={item} onPress={handleOpenVale} />
-  ), [handleOpenVale]);
-
-  const EmptyState = ({ icon, text }) => (
-    <View style={styles.emptyState}>
-      <MaterialCommunityIcons
-        name={icon}
-        size={50}
-        color={colors.textSecondary}
-      />
-      <Text style={styles.emptyText}>{text}</Text>
-    </View>
-  );
-
-  const renderSeccion = (seccionPag, _seccionCompleta, emptyIcon, emptyText) => (
-    <>
-      <FlatList
-        data={seccionPag.items}
-        renderItem={renderValeItem}
-        keyExtractor={(item) => item.id_vale.toString()}
-        ListEmptyComponent={() => (
-          <EmptyState icon={emptyIcon} text={emptyText} />
-        )}
-        scrollEnabled={false}
-        showsVerticalScrollIndicator={false}
-      />
-      {seccionPag.hayMas && (
-        <BotonVerMas
-          onPress={seccionPag.cargarMas}
-          totalMostrados={seccionPag.items.length}
-          total={seccionPag.total}
-        />
-      )}
-    </>
-  );
 
   // ─── Guards ───────────────────────────────────────────────────────────────
 
@@ -482,224 +465,43 @@ const AcarreosScreen = () => {
         }
       >
         {/* ========== SECCIÓN MATERIAL ========== */}
-        <View style={styles.section}>
-          <Text style={styles.categoryTitle}>Material</Text>
-
-          {/* Material - En Proceso */}
-          <CollapsibleSection
-            title="En Proceso"
-            icon="progress-clock"
-            count={materialSeparado.enProceso.length}
-            defaultCollapsed={false}
-            iconColor={colors.warning}
-            badgeColor={colors.warning}
-          >
-            {renderSeccion(
-              matPag.enProceso,
-              materialSeparado.enProceso,
-              "package-variant-closed",
-              searchQuery
-                ? "No se encontraron vales en proceso"
-                : "No hay vales de material en proceso",
-            )}
-          </CollapsibleSection>
-
-          {/* Material - Emitidos */}
-          <CollapsibleSection
-            title="Emitidos"
-            icon="check-circle"
-            count={materialSeparado.emitidos.length}
-            defaultCollapsed={true}
-            forceExpanded={!!searchQuery.trim()}
-            iconColor={colors.accent}
-            badgeColor={colors.accent}
-          >
-            {renderSeccion(
-              matPag.emitidos,
-              materialSeparado.emitidos,
-              "package-variant-closed",
-              searchQuery
-                ? "No se encontraron vales emitidos"
-                : "No hay vales de material emitidos",
-            )}
-          </CollapsibleSection>
-
-          {/* Material - Verificados (solo Administrador) */}
-          {esAdministrador && (
-            <CollapsibleSection
-              title="Verificados"
-              icon="check-decagram"
-              count={materialSeparado.verificados.length}
-              defaultCollapsed={true}
-              forceExpanded={!!searchQuery.trim()}
-              iconColor={colors.info}
-              badgeColor={colors.info}
-            >
-              {renderSeccion(
-                matPag.verificados,
-                materialSeparado.verificados,
-                "package-variant-closed",
-                searchQuery
-                  ? "No se encontraron vales verificados"
-                  : "No hay vales de material verificados",
-              )}
-            </CollapsibleSection>
-          )}
-
-          {/* Material - Conciliados (solo Administrador) */}
-          {esAdministrador && (
-            <CollapsibleSection
-              title="Conciliados"
-              icon="currency-usd"
-              count={materialSeparado.conciliados.length}
-              defaultCollapsed={true}
-              forceExpanded={!!searchQuery.trim()}
-              iconColor={colors.success}
-              badgeColor={colors.success}
-            >
-              {renderSeccion(
-                matPag.conciliados,
-                materialSeparado.conciliados,
-                "package-variant-closed",
-                searchQuery
-                  ? "No se encontraron vales conciliados"
-                  : "No hay vales de material conciliados",
-              )}
-            </CollapsibleSection>
-          )}
-
-          {/* Material - Cancelados (oculto para Checador) */}
-          {!esChecador && (
-            <CollapsibleSection
-              title="Cancelados"
-              icon="cancel"
-              count={materialSeparado.cancelados.length}
-              defaultCollapsed={true}
-              forceExpanded={!!searchQuery.trim()}
-              iconColor={colors.danger}
-              badgeColor={colors.danger}
-            >
-              {renderSeccion(
-                matPag.cancelados,
-                materialSeparado.cancelados,
-                "package-variant-closed",
-                searchQuery
-                  ? "No se encontraron vales cancelados"
-                  : "No hay vales de material cancelados",
-              )}
-            </CollapsibleSection>
-          )}
-        </View>
+        <SeccionValesPorEstado
+          titulo="Material"
+          nombreTipo="material"
+          emptyIcon="package-variant-closed"
+          pag={matPag}
+          separado={materialSeparado}
+          esAdministrador={esAdministrador}
+          esChecador={esChecador}
+          searchQuery={searchQuery}
+          onOpenVale={handleOpenVale}
+        />
 
         {/* ========== SECCIÓN RENTA ========== */}
-        <View style={styles.section}>
-          <Text style={styles.categoryTitle}> Renta</Text>
+        <SeccionValesPorEstado
+          titulo="Renta"
+          nombreTipo="renta"
+          emptyIcon="truck-outline"
+          pag={rentaPag}
+          separado={rentaSeparado}
+          esAdministrador={esAdministrador}
+          esChecador={esChecador}
+          searchQuery={searchQuery}
+          onOpenVale={handleOpenVale}
+        />
 
-          {/* Renta - En Proceso */}
-          <CollapsibleSection
-            title="En Proceso"
-            icon="progress-clock"
-            count={rentaSeparado.enProceso.length}
-            defaultCollapsed={false}
-            iconColor={colors.warning}
-            badgeColor={colors.warning}
-          >
-            {renderSeccion(
-              rentaPag.enProceso,
-              rentaSeparado.enProceso,
-              "truck-outline",
-              searchQuery
-                ? "No se encontraron vales en proceso"
-                : "No hay vales de renta en proceso",
-            )}
-          </CollapsibleSection>
-
-          {/* Renta - Emitidos */}
-          <CollapsibleSection
-            title="Emitidos"
-            icon="check-circle"
-            count={rentaSeparado.emitidos.length}
-            defaultCollapsed={true}
-            forceExpanded={!!searchQuery.trim()}
-            iconColor={colors.accent}
-            badgeColor={colors.accent}
-          >
-            {renderSeccion(
-              rentaPag.emitidos,
-              rentaSeparado.emitidos,
-              "truck-outline",
-              searchQuery
-                ? "No se encontraron vales emitidos"
-                : "No hay vales de renta emitidos",
-            )}
-          </CollapsibleSection>
-
-          {/* Renta - Verificados (solo Administrador) */}
-          {esAdministrador && (
-            <CollapsibleSection
-              title="Verificados"
-              icon="check-decagram"
-              count={rentaSeparado.verificados.length}
-              defaultCollapsed={true}
-              forceExpanded={!!searchQuery.trim()}
-              iconColor={colors.info}
-              badgeColor={colors.info}
-            >
-              {renderSeccion(
-                rentaPag.verificados,
-                rentaSeparado.verificados,
-                "truck-outline",
-                searchQuery
-                  ? "No se encontraron vales verificados"
-                  : "No hay vales de renta verificados",
-              )}
-            </CollapsibleSection>
-          )}
-
-          {/* Renta - Conciliados (solo Administrador) */}
-          {esAdministrador && (
-            <CollapsibleSection
-              title="Conciliados"
-              icon="currency-usd"
-              count={rentaSeparado.conciliados.length}
-              defaultCollapsed={true}
-              forceExpanded={!!searchQuery.trim()}
-              iconColor={colors.success}
-              badgeColor={colors.success}
-            >
-              {renderSeccion(
-                rentaPag.conciliados,
-                rentaSeparado.conciliados,
-                "truck-outline",
-                searchQuery
-                  ? "No se encontraron vales conciliados"
-                  : "No hay vales de renta conciliados",
-              )}
-            </CollapsibleSection>
-          )}
-
-          {/* Renta - Cancelados (oculto para Checador) */}
-          {!esChecador && (
-            <CollapsibleSection
-              title="Cancelados"
-              icon="cancel"
-              count={rentaSeparado.cancelados.length}
-              defaultCollapsed={true}
-              forceExpanded={!!searchQuery.trim()}
-              iconColor={colors.danger}
-              badgeColor={colors.danger}
-            >
-              {renderSeccion(
-                rentaPag.cancelados,
-                rentaSeparado.cancelados,
-                "truck-outline",
-                searchQuery
-                  ? "No se encontraron vales cancelados"
-                  : "No hay vales de renta cancelados",
-              )}
-            </CollapsibleSection>
-          )}
-        </View>
+        {/* ========== SECCIÓN PIPAS DE AGUA ========== */}
+        <SeccionValesPorEstado
+          titulo="Pipas de Agua"
+          nombreTipo="pipa de agua"
+          emptyIcon="water-off"
+          pag={pipasPag}
+          separado={pipasSeparado}
+          esAdministrador={esAdministrador}
+          esChecador={esChecador}
+          searchQuery={searchQuery}
+          onOpenVale={handleOpenVale}
+        />
       </ScrollView>
 
       <ValeDetalleModal

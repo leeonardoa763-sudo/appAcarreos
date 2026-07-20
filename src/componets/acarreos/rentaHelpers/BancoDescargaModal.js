@@ -42,9 +42,13 @@ const BancoDescargaModal = ({
   onCancelar,
   numeroTicket = 1,
   loading = false,
+  esPipa = false,
 }) => {
   const [banco, setBanco] = useState("");
   const [error, setError] = useState("");
+
+  // Para pipas de agua no es un banco de descarga sino el pozo que se rellena.
+  const sustantivo = esPipa ? "pozo" : "banco";
 
   // Limpiar campo cada vez que se abre el modal
   useEffect(() => {
@@ -58,7 +62,7 @@ const BancoDescargaModal = ({
     const bancoLimpio = banco.trim();
 
     if (!bancoLimpio) {
-      setError("El nombre del banco es obligatorio.");
+      setError(`El nombre del ${sustantivo} es obligatorio.`);
       return;
     }
 
@@ -93,12 +97,14 @@ const BancoDescargaModal = ({
           <View style={styles.header}>
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons
-                name="dump-truck"
+                name={esPipa ? "water-pump" : "dump-truck"}
                 size={32}
                 color={colors.secondary}
               />
             </View>
-            <Text style={styles.titulo}>Ticket de Descarga</Text>
+            <Text style={styles.titulo}>
+              {esPipa ? "Ticket de Pozo" : "Ticket de Descarga"}
+            </Text>
             <Text style={styles.subtitulo}>
               Ticket #{String(numeroTicket).padStart(2, "0")}
             </Text>
@@ -106,7 +112,9 @@ const BancoDescargaModal = ({
 
           {/* Instrucción */}
           <Text style={styles.instruccion}>
-            Escribe el nombre del banco donde se descargará el material:
+            {esPipa
+              ? "Escribe el nombre del pozo que se va a rellenar de agua:"
+              : "Escribe el nombre del banco donde se descargará el material:"}
           </Text>
 
           {/* Input */}
@@ -114,7 +122,7 @@ const BancoDescargaModal = ({
             style={[styles.input, error ? styles.inputError : null]}
             value={banco}
             onChangeText={handleChangeTexto}
-            placeholder="Ej. BANCO MUNICIPAL NORTE"
+            placeholder={esPipa ? "Ej. POZO NORTE" : "Ej. BANCO MUNICIPAL NORTE"}
             placeholderTextColor={colors.textSecondary}
             autoCapitalize="characters"
             autoFocus

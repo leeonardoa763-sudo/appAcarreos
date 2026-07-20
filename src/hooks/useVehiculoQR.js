@@ -83,6 +83,7 @@ const useVehiculoQR = ({ expectedSindicatoId = null } = {}) => {
           id_vale,
           folio,
           tipo_vale,
+          es_pipa_agua,
           estado,
           id_operador,
           id_vehiculo,

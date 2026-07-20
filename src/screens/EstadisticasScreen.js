@@ -36,6 +36,7 @@ const PERIODOS = [
 const TABS = [
   { id: "material", label: "Material", icono: "package-variant" },
   { id: "renta", label: "Renta", icono: "truck-cargo-container" },
+  { id: "pipas", label: "Pipas", icono: "water-pump" },
 ];
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -205,6 +206,15 @@ const EstadisticasScreen = () => {
             periodo={periodo}
             residenteId={residenteId}
             obraId={obraId}
+          />
+        )}
+
+        {tabActiva === "pipas" && (
+          <EstadisticasRentaTab
+            periodo={periodo}
+            residenteId={residenteId}
+            obraId={obraId}
+            esPipa
           />
         )}
       </ScrollView>

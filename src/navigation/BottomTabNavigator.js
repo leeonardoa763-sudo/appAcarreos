@@ -85,15 +85,19 @@ function ValesStack() {
         }}
       />
 
-      {/* Pantalla de Renta - CON header */}
+      {/* Pantalla de Renta - CON header. La misma pantalla sirve para pipas
+          de agua (modo="pipa"), solo cambia el titulo. */}
       <Stack.Screen
         name="ValeRentaScreen"
         component={ValeRentaScreen}
-        options={{
+        options={({ route }) => ({
           headerShown: true,
-          headerTitle: "Nuevo Vale de Renta",
+          headerTitle:
+            route.params?.modo === "pipa"
+              ? "Nuevo Vale de Pipa de Agua"
+              : "Nuevo Vale de Renta",
           headerBackVisible: true, // Mostrar botón de atrás nativo
-        }}
+        })}
       />
 
       {/* Pantalla de Material - CON header */}

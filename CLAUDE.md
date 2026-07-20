@@ -107,9 +107,43 @@ import { IS_WEB } from "../../config/features";
 4. **Babel transpila `let`/`const` en modo *loose* para nativo** (sin TDZ real), pero el build web sí aplica TDZ estricta. Un hook que referencia una función en su arreglo de dependencias de `useCallback` antes de que esa función esté declarada más abajo en el archivo "funciona por accidente" en nativo pero truena en web (`Cannot access 'X' before initialization`). Ya pasó en `useVehiculoQR.js` — declarar siempre las dependencias de un `useCallback`/`useEffect` **antes** de usarlas, sin depender del orden de hoisting.
 5. **Iconos (`MaterialCommunityIcons`) como cuadros vacíos en iPhone (Safari y Chrome iOS — ambos corren sobre WebKit).** En web la fuente de iconos se descarga por red después del primer render; si el texto con esos glifos pinta antes de que la fuente cargue, WebKit no lo repinta cuando por fin llega (Chrome de escritorio sí). Además, `expo-font` **evita a propósito** su mecanismo de espera en WebKit (comentario en su código: *"WebKit is broken"*) y resuelve la carga de fuente de inmediato sin confirmar la descarga real — por eso no basta con `useFonts`. `App.js` espera explícitamente con la API nativa `document.fonts.load(...)` / `document.fonts.ready` (con timeout de 4s de respaldo) antes de renderizar nada. Verificado con el motor WebKit real de Playwright (`playwright install webkit`), no con Chromium — Chromium no reproduce este bug.
 
-6. **Los íconos (`.ttf`) dan 404 en Vercel aunque el build local/`localhost` los sirva bien.** `expo export -p web` copia los fonts de `@expo/vector-icons` a `dist/assets/node_modules/@expo/vector-icons/...` (mantiene la ruta relativa original, que incluye `node_modules` porque el paquete vive ahí). El `.gitignore` de la raíz del repo tiene `node_modules/`, y como `dist/` está dentro del mismo repo git, Vercel hereda esa regla al subir el deploy y excluye esos archivos — el sitio carga pero los iconos quedan en blanco. Por eso siempre usar `npm run export:web` (no `npx expo export -p web` directo) para desplegar: ese script genera un `dist/.vercelignore` vacío que anula la herencia del `.gitignore` padre para ese deploy. `dist/.vercelignore` se pierde en cada export porque `expo export` limpia la carpeta — por eso el script lo regenera cada vez, no basta con crearlo una sola vez a mano.
+6. **Los íconos (`.ttf`) dan 404 en Vercel aunque el build local/`localhost` los sirva bien.** `expo export -p web` copia los fonts de `@expo/vector-icons` a `dist/assets/node_modules/@expo/vector-icons/...` (mantiene la ruta relativa original, que incluye `node_modules` porque el paquete vive ahí). **Vercel nunca despliega una carpeta llamada `node_modules`, sin importar `.vercelignore` ni `.gitignore` — es una regla dura de la plataforma, no herencia del `.gitignore` padre.** Por eso el fix real no es un `.vercelignore`: `scripts/fix-web-assets.js` renombra `dist/assets/node_modules` a `dist/assets/vendor` y reescribe las referencias correspondientes en el bundle JS. Ese script corre solo vía `npm run export:web` — nunca desplegar con `npx expo export -p web` directo, o los iconos quedan en blanco. El script también escribe un `dist/.vercelignore` vacío; es inofensivo pero **no** es lo que arregla el 404. Verificar tras cada export: `dist/assets/` debe contener `vendor` (no `node_modules`) y el bundle no debe tener referencias a `/assets/node_modules/`.
 
-**Deploy:** `npm run export:web` genera build estático en `dist/` (ya en `.gitignore`) y crea el `.vercelignore` necesario (ver gotcha 6). Desplegado como proyecto Vercel existente llamado `dist` (no confundir con `web-acarreos.vercel.app`, que es la web de verificación pública). Vincular con `vercel link --yes` desde dentro de `dist/` si `dist/.vercel` no existe (se pierde en cada export), luego `vercel deploy .` (agregar `--prod` solo si se pide explícitamente producción).
+7. **El chequeo de versión (`app_config`) no corre en web — a propósito.** `AuthGuard` verifica la versión de la app contra `app_config.version_minima` y, si está obsoleta, muestra `UpdateRequiredScreen`, cuya única salida es `Linking.openURL(downloadUrl)` para bajar el **APK** — inútil en un navegador. Además el bundle web siempre es el último desplegado, así que no existe una versión "vieja" que bloquear. Sin este skip, cada release que sube `version_minima` para forzar la actualización de los APKs **bloquea también la web** hasta que alguien la re-exporte. Por eso `AuthGuard.verifyAppVersion()` retorna temprano si `IS_WEB`. Se usa `IS_WEB` y no `HIDE_ON_WEB` a propósito: es un fix de correctitud, no debe depender del flag temporal de pruebas.
+
+8. **Caché de transformación de Metro: `app.json` cambiado no llega al bundle.** `expo-constants` incrusta el contenido de `app.json` dentro de su propio módulo al compilarse. Si subes la versión en `app.json`, ese módulo **no cambia**, así que Metro reutiliza su transformación cacheada y el bundle queda con la versión vieja congelada — `npx expo config` dice 1.3.9 mientras el bundle dice 1.3.7. Ya pasó (2026-07-17) y disparó el bloqueo del gotcha 7. Por eso `export:web` corre `expo export -p web --clear`. Tus archivos editados **sí** entran (Metro invalida por hash de contenido); lo que se queda stale es el config incrustado. Para verificar tras un export: `grep -o 'version\\":\\"[0-9.]*' dist/_expo/static/js/web/*.js`.
+
+**Deploy web (pasos completos):**
+
+El proyecto Vercel se llama `dist` (no confundir con `web-acarreos.vercel.app`, que es la web de verificación pública). Producción estable: `https://dist-weld-tau-61.vercel.app`.
+
+El Vercel CLI **no está instalado globalmente** — se corre con `npx --yes vercel@latest ...`. La sesión ya está autenticada (`npx --yes vercel@latest whoami`).
+
+`expo export` limpia `dist/` por completo en cada corrida, así que **`dist/.vercel/project.json` (el link al proyecto) se borra cada vez**. Respaldarlo antes y restaurarlo después es más rápido y seguro que re-linkear:
+
+```bash
+# 1. Respaldar el link (dist/ se borra en el export)
+cp dist/.vercel/project.json /tmp/vercel-project.json.bak
+
+# 2. Generar el build (corre expo export --clear + fix-web-assets; ver gotchas 6 y 8)
+npm run export:web
+
+# 3. Restaurar el link
+mkdir -p dist/.vercel && cp /tmp/vercel-project.json.bak dist/.vercel/project.json
+
+# 4. Verificar el build (ver gotcha 6)
+ls dist/assets/                 # debe salir "vendor", NO "node_modules"
+grep -c "/assets/node_modules/" dist/_expo/static/js/web/*.js   # debe ser 0
+
+# 5. Desplegar desde dentro de dist/
+cd dist
+npx --yes vercel@latest deploy . -y --no-wait            # preview
+npx --yes vercel@latest deploy . --prod -y --no-wait     # produccion (solo si se pide explicitamente)
+```
+
+Si se perdió el respaldo del link, re-linkear con `npx --yes vercel@latest link --yes` desde dentro de `dist/`. Contenido de referencia de `project.json`: `projectName: "dist"`, orgId del team `bruno-leonardos-projects`.
+
+**El flag de BD no basta:** los cambios que dependen de una columna nueva requieren correr la migración en el SQL Editor de Supabase **antes** de desplegar, o el `insert`/`select` truena en producción.
 
 ---
 

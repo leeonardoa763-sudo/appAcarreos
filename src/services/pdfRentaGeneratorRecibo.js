@@ -104,6 +104,8 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
   const ticketMap = {};
   ticketsDescarga.forEach((t) => { ticketMap[t.numero_ticket] = t; });
   const esMaterialDescarga = detalle.material?.es_material_descarga === true;
+  // Pipas de agua: la columna es el POZO al que se rellena, no un banco.
+  const esPipa = !!valeData?.es_pipa_agua;
 
   const filasViajesRecibo = viajesRenta.length > 0
     ? viajesRenta
@@ -136,7 +138,7 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
             <th style="padding:3px; text-align:center; width:14px; font-size:5px;">#</th>
             <th style="padding:3px; text-align:center; width:36px; font-size:5px;">Hora</th>
             <th style="padding:3px; text-align:left; font-size:5px;">Material</th>
-            <th style="padding:3px; text-align:left; font-size:5px;">Banco</th>
+            <th style="padding:3px; text-align:left; font-size:5px;">${esPipa ? "Pozo" : "Banco"}</th>
           </tr>
         </thead>
         <tbody>${filasViajesRecibo}</tbody>

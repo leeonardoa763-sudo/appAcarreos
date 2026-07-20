@@ -120,6 +120,10 @@ const TicketDescargaSection = ({
     onTotalTicketsChange?.(totalTickets);
   }, [totalTickets]);
 
+  // En pipas de agua el ticket registra el POZO al que se rellena agua, no un
+  // banco de descarga, y el material es siempre Agua (no se elige).
+  const esPipa = !!vale?.es_pipa_agua;
+
   const [modalVisible, setModalVisible] = useState(false);
   const [mostrarModalMaterial, setMostrarModalMaterial] = useState(false);
   const [mostrarModalImpresion, setMostrarModalImpresion] = useState(false);
@@ -172,11 +176,29 @@ const TicketDescargaSection = ({
     setModalVisible(true);
   }, [puedeGenerar]);
 
-  const handleConfirmarBanco = useCallback((bancoDescarga) => {
-    setModalVisible(false);
-    setBancoSeleccionado(bancoDescarga);
-    setMostrarModalMaterial(true);
-  }, []);
+  const handleConfirmarBanco = useCallback(
+    async (bancoDescarga) => {
+      setModalVisible(false);
+
+      // Pipas: el material siempre es Agua (el del vale), no se elige. Se salta
+      // el modal de material y se registra el ticket directo.
+      if (esPipa) {
+        const materialDelVale = {
+          id_material: detalleRenta?.id_material ?? null,
+          material: detalleRenta?.material?.material ?? "Agua",
+        };
+        const ticketData = await registrarTicket(bancoDescarga, materialDelVale);
+        if (!ticketData) return;
+        setTicketPendiente(ticketData);
+        setMostrarModalImpresion(true);
+        return;
+      }
+
+      setBancoSeleccionado(bancoDescarga);
+      setMostrarModalMaterial(true);
+    },
+    [esPipa, registrarTicket, detalleRenta],
+  );
 
   const handleConfirmarMaterial = useCallback(
     async (materialSeleccionado) => {
@@ -219,11 +241,13 @@ const TicketDescargaSection = ({
       {/* Header */}
       <View style={styles.header}>
         <MaterialCommunityIcons
-          name="dump-truck"
+          name={esPipa ? "water-pump" : "dump-truck"}
           size={20}
           color={colors.secondary}
         />
-        <Text style={styles.titulo}>Tickets de Descarga</Text>
+        <Text style={styles.titulo}>
+          {esPipa ? "Tickets de Pozo" : "Tickets de Descarga"}
+        </Text>
         <View style={styles.badge}>
           <Text style={styles.badgeTexto}>{totalTickets}</Text>
         </View>
@@ -338,7 +362,9 @@ const TicketDescargaSection = ({
               ]}
             >
               {totalTickets === 0
-                ? "Imprimir Primer Ticket de Descarga"
+                ? esPipa
+                  ? "Imprimir Primer Ticket de Pozo"
+                  : "Imprimir Primer Ticket de Descarga"
                 : `Imprimir Ticket #${String(numeroSiguienteTicket).padStart(2, "0")}`}
             </Text>
           </>
@@ -350,13 +376,14 @@ const TicketDescargaSection = ({
         <Text style={styles.razonBloqueo}>{razonBloqueado()}</Text>
       )}
 
-      {/* Modal banco de descarga */}
+      {/* Modal banco de descarga / pozo */}
       <BancoDescargaModal
         visible={modalVisible}
         onConfirmar={handleConfirmarBanco}
         onCancelar={handleCancelarModal}
         numeroTicket={numeroSiguienteTicket}
         loading={registrando}
+        esPipa={esPipa}
       />
 
       {/* Modal selector de material */}
@@ -385,7 +412,7 @@ const TicketDescargaSection = ({
           operador:
             vale?.operadores?.nombre_completo ?? vale?.operadores?.nombre,
           placas: vale?.vehiculos?.placas,
-          descripcion: `Banco: ${ticketPendiente?.banco_descarga ?? ""}`,
+          descripcion: `${esPipa ? "Pozo" : "Banco"}: ${ticketPendiente?.banco_descarga ?? ""}`,
         }}
         onImpreso={() => {
           setMostrarModalImpresion(false);
@@ -425,6 +452,7 @@ const formatearHora = (fecha) => {
 };
 
 const generarContenidoTicketDescarga = (vale, detalleRenta, ticketData) => {
+  const esPipa = !!vale?.es_pipa_agua;
   const empresa = vale.obras?.empresas?.empresa || "CONSTRUCCION";
   const cc = vale.obras?.cc || "";
   const nombreObra = vale.obras?.obra || "N/A";
@@ -451,7 +479,7 @@ const generarContenidoTicketDescarga = (vale, detalleRenta, ticketData) => {
     },
     {
       tipo: "texto",
-      contenido: "VALE DE DESCARGA\n",
+      contenido: esPipa ? "VALE DE PIPA DE AGUA\n" : "VALE DE DESCARGA\n",
       opciones: { align: ALINEACION.CENTRO, bold: true },
     },
     { tipo: "separador" },
@@ -495,7 +523,7 @@ const generarContenidoTicketDescarga = (vale, detalleRenta, ticketData) => {
     { tipo: "separador" },
     {
       tipo: "texto",
-      contenido: "BANCO DE DESCARGA:\n",
+      contenido: esPipa ? "POZO:\n" : "BANCO DE DESCARGA:\n",
       opciones: { align: ALINEACION.IZQUIERDA },
     },
     {

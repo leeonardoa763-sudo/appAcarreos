@@ -449,6 +449,8 @@ export const generarTicketRenta = (vale) => {
   const ticketMap = {};
   ticketsDescarga.forEach((t) => { ticketMap[t.numero_ticket] = t; });
   const esMaterialDescarga = detalle.material?.es_material_descarga === true;
+  // Pipas de agua: la columna es el POZO al que se rellena, no un banco.
+  const esPipa = !!vale?.es_pipa_agua;
 
   if (viajesRenta.length > 0) {
     lineas.push(
@@ -461,7 +463,9 @@ export const generarTicketRenta = (vale) => {
       {
         tipo: "texto",
         contenido: esMaterialDescarga
-          ? "## HORA   MATERIAL   BANCO\n"
+          ? esPipa
+            ? "## HORA   MATERIAL   POZO\n"
+            : "## HORA   MATERIAL   BANCO\n"
           : "## HORA    BANCO DE DESCARGA\n",
         opciones: { align: ALINEACION.IZQUIERDA },
       },

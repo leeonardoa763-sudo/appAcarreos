@@ -2,7 +2,7 @@
  * ValeRentaScreen.js
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   InteractionManager,
   TouchableOpacity,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
@@ -44,9 +44,19 @@ import RefrescarCatalogoButton from "../componets/common/RefrescarCatalogoButton
 
 // Utils
 import { generateVerificationUrl } from "../utils/qrGenerator";
+import {
+  MODO_PIPA,
+  filtrarMaterialesPorModo,
+  filtrarSindicatosPorModo,
+} from "../utils/pipasAgua";
 
 const ValeRentaScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+  // La misma pantalla crea vales de renta normal y de pipa de agua. El modo se
+  // conoce de entrada por el parametro de navegacion (ver ValeSelectionModal).
+  // Declarado antes de cualquier consumidor por la TDZ estricta del build web.
+  const esModoPipa = route.params?.modo === MODO_PIPA;
   const { userProfile, userRole } = useAuth();
   const esChecador = userRole === "CHECADOR";
   const isMounted = useRef(true);
@@ -61,6 +71,19 @@ const ValeRentaScreen = () => {
     refrescando: refrescandoCatalogos,
     refrescarCatalogos,
   } = useCatalogos(["materiales", "sindicatos", "preciosRenta"]);
+
+  // Particion bidireccional segun el modo: en modo pipa SOLO existe el material
+  // Agua y el sindicato Pipas; en modo renta normal ninguno de los dos aparece.
+  // Al conocerse el modo de entrada, basta particionar los catalogos desde el
+  // arranque (no hace falta filtrado reactivo cruzado).
+  const materialesVisibles = useMemo(
+    () => filtrarMaterialesPorModo(materiales, esModoPipa),
+    [materiales, esModoPipa],
+  );
+  const sindicatosVisibles = useMemo(
+    () => filtrarSindicatosPorModo(sindicatos, esModoPipa),
+    [sindicatos, esModoPipa],
+  );
 
   const { generateFolio } = useFolioGenerator();
 
@@ -79,8 +102,12 @@ const ValeRentaScreen = () => {
   const [valeCreado, setValeCreado] = useState(null);
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
+  // Las pipas de agua NO consumen presupuesto_renta_obra: pasando id_obra=null
+  // el hook deja presupuestoRenta=null y rentaConsultada=false, asi que el
+  // PresupuestoIndicator no se monta, presupuestoAgotado queda false (no bloquea
+  // el boton) y ademas se ahorra la consulta.
   const { presupuestoRenta, rentaConsultada } = usePresupuestoObra({
-    id_obra: obraSeleccionada,
+    id_obra: esModoPipa ? null : obraSeleccionada,
   });
 
   const presupuestoAgotado =
@@ -153,6 +180,27 @@ const ValeRentaScreen = () => {
       return;
     }
 
+    // Guard defensivo contra cache stale: el material y el sindicato elegidos
+    // deben corresponder al modo (pipa o renta normal). Si la cache local aun no
+    // tenia las marcas es_agua_pipa/es_pipas, el picker pudo mostrar opciones
+    // que no debia; se pide refrescar antes de crear un vale mal clasificado.
+    const materialSel = materiales.find(
+      (m) => m.id_material === formData.materialId,
+    );
+    const sindicatoSel = sindicatos.find(
+      (s) => s.id_sindicato === formData.sindicatoId,
+    );
+    if (
+      !!materialSel?.es_agua_pipa !== esModoPipa ||
+      !!sindicatoSel?.es_pipas !== esModoPipa
+    ) {
+      Alert.alert(
+        "Catálogo desactualizado",
+        "El material y el sindicato no corresponden al tipo de vale. Usa el botón Refrescar catálogos e intenta de nuevo.",
+      );
+      return;
+    }
+
     try {
       setSubmitting(true);
 
@@ -173,6 +221,10 @@ const ValeRentaScreen = () => {
         .insert({
           folio: folio,
           tipo_vale: "renta",
+          // Spread condicional (no propiedad fija): si la migracion aun no
+          // agrego la columna es_pipa_agua, la creacion de renta normal sigue
+          // funcionando y solo truena la de pipas.
+          ...(esModoPipa && { es_pipa_agua: true }),
           id_obra: obraDataParaFolio.id_obra,
           id_empresa: obraDataParaFolio.empresas.id_empresa,
           id_persona_creador: userProfile.id_persona,
@@ -385,7 +437,7 @@ const ValeRentaScreen = () => {
             onValueChange={(value) =>
               setFormData({ ...formData, materialId: value })
             }
-            items={materiales.map((m) => ({
+            items={materialesVisibles.map((m) => ({
               id: m.id_material,
               label: m.material,
             }))}
@@ -399,7 +451,7 @@ const ValeRentaScreen = () => {
             onValueChange={(value) =>
               setFormData({ ...formData, sindicatoId: value })
             }
-            items={sindicatos.map((s) => ({
+            items={sindicatosVisibles.map((s) => ({
               id: s.id_sindicato,
               label: s.sindicato,
             }))}

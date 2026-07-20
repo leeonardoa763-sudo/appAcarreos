@@ -35,6 +35,14 @@ const CATALOG_TTL = {
   vehiculos: 3600 * 1000,
 };
 
+// Prefijo de las llaves de caché local. Subir la versión invalida toda la caché
+// de catálogos en cada dispositivo la próxima vez que se abra la app. Se subió a
+// v2 al agregar las columnas es_pipas / es_agua_pipa (feature pipas de agua): sin
+// el bump, el sindicato Pipas caía en el picker de renta por caché vieja de 24 h.
+// Cualquier consumidor que borre una llave de catálogo debe usar este prefijo.
+export const CAT_CACHE_PREFIX = "cat_v2_";
+export const catCacheKey = (nombre) => `${CAT_CACHE_PREFIX}${nombre}`;
+
 export const useCatalogos = (catalogosRequeridos = []) => {
   // Estados para almacenar los datos de cada catálogo
   const [materiales, setMateriales] = useState([]);
@@ -57,7 +65,7 @@ export const useCatalogos = (catalogosRequeridos = []) => {
           supabase
             .from("material")
             .select(
-              `id_material, material, id_tipo_de_material,
+              `id_material, material, id_tipo_de_material, es_agua_pipa,
               tipo_de_material:id_tipo_de_material (id_tipo_de_material, tipo_de_material)`,
             )
             .eq("activo", true)
@@ -65,7 +73,7 @@ export const useCatalogos = (catalogosRequeridos = []) => {
         sindicatos: () =>
           supabase
             .from("sindicatos")
-            .select("id_sindicato, sindicato")
+            .select("id_sindicato, sindicato, es_pipas")
             .order("sindicato"),
         bancos: () =>
           supabase.from("bancos").select("id_banco, banco").order("banco"),
@@ -104,7 +112,7 @@ export const useCatalogos = (catalogosRequeridos = []) => {
         await Promise.all(
           catalogosRequeridos.map(async (nombre) => {
             if (!ignorarCache) {
-              const cached = await getCached(`cat_${nombre}`, CATALOG_TTL[nombre]);
+              const cached = await getCached(catCacheKey(nombre), CATALOG_TTL[nombre]);
               if (cached) {
                 setters[nombre](cached);
                 return;
@@ -113,7 +121,7 @@ export const useCatalogos = (catalogosRequeridos = []) => {
             const { data, error } = await fetchers[nombre]();
             if (error) throw error;
             setters[nombre](data || []);
-            await setCached(`cat_${nombre}`, data || []);
+            await setCached(catCacheKey(nombre), data || []);
           }),
         );
       } catch (err) {
