@@ -142,6 +142,8 @@ export const validateDistancia = (distancia) => {
 const TOLERANCIA_PASADO_MINUTOS = 60;
 // Margen hacia adelante solo para absorber desfases de reloj del dispositivo
 const TOLERANCIA_FUTURO_MINUTOS = 10;
+// Horas que un vale de turno nocturno sigue siendo completable desde su inicio
+const VENTANA_TURNO_NOCTURNO_HORAS = 12;
 
 /**
  * Valida la hora de inicio al crear un vale de renta.
@@ -217,77 +219,26 @@ export const validateTiempoMinimoRenta = (horaInicioISO, tipo) => {
 };
 
 /**
- * Valida que el vale se pueda completar según su fecha operacional.
+ * Ventana de completado para vales de renta marcados como turno nocturno.
  *
- * Para RENTA: fechaCreacionISO = hora_inicio del detalle
- * Para MATERIAL: fechaCreacionISO = fecha_programada ?? fecha_creacion
+ * Un turno nocturno cruza la medianoche, así que no puede regirse por una regla
+ * de "mismo día". La única restricción es la duración: se permite completar
+ * hasta 12 horas después de hora_inicio.
  *
- * Turno normal:
- * - Si la fecha operacional es hoy: puede completarse
- * - Si es futura: no puede completarse aún
- * - Si fue ayer o antes: no puede completarse
+ * Aplica SOLO cuando el detalle tiene es_turno_nocturno = true. Los vales de
+ * renta normales no tienen restricción de fecha (se quitó en marzo 2026) y esta
+ * función no debe usarse para reintroducirla.
  *
- * Turno nocturno:
- * - Se permite completar hasta 12 horas después de hora_inicio,
- *   aunque haya cruzado medianoche al día siguiente
+ * @param {string} horaInicioISO - hora_inicio del vale_renta_detalle
+ * @returns {string | null} - Mensaje de bloqueo, o null si aún está en ventana
  */
-export const validateMismoDiaCreacion = (
-  fechaCreacionISO,
-  esTurnoNocturno = false,
-) => {
-  if (!fechaCreacionISO) return null;
+export const validateVentanaTurnoNocturno = (horaInicioISO) => {
+  if (!horaInicioISO) return null;
 
-  const fechaInicio = new Date(fechaCreacionISO);
-  const ahora = new Date();
+  const diffHoras = (Date.now() - new Date(horaInicioISO).getTime()) / 3600000;
 
-  // --- Lógica turno nocturno (solo renta) ---
-  if (esTurnoNocturno) {
-    const diffHoras = (ahora - fechaInicio) / (1000 * 60 * 60);
-
-    if (diffHoras < 0) {
-      const fechaStr = fechaInicio.toLocaleDateString("es-MX", {
-        weekday: "long",
-        day: "2-digit",
-        month: "long",
-      });
-      return `Este vale está programado para el ${fechaStr} y aún no puede completarse.`;
-    }
-
-    if (diffHoras > 12) {
-      return `Este vale de turno nocturno venció. Solo se permite completar dentro de las 12 horas desde el inicio. Contacta al administrador.`;
-    }
-
-    return null;
-  }
-
-  // --- Lógica turno normal ---
-  // Para material: fechaCreacionISO puede ser un DATE (solo fecha, sin hora).
-  // Construimos la fecha de referencia ignorando la hora para comparación por día.
-  const inicioSoloFecha = new Date(
-    fechaInicio.getFullYear(),
-    fechaInicio.getMonth(),
-    fechaInicio.getDate(),
-  );
-  const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
-
-  const diffDias = Math.round((inicioSoloFecha - hoy) / (1000 * 60 * 60 * 24));
-
-  if (diffDias > 0) {
-    const fechaStr = fechaInicio.toLocaleDateString("es-MX", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-    });
-    return `Este vale está programado para el ${fechaStr} y aún no puede completarse.`;
-  }
-
-  if (diffDias < 0) {
-    const fechaStr = fechaInicio.toLocaleDateString("es-MX", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-    });
-    return `Este vale fue programado para el ${fechaStr} y ya no puede completarse. Si el trabajo se realizó, contacta al administrador.`;
+  if (diffHoras > VENTANA_TURNO_NOCTURNO_HORAS) {
+    return `Este vale de turno nocturno venció. Solo se permite completar dentro de las ${VENTANA_TURNO_NOCTURNO_HORAS} horas desde el inicio. Contacta al administrador.`;
   }
 
   return null;

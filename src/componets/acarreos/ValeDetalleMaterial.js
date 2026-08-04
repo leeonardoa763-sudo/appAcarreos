@@ -190,7 +190,7 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
 
     setSuccessData({ totalViajes: totalViajesNum, totalVolumen, totalCosto });
     setShowSuccessModal(true);
-  }, [completarVale, userProfile, totalTickets, totalViajes]);
+  }, [completarVale, userProfile, totalTickets, totalViajes, notasAdicionales]);
 
   const handleReimprimirPDF = useCallback(() => {
     Alert.alert(

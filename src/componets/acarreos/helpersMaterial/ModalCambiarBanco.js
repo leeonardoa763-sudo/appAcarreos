@@ -21,12 +21,16 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../../config/colors";
 import { supabase } from "../../../config/supabase";
 
+// 5. Local - Componentes
+import BotonAyuda from "../../common/BotonAyuda";
+
 const ModalCambiarBanco = ({
   visible,
   idObra,
   bancoActual,
   onConfirmar,
   onCancelar,
+  ayudaUrl,
 }) => {
   const [bancos, setBancos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,6 +97,7 @@ const ModalCambiarBanco = ({
               color={colors.secondary}
             />
             <Text style={styles.titulo}>Cambiar Banco</Text>
+            <BotonAyuda url={ayudaUrl} />
           </View>
 
           <Text style={styles.subtitulo}>
@@ -228,10 +233,19 @@ const styles = StyleSheet.create({
     padding: 20,
     maxHeight: "75%",
   },
+  // Faltaba: el render ya usaba styles.header, pero sin definirlo el View se
+  // quedaba en columna (icono arriba, titulo abajo) en vez de en fila.
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
   titulo: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.textPrimary,
+    flex: 1,
   },
   subtitulo: {
     fontSize: 13,

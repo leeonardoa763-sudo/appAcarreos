@@ -42,7 +42,9 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
   // Validaciones básicas
   if (isNaN(distancia) || distancia <= 0) {
     console.error("[preciosMaterial] Error: Distancia inválida:", distanciaKm);
-    throw new Error("Distancia inválida");
+    throw new Error(
+      `Distancia inválida: "${distanciaKm}". Revisa la distancia banco-obra configurada.`
+    );
   }
 
   if (isNaN(primerKm) || primerKm <= 0) {
@@ -50,7 +52,10 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
       "[preciosMaterial] Error: Precio primer km inválido:",
       precioMaterial.primer_km
     );
-    throw new Error("Tarifa primer km inválida");
+    throw new Error(
+      `Tarifa de primer km inválida ("${precioMaterial.primer_km}") en la tarifa ` +
+        `id_precios_material ${precioMaterial.id_precios_material}. Revísala en Precios de Material.`
+    );
   }
 
   let precioTotal = primerKm;
@@ -72,7 +77,10 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
       console.error(
         "[preciosMaterial] Error: Tarifa subsecuente intervalo 1 inválida"
       );
-      throw new Error("Tarifa intervalo 1 inválida");
+      throw new Error(
+        `Tarifa de intervalo 1 inválida ("${precioMaterial.km_sub_int1}") en la tarifa ` +
+          `id_precios_material ${precioMaterial.id_precios_material}. Revísala en Precios de Material.`
+      );
     }
 
     // Caso A: Límite INT1 es NULL (sin límite)
@@ -109,7 +117,10 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
       console.error(
         "[preciosMaterial] Error: Tarifa subsecuente intervalo 2 inválida"
       );
-      throw new Error("Tarifa intervalo 2 inválida");
+      throw new Error(
+        `Tarifa de intervalo 2 inválida ("${precioMaterial.km_sub_int2}") en la tarifa ` +
+          `id_precios_material ${precioMaterial.id_precios_material}. Revísala en Precios de Material.`
+      );
     }
 
     // Caso A: Límite INT2 es NULL (sin límite)
@@ -141,42 +152,121 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
 };
 
 /**
+ * Resuelve los nombres de tipo de material y sindicato para armar mensajes
+ * legibles. Si algún catálogo no responde se devuelven los IDs — el mensaje
+ * sigue siendo útil para identificar la combinación que falta.
+ *
+ * @param {number} idTipoMaterial - ID del tipo de material
+ * @param {number} idSindicato - ID del sindicato
+ * @returns {Promise<{tipo: string, sindicato: string}>}
+ */
+const describirCombinacion = async (idTipoMaterial, idSindicato) => {
+  let tipo = `tipo de material ${idTipoMaterial}`;
+  let sindicato = `sindicato ${idSindicato}`;
+
+  try {
+    const [resTipo, resSindicato] = await Promise.all([
+      supabase
+        .from("tipo_de_material")
+        .select("tipo_de_material")
+        .eq("id_tipo_de_material", idTipoMaterial)
+        .maybeSingle(),
+      supabase
+        .from("sindicatos")
+        .select("sindicato")
+        .eq("id_sindicato", idSindicato)
+        .maybeSingle(),
+    ]);
+
+    if (resTipo.data?.tipo_de_material) tipo = resTipo.data.tipo_de_material;
+    if (resSindicato.data?.sindicato) sindicato = resSindicato.data.sindicato;
+  } catch (error) {
+    console.warn(
+      "[preciosMaterial] No se pudieron resolver nombres para el mensaje:",
+      error.message
+    );
+  }
+
+  return { tipo, sindicato };
+};
+
+/**
  * Obtiene la tarifa de precios_material según tipo de material y sindicato
+ *
+ * NO usa .single(): con 0 filas PostgREST lanza "Cannot coerce the result to a
+ * single JSON object", un mensaje que no dice qué combinación falta y que dejaba
+ * el vale a medio crear. Aquí 0 filas devuelve null (lo que promete el @returns)
+ * y el duplicado se reporta con su propio mensaje.
  *
  * @param {number} idTipoMaterial - ID del tipo de material
  * @param {number} idSindicato - ID del sindicato
  * @returns {Promise<object|null>} - Objeto con datos de precios_material o null
  */
 export const obtenerTarifaMaterial = async (idTipoMaterial, idSindicato) => {
+  const { data, error } = await supabase
+    .from("precios_material")
+    .select("*")
+    .eq("id_tipo_de_material", idTipoMaterial)
+    .eq("id_sindicato", idSindicato);
 
-  try {
-    const { data, error } = await supabase
-      .from("precios_material")
-      .select("*")
-      .eq("id_tipo_de_material", idTipoMaterial)
-      .eq("id_sindicato", idSindicato)
-      .single();
-
-    if (error) {
-      console.error(
-        "[preciosMaterial] Error en query Supabase:",
-        error.message
-      );
-      throw error;
-    }
-
-    if (!data) {
-      console.warn(
-        "[preciosMaterial] No se encontró tarifa para combinación tipo/sindicato"
-      );
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error("[preciosMaterial] Error obteniendo tarifa:", error.message);
+  if (error) {
+    console.error(
+      "[preciosMaterial] Error consultando precios_material:",
+      error.message
+    );
     throw error;
   }
+
+  const tarifas = data || [];
+
+  if (tarifas.length === 0) {
+    return null;
+  }
+
+  if (tarifas.length > 1) {
+    const { tipo, sindicato } = await describirCombinacion(
+      idTipoMaterial,
+      idSindicato
+    );
+    const ids = tarifas.map((t) => t.id_precios_material).join(", ");
+    throw new Error(
+      `Hay ${tarifas.length} tarifas duplicadas para "${tipo}" con el sindicato "${sindicato}". ` +
+        `Pide al administrador que deje solo una en Precios de Material. ` +
+        `(id_precios_material: ${ids})`
+    );
+  }
+
+  return tarifas[0];
+};
+
+/**
+ * Verifica que exista tarifa para la combinación tipo de material + sindicato.
+ * Lanza un error con nombres reales si falta o si está duplicada.
+ *
+ * Llamar ANTES de insertar el vale: así no queda un vale sin detalle (folio
+ * quemado) cuando la tarifa no está cargada.
+ *
+ * @param {number} idTipoMaterial - ID del tipo de material
+ * @param {number} idSindicato - ID del sindicato
+ * @returns {Promise<object>} - La tarifa encontrada
+ */
+export const verificarTarifaMaterial = async (idTipoMaterial, idSindicato) => {
+  const tarifa = await obtenerTarifaMaterial(idTipoMaterial, idSindicato);
+
+  if (tarifa) {
+    return tarifa;
+  }
+
+  const { tipo, sindicato } = await describirCombinacion(
+    idTipoMaterial,
+    idSindicato
+  );
+
+  throw new Error(
+    `Falta el precio de "${tipo}" para el sindicato "${sindicato}". ` +
+      `Pide al administrador que lo cargue en Precios de Material antes de crear este vale. ` +
+      `(id_tipo_de_material: ${idTipoMaterial}, id_sindicato: ${idSindicato})`
+  );
 };
 /**
  * Calcula precio y costo total de un vale de material
@@ -194,15 +284,8 @@ export const calcularCostoValeMaterial = async (
   cantidadM3
 ) => {
 
-  // Obtener tarifa
-  const tarifa = await obtenerTarifaMaterial(idTipoMaterial, idSindicato);
-
-  if (!tarifa) {
-    console.error("[preciosMaterial] No se encontró tarifa aplicable");
-    throw new Error(
-      "No se encontró tarifa para el tipo de material y sindicato seleccionados"
-    );
-  }
+  // Obtener tarifa — lanza mensaje con nombres si falta o está duplicada
+  const tarifa = await verificarTarifaMaterial(idTipoMaterial, idSindicato);
 
   // Calcular precio por m³
   const precioM3 = calcularPrecioM3(distanciaKm, tarifa);
@@ -211,7 +294,9 @@ export const calcularCostoValeMaterial = async (
   const cantidad = parseFloat(cantidadM3);
   if (isNaN(cantidad) || cantidad <= 0) {
     console.error("[preciosMaterial] Cantidad inválida:", cantidadM3);
-    throw new Error("Cantidad de m³ inválida");
+    throw new Error(
+      `Cantidad de m³ inválida: "${cantidadM3}". Revisa el campo de cantidad de material.`
+    );
   }
 
   const costoTotal = precioM3 * cantidad;

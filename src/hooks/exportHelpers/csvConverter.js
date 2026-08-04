@@ -49,8 +49,9 @@ export const convertToCSV = (data, headers) => {
 
 /**
  * Construye nombre completo de persona
+ * Exportado para reuso en historialConverter.js
  */
-const getNombreCompleto = (persona) => {
+export const getNombreCompleto = (persona) => {
   if (!persona) return "-";
   return `${persona.nombre} ${persona.primer_apellido} ${
     persona.segundo_apellido || ""
@@ -59,8 +60,9 @@ const getNombreCompleto = (persona) => {
 
 /**
  * Formatea fecha y hora completa para CSV
+ * Exportado para reuso en historialConverter.js
  */
-const formatFechaHoraCompleta = (fechaISO) => {
+export const formatFechaHoraCompleta = (fechaISO) => {
   if (!fechaISO) return "-";
   const fecha = new Date(fechaISO);
   const dia = String(fecha.getDate()).padStart(2, "0");
@@ -73,8 +75,9 @@ const formatFechaHoraCompleta = (fechaISO) => {
 
 /**
  * Genera URL del QR para verificación
+ * Exportado para reuso en historialConverter.js
  */
-const generarUrlQR = (folio) => {
+export const generarUrlQR = (folio) => {
   if (!folio) return "-";
   return `https://web-acarreos.vercel.app/vale/${folio}`;
 };

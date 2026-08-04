@@ -2,7 +2,7 @@
   "expo": {
     "name": "Control de Acarreos",
     "slug": "control-acarreos",
-    "version": "1.3.9",
+    "version": "1.4.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -24,7 +24,7 @@
       }
     },
     "android": {
-      "versionCode": 39,
+      "versionCode": 41,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FF6B35"
@@ -60,7 +60,6 @@
         }
       ],
       "expo-secure-store",
-
       [
         "expo-camera",
         {
@@ -74,7 +73,8 @@
           "locationAlwaysAndWhenInUsePermission": "Se requiere acceso a la ubicación para registrar el punto de carga y entrega del material.",
           "locationWhenInUsePermission": "Se requiere acceso a la ubicación para registrar el punto de carga y entrega del material."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

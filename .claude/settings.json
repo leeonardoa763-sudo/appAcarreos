@@ -13,7 +13,11 @@
       "Bash(node --version:*)",
       "Bash(npm list:*)",
       "Bash(npx expo --version:*)",
-      "Bash(node check-web.js)"
+      "Bash(node check-web.js)",
+      "Bash(grep -o 'version\\\\\\\\\":\\\\\\\\\"[0-9.]*' dist/_expo/static/js/web/*.js)",
+      "Bash(cp dist/.vercel/project.json __TRACKED_VAR__/vercel-project.json.bak)",
+      "Bash(cp dist/.vercel/project.json /c/Users/PC/AppData/Local/Temp/claude/vercel-project.json.bak)",
+      "Bash(npm run *)"
     ]
   }
 }

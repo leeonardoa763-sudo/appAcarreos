@@ -379,7 +379,9 @@ const generarHTMLTicketRenta = (valeData) => {
   const placas = valeData.vehiculos?.placas || "N/A";
   const sindicato = valeData.vehiculos?.sindicatos?.sindicato || "N/A";
   const material = detalle.material?.material || "N/A";
-  const capacidad = detalle.capacidad_m3 ? `${detalle.capacidad_m3} m3` : "N/A";
+  const capacidadRaw =
+    valeData.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3;
+  const capacidad = capacidadRaw ? `${capacidadRaw} m3` : "N/A";
   const notas = detalle.notas_adicionales || null;
 
   const esRentaPorDia = detalle.es_renta_por_dia === true;

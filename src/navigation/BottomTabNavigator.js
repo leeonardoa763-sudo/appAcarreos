@@ -1,24 +1,27 @@
 // src/navigation/BottomTabNavigator.js
 import React from "react";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
+import { AYUDA_URLS } from "../config/ayuda";
+import { MODO_PIPA } from "../utils/pipasAgua";
 // Hook para obtener rol del usuario
 import { useAuth } from "../hooks/useAuth";
 
 // Componentes
 import CustomHeader from "../componets/CustomHeader.js";
 import DrawerContent from "../componets/DrawerContent.js";
+import BotonAyuda from "../componets/common/BotonAyuda.js";
 
 // Pantallas
 import AcarreosScreen from "../screens/AcarreosScreen";
 import InformesScreen from "../screens/InformesScreen";
 import ValesScreen from "../screens/ValesScreen";
 import SeleccionarTipoValeScreen from "../screens/SeleccionarTipoValeScreen";
-import ArchivadosScreen from "../screens/ArchivadosScreen";
+import HistorialValesScreen from "../screens/HistorialValesScreen";
 import ValeRentaScreen from "../screens/ValeRentaScreen";
 import ValeMaterialScreen from "../screens/ValeMaterialScreen";
 import ValeMaterialAsfalticoScreen from "../screens/ValeMaterialAsfalticoScreen";
@@ -34,6 +37,26 @@ import GestionObrasScreen from "../screens/GestionObrasScreen";
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
+
+/**
+ * Icono de ayuda para el header de las pantallas de creacion de vale.
+ *
+ * Cada pantalla lleva a SU leccion del Centro de Ayuda, no a la portada: el
+ * residente que ya esta llenando un vale de material no tiene que volver a
+ * elegir el tipo. La envoltura solo separa el icono del borde de la pantalla.
+ */
+const ayudaHeaderRight = (url) => () => (
+  <View style={{ paddingRight: 12 }}>
+    <BotonAyuda url={url} size={24} />
+  </View>
+);
+
+// Las dos variantes de renta se arman aqui, una sola vez. El `options` de
+// ValeRentaScreen es una funcion (depende de route.params), asi que llamar
+// ayudaHeaderRight ahi adentro daria un componente nuevo cada vez que se
+// re-evalua y React Navigation remontaria el icono sin necesidad.
+const AYUDA_HEADER_RENTA = ayudaHeaderRight(AYUDA_URLS.crearRenta);
+const AYUDA_HEADER_PIPA = ayudaHeaderRight(AYUDA_URLS.guiaRentaPipa);
 
 // Stack para Vales
 function ValesStack() {
@@ -74,13 +97,14 @@ function ValesStack() {
         component={SeleccionarTipoValeScreen}
       />
 
-      {/* Pantalla de Archivados - CON header */}
+      {/* Historial de Vales - CON header. Sustituye a la vieja pantalla de
+          Archivados, que filtraba por una columna que nadie escribia. */}
       <Stack.Screen
-        name="Archivados"
-        component={ArchivadosScreen}
+        name="Historial"
+        component={HistorialValesScreen}
         options={{
           headerShown: true,
-          headerTitle: "Vales Archivados",
+          headerTitle: "Historial de Vales",
           headerBackVisible: true,
         }}
       />
@@ -90,14 +114,18 @@ function ValesStack() {
       <Stack.Screen
         name="ValeRentaScreen"
         component={ValeRentaScreen}
-        options={({ route }) => ({
-          headerShown: true,
-          headerTitle:
-            route.params?.modo === "pipa"
+        options={({ route }) => {
+          const esModoPipa = route.params?.modo === MODO_PIPA;
+          return {
+            headerShown: true,
+            headerTitle: esModoPipa
               ? "Nuevo Vale de Pipa de Agua"
               : "Nuevo Vale de Renta",
-          headerBackVisible: true, // Mostrar botón de atrás nativo
-        })}
+            headerBackVisible: true, // Mostrar botón de atrás nativo
+            // Pipa todavía no tiene lección grabada: su guía es la página puente.
+            headerRight: esModoPipa ? AYUDA_HEADER_PIPA : AYUDA_HEADER_RENTA,
+          };
+        }}
       />
 
       {/* Pantalla de Material - CON header */}
@@ -108,6 +136,7 @@ function ValesStack() {
           headerShown: true,
           headerTitle: "Nuevo Vale de Material",
           headerBackVisible: true,
+          headerRight: ayudaHeaderRight(AYUDA_URLS.crearMaterial),
         }}
       />
 
@@ -119,6 +148,7 @@ function ValesStack() {
           headerShown: true,
           headerTitle: "Nuevo Vale Asfáltico",
           headerBackVisible: true,
+          headerRight: ayudaHeaderRight(AYUDA_URLS.crearAsfaltico),
         }}
       />
     </Stack.Navigator>

@@ -13,7 +13,7 @@
  * solo sirven para filtrar los pickers al crear un vale; nunca para reclasificar
  * uno historico.
  *
- * Centralizado aqui porque ValeRentaScreen, AcarreosScreen, ArchivadosScreen,
+ * Centralizado aqui porque ValeRentaScreen, AcarreosScreen, HistorialValesScreen,
  * ValeCard y las estadisticas deben usar el mismo criterio.
  */
 

@@ -37,11 +37,13 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 // 4. Local - Config
 import { colors } from "../../../config/colors";
 import { BLUETOOTH_ENABLED, IS_WEB } from "../../../config/features";
+import { urlAyudaVale } from "../../../config/ayuda";
 
 // 5. Local - Hooks
 import { useTicketsMaterial } from "../../../hooks/useTicketsMaterial";
 
 // 6. Local - Componentes
+import BotonAyuda from "../../common/BotonAyuda";
 import ModalImprimirTicketRenta from "../rentaHelpers/ModalImprimirTicketRenta";
 import ModalCambiarBanco from "./ModalCambiarBanco";
 
@@ -399,6 +401,7 @@ const TicketsMaterialSection = ({
         <View style={styles.badge}>
           <Text style={styles.badgeTexto}>{totalTickets}</Text>
         </View>
+        <BotonAyuda url={urlAyudaVale(vale, "ticket")} />
       </View>
 
       {/* Lista de tickets */}
@@ -565,6 +568,7 @@ const TicketsMaterialSection = ({
         bancoActual={bancoNombreActual}
         onConfirmar={handleConfirmarCambiarBanco}
         onCancelar={handleCancelarCambiarBanco}
+        ayudaUrl={urlAyudaVale(vale, "banco")}
       />
     </View>
   );

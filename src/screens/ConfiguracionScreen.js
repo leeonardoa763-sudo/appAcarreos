@@ -10,7 +10,9 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
+import { AYUDA_URLS } from "../config/ayuda";
 import { useAuth } from "../hooks/useAuth";
+import abrirAyuda from "../utils/abrirAyuda";
 
 const ConfiguracionScreen = () => {
   const { signOut, userProfile, userName } = useAuth();
@@ -87,7 +89,11 @@ const ConfiguracionScreen = () => {
             />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.optionItem}>
+          {/* Centro de Ayuda: sitio aparte con los tutoriales en video */}
+          <TouchableOpacity
+            style={styles.optionItem}
+            onPress={() => abrirAyuda(AYUDA_URLS.portada)}
+          >
             <MaterialCommunityIcons
               name="help-circle-outline"
               size={24}

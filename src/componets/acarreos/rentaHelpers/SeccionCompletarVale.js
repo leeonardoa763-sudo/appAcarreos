@@ -38,6 +38,7 @@ import { View, Text } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../../config/colors";
 import { HIDE_ON_WEB } from "../../../config/features";
+import { urlAyudaVale } from "../../../config/ayuda";
 import { rentaStyles as styles } from "./rentaStyles";
 
 import ViajesRentaSection from "../ViajesRentaSection";
@@ -45,6 +46,7 @@ import FormCheckbox from "../../forms/FormCheckbox";
 import CustomTimePicker from "../../forms/CustomTimePicker";
 import FormInput from "../../forms/FormInput";
 import EvidenciaCaptura from "../../vale/EvidenciaCaptura";
+import BotonAyuda from "../../common/BotonAyuda";
 import PrimaryButton from "../../common/PrimaryButton";
 
 const SeccionCompletarVale = ({
@@ -92,12 +94,18 @@ const SeccionCompletarVale = ({
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Completar Vale</Text>
+      <View style={styles.sectionTitleRow}>
+        <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>
+          Completar Vale
+        </Text>
+        <BotonAyuda url={urlAyudaVale(vale, "completar")} />
+      </View>
       <Text style={styles.sectionSubtitle}>
         Captura los datos para completar el vale
       </Text>
 
       <ViajesRentaSection
+        ayudaUrl={urlAyudaVale(vale, "registrar")}
         viajes={viajes}
         loading={loadingViajes}
         registrando={registrando}

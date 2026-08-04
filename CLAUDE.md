@@ -23,7 +23,7 @@ La web de verificación es solo lectura. Usa RLS `anon` de Supabase. Rutas: `htt
 - **Framework:** React Native + Expo (managed workflow)
 - **Navegación:** React Navigation v6 — Stack, Tabs, Drawer
 - **Backend:** Supabase (PostgreSQL + Auth + RLS + Storage + Edge Functions) — ref: `zqdnyqvgfymjorfplquf`
-- **Bluetooth:** `react-native-ble-manager` — impresoras térmicas 58mm ESC/POS
+- **Bluetooth:** `react-native-bluetooth-classic` — impresoras térmicas 58mm ESC/POS. (NO `react-native-ble-manager`; no es dependencia del proyecto)
 - **PDF:** `expo-print` + `expo-file-system/legacy` + `expo-sharing`
 - **QR:** `api.qrserver.com` en PDFs y tickets
 - **Iconos:** `MaterialCommunityIcons` de `@expo/vector-icons` — SIEMPRE estos, NUNCA Ionicons
@@ -57,21 +57,24 @@ import { colors } from "../config/colors";
 
 ```
 src/
-├── config/         colors.js, features.js, supabase.js
+├── config/         colors.js, statsColors.js, features.js, featureFlags.js, supabase.js
+├── context/        AuthContext.js — única fuente de sesión y perfil
+├── navigation/     BottomTabNavigator.js
 ├── hooks/          Un hook = una responsabilidad. Ver hooks/CLAUDE.md
-│   └── queries/    VALE_SELECT_COMPLETO centralizado aquí
+│   ├── queries/    VALE_SELECT_LISTA / VALE_SELECT_COMPLETO centralizados aquí
+│   └── exportHelpers/
 ├── screens/        Pantallas lean — solo orquestación. Ver screens/CLAUDE.md
 ├── componets/      (typo intencional en carpeta). Ver componets/CLAUDE.md
-│   ├── rentaHelpers/
-│   └── helpersMaterial/
 ├── services/       Bluetooth, PDF, QR. Ver services/CLAUDE.md
-└── utils/          formatters.js
+├── styles/         commonStyles, formStyles, listScreenStyles, screenStyles
+└── utils/          formatters.js, crossAlert.js, jornadaLaboral.js, preciosMaterial.js, ...
 ```
 
 **Reglas:**
 - Screens orquestan. La lógica va en hooks. La UI en componentes helper.
 - Un hook = una responsabilidad. No crear hooks dios.
 - Archivos < 600 líneas. Si crece más, dividir.
+- **Sin código muerto.** Si un componente/hook deja de usarse, se borra en el mismo cambio — no se deja "por si acaso" (para eso está git). Ver "Limpieza de código muerto" abajo.
 
 ---
 
@@ -85,6 +88,7 @@ La misma app corre también como build web (`react-native-web`, ya instalado) pa
 | Cancelar vale / Eliminar viaje | Sí |
 | Crear operadores | Sí |
 | Estadísticas | Sí |
+| Historial de vales / exportar CSV | Sí — el navegador descarga el archivo (`exportHelpers/fileSystemUtils.web.js`) |
 | Registrar viaje / Completar vale | **No** — solo nativo por ahora |
 | Asignar vehículo a un vale ya creado (post-creación, vía QR) | **No** — solo nativo por ahora |
 | Imprimir ticket (Bluetooth) / Generar / compartir PDF | **No** — oculto sin reemplazo |
@@ -144,6 +148,87 @@ npx --yes vercel@latest deploy . --prod -y --no-wait     # produccion (solo si s
 Si se perdió el respaldo del link, re-linkear con `npx --yes vercel@latest link --yes` desde dentro de `dist/`. Contenido de referencia de `project.json`: `projectName: "dist"`, orgId del team `bruno-leonardos-projects`.
 
 **El flag de BD no basta:** los cambios que dependen de una columna nueva requieren correr la migración en el SQL Editor de Supabase **antes** de desplegar, o el `insert`/`select` truena en producción.
+
+---
+
+## CENTRO DE AYUDA (2026-08-03)
+
+Los tutoriales viven en un **sitio aparte**: `https://acarreos-ayuda.vercel.app`
+(repo `AyudaAcarreos`, carpeta hermana `acarreos-ayuda/`). La app **no** los
+reimplementa: los enlaza.
+
+| Archivo | Qué es |
+|---|---|
+| `src/config/ayuda.js` | Solo datos: `AYUDA_URLS` + `urlAyudaVale(vale, paso)`. **Único lugar donde se escriben URLs de ayuda** |
+| `src/utils/abrirAyuda.js` | Abre la URL con `expo-web-browser` (navegador *dentro* de la app, no `Linking`) |
+| `src/componets/common/BotonAyuda.js` | El icono `help-circle-outline`. Ver `componets/CLAUDE.md` |
+
+**Dónde están los accesos hoy:** fila "Ayuda" de `ConfiguracionScreen` y
+`ValeSelectionModal` → portada. `headerRight` de las 4 variantes de creación de
+vale (en `navigation/BottomTabNavigator.js`) → su lección. Headers de
+`TicketsMaterialSection`, `ViajesMaterialSection`, `ModalCambiarBanco`,
+`ValeFormCompletarNormal`, `TicketDescargaSection`, `ViajesRentaSection`,
+`SeccionCompletarVale` y `ModalAsignarVehiculo` → el paso exacto del checador.
+
+**Se eligió `expo-web-browser` y no `Linking.openURL`** para que el checador no
+pierda lo que estaba capturando: el navegador se monta encima y "Listo" lo
+devuelve a la misma pantalla. Es dependencia nativa: **un release que la incluya
+necesita APK nuevo**. En web degrada a `window.open` sin código aparte.
+
+**Los pasos del checador se abren con `#paso-<nombre>`** (`asignar`, `ticket`,
+`registrar`, `banco`, `completar`). Esa lista está duplicada en `PASOS_POR_GUIA`
+de `config/ayuda.js` y en los `data-paso` del HTML del sitio — ver "CONTRATO CON
+LA APP MÓVIL" en `acarreos-ayuda/CLAUDE.md` antes de renombrar cualquiera.
+Pipa y asfáltico van a su guía **sin** paso: esas páginas no tienen modales.
+
+---
+
+## HISTORIAL DE VALES (2026-08-03)
+
+`HistorialValesScreen` (botón "Historial" en `ValesScreen`, ruta `Historial` del
+`ValesStack`) sustituyó a la vieja `ArchivadosScreen`.
+
+**Por qué se quitó Archivados:** filtraba con `.eq("archivado", true)`, pero
+**nada en la app escribe `archivado = true`** — la pantalla siempre salía vacía.
+La columna `vales.archivado` se dejó en la BD (regla de cambios aditivos), ya sin
+ningún consumidor. No reimplementar ese filtro.
+
+**Cómo funciona ahora:** no carga nada al abrir. Primero pregunta *qué* vales
+(periodo todos/mes/rango, obra, tipo, material, sindicato, banco, incluir
+cancelados) y luego *qué hacer* con ellos: verlos como lista de folios con
+buscador, o exportarlos a CSV.
+
+| Archivo | Rol |
+|---|---|
+| `hooks/exportHelpers/historialQueries.js` | La consulta. Paginada, con select propio |
+| `hooks/exportHelpers/historialConverter.js` | Fila de CSV unificada (material + renta + pipas) |
+| `hooks/useHistorialVales.js` | Orquesta lista vs. export |
+| `utils/periodoHistorial.js` | Traduce el selector de periodo a un rango de fechas |
+| `componets/historial/` | `FiltrosHistorial`, `ListaFoliosHistorial` |
+
+**El CSV lleva una fila por viaje registrado.** Los vales sin viajes no aparecen.
+Ninguna celda queda vacía: `"-"` para texto, `"0"` para numéricos. A diferencia
+de `InformesScreen`, **sí respeta los overrides de tipo 3** (`precio_m3_override`,
+`costo_viaje_override`, `distancia_km_override`, `bancos_override`) — el export de
+Informes los ignora y por eso sus cifras no cuadran con la app en vales tipo 3.
+
+---
+
+## LIMPIEZA DE CÓDIGO MUERTO (2026-07-29)
+
+Se eliminaron **54 archivos** sin uso. `src/` quedó en **189 archivos, todos alcanzables** desde `index.js`. No reintroducir lo borrado:
+
+| Qué se borró | Por qué |
+|---|---|
+| **Tutorial guiado completo** (15 archivos: `componets/tutorial/`, `TutorialHelpButton`, `config/tutorialSteps.js`, `config/tutorialFakeData.js`, `useSpotlightTutorial`, `useTutorialAsignarFlow`, `useTutorialSeen`) | Los tutoriales se movieron a una **web aparte**. No volver a implementarlos dentro de la app |
+| `useValeMaterialPDF` / `useValeRentaPDF` | Capa intermedia sin usuarios. `GenerarPDFButton.js` llama directo a `services/pdfMaterialGeneratorRecibo.js` y `services/pdfRentaGeneratorRecibo.js` — **esos servicios siguen vivos** |
+| Generación vieja de estadísticas (19 archivos de `componets/stats/`, `ButtonsGrid/EstadisticasScreen.js`, `useChartData`, `useStatsFilteredData`, `useFilterCatalogos`, `utils/statsReportTemplate.js`) | La pantalla viva es `screens/EstadisticasScreen.js`, que solo usa `stats/EstadisticasMaterialTab` y `stats/EstadisticasRentaTab` |
+| 5 componentes de `forms/` (`FormPicker`, `FormTimePicker`, `FormDecimalInput`, `FormNumberInput`, `FormAutocomplete`) | Nadie los importaba. Los vivos son `FormInput`, `FormCheckbox`, `CustomModalPicker`, `CustomTimePicker`, `CustomWeekPicker` |
+| `debug/DebugLogger`, `dev/SeccionQRVehiculos`, `useVehiculosQR`, `ImprimirTicketButton`, `ErrorReportable`, `SearchBar`, `FloatingActionButton`, y otros sueltos | Sin referencias |
+
+**Al quitar el tutorial se desconectó también su cableado** en `ValesScreen.js` (bloque spotlight completo, estado `tutorialArmed`), `AcarreosScreen.js` (efecto de `route.params.tutorialValeFicticio`) y `ButtonsGrid.js` (prop `registerRef` y `tutorialId` por botón). Si ves esos nombres en algún lado, es residuo.
+
+**Cómo verificar que no hay código muerto nuevo:** análisis de alcanzabilidad desde `index.js`/`App.js` siguiendo imports y `require()`, resolviendo variantes `.web.js`/`.native.js` como hace Metro. Un simple "quién me importa" no basta: no detecta muertos transitivos (archivo importado solo por otro archivo muerto).
 
 ---
 

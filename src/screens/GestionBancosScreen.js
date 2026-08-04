@@ -1,18 +1,22 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
   FlatList,
+  TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
   Alert,
-  StyleSheet,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
 import { useGestionBancos } from "../hooks/useGestionBancos";
 import { useCatalogos } from "../hooks/useCatalogos";
+import crossAlert from "../utils/crossAlert";
+import { estilosBancos as estilos } from "../componets/bancos/gestionBancosStyles";
+import { FilaBanco, FilaRegistro } from "../componets/bancos/GestionBancosFilas";
 import {
   ModalBanco,
   ModalDistancia,
@@ -21,6 +25,10 @@ import {
 } from "../componets/bancos/GestionBancosModales";
 
 const PESTANAS = ["Bancos", "Distancias", "Dist. Planta", "Pesos"];
+const CATALOGOS_REQUERIDOS = ["materiales"];
+
+const contiene = (texto, query) =>
+  String(texto ?? "").toLowerCase().includes(query);
 
 export default function GestionBancosScreen() {
   const {
@@ -30,10 +38,7 @@ export default function GestionBancosScreen() {
     pesosEspecificos,
     loading,
     error,
-    fetchBancos,
-    fetchDistancias,
-    fetchDistanciasPlanta,
-    fetchPesos,
+    cargarTodo,
     crearBanco,
     editarBanco,
     crearDistancia,
@@ -47,9 +52,11 @@ export default function GestionBancosScreen() {
     eliminarPeso,
   } = useGestionBancos();
 
-  const { materiales } = useCatalogos(["materiales"]);
+  const { materiales } = useCatalogos(CATALOGOS_REQUERIDOS);
   const [obras, setObras] = useState([]);
   const [pestanaActiva, setPestanaActiva] = useState("Bancos");
+  const [busqueda, setBusqueda] = useState("");
+  const [refrescando, setRefrescando] = useState(false);
 
   const [modalBancoVisible, setModalBancoVisible] = useState(false);
   const [bancoSeleccionado, setBancoSeleccionado] = useState(null);
@@ -57,182 +64,268 @@ export default function GestionBancosScreen() {
   const [modalDistanciaVisible, setModalDistanciaVisible] = useState(false);
   const [distanciaSeleccionada, setDistanciaSeleccionada] = useState(null);
 
-  const [modalDistanciaPlantaVisible, setModalDistanciaPlantaVisible] = useState(false);
-  const [distanciaPlantaSeleccionada, setDistanciaPlantaSeleccionada] = useState(null);
+  const [modalDistanciaPlantaVisible, setModalDistanciaPlantaVisible] =
+    useState(false);
+  const [distanciaPlantaSeleccionada, setDistanciaPlantaSeleccionada] =
+    useState(null);
 
   const [modalPesoVisible, setModalPesoVisible] = useState(false);
   const [pesoSeleccionado, setPesoSeleccionado] = useState(null);
 
-  useEffect(() => {
-    fetchBancos();
-    fetchDistancias();
-    fetchDistanciasPlanta();
-    fetchPesos();
-    supabase
+  const cargarObras = useCallback(async () => {
+    const { data, error: err } = await supabase
       .from("obras")
       .select("id_obra, obra")
       .neq("id_obra", 888)
       .eq("activo", true)
-      .order("obra")
-      .then(({ data }) => setObras(data ?? []));
+      .order("obra");
+    if (err) {
+      console.error("[GestionBancos] Error al cargar obras:", err);
+      return;
+    }
+    setObras(data ?? []);
   }, []);
 
-  const abrirNuevoBanco = () => { setBancoSeleccionado(null); setModalBancoVisible(true); };
-  const abrirEditarBanco = (b) => { setBancoSeleccionado(b); setModalBancoVisible(true); };
+  useEffect(() => {
+    cargarTodo();
+    cargarObras();
+  }, [cargarTodo, cargarObras]);
 
-  const abrirNuevaDistancia = () => { setDistanciaSeleccionada(null); setModalDistanciaVisible(true); };
-  const abrirEditarDistancia = (d) => { setDistanciaSeleccionada(d); setModalDistanciaVisible(true); };
+  const handleRefrescar = useCallback(async () => {
+    setRefrescando(true);
+    try {
+      await Promise.all([cargarTodo(), cargarObras()]);
+    } finally {
+      setRefrescando(false);
+    }
+  }, [cargarTodo, cargarObras]);
 
-  const abrirNuevaDistanciaPlanta = () => { setDistanciaPlantaSeleccionada(null); setModalDistanciaPlantaVisible(true); };
-  const abrirEditarDistanciaPlanta = (d) => { setDistanciaPlantaSeleccionada(d); setModalDistanciaPlantaVisible(true); };
-
-  const abrirNuevoPeso = () => { setPesoSeleccionado(null); setModalPesoVisible(true); };
-  const abrirEditarPeso = (p) => { setPesoSeleccionado(p); setModalPesoVisible(true); };
-
-  const confirmarEliminarDistancia = (item) => {
-    Alert.alert(
-      "Eliminar distancia",
-      `¿Eliminar ${item.bancos?.banco} → ${item.obras?.obra}?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Eliminar", style: "destructive", onPress: () => eliminarDistancia(item.id_distancia_banco_obra) },
-      ]
-    );
+  const cambiarPestana = (p) => {
+    setPestanaActiva(p);
+    setBusqueda("");
   };
 
-  const confirmarEliminarDistanciaPlanta = (item) => {
-    Alert.alert(
-      "Eliminar distancia",
-      `¿Eliminar ${item.bancos?.banco} → Planta de Asfaltos?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Eliminar", style: "destructive", onPress: () => eliminarDistanciaPlanta(item.id_distancia_banco_planta) },
-      ]
-    );
+  // ─── Conteos por banco, para la pestana Bancos ─────────────────────────────
+  const conteosPorBanco = useMemo(() => {
+    const mapa = {};
+    const asegurar = (id) => {
+      if (!mapa[id]) mapa[id] = { obras: 0, pesos: 0, planta: false };
+      return mapa[id];
+    };
+    distancias.forEach((d) => (asegurar(d.id_banco).obras += 1));
+    pesosEspecificos.forEach((p) => (asegurar(p.id_banco).pesos += 1));
+    distanciasPlanta.forEach((d) => (asegurar(d.id_banco).planta = true));
+    return mapa;
+  }, [distancias, pesosEspecificos, distanciasPlanta]);
+
+  // ─── Filtrado por busqueda ─────────────────────────────────────────────────
+  const q = busqueda.trim().toLowerCase();
+
+  const bancosFiltrados = useMemo(
+    () => (!q ? bancos : bancos.filter((b) => contiene(b.banco, q))),
+    [bancos, q]
+  );
+
+  const distanciasFiltradas = useMemo(
+    () =>
+      !q
+        ? distancias
+        : distancias.filter(
+            (d) => contiene(d.bancos?.banco, q) || contiene(d.obras?.obra, q)
+          ),
+    [distancias, q]
+  );
+
+  const distanciasPlantaFiltradas = useMemo(
+    () =>
+      !q
+        ? distanciasPlanta
+        : distanciasPlanta.filter((d) => contiene(d.bancos?.banco, q)),
+    [distanciasPlanta, q]
+  );
+
+  const pesosFiltrados = useMemo(
+    () =>
+      !q
+        ? pesosEspecificos
+        : pesosEspecificos.filter(
+            (p) =>
+              contiene(p.bancos?.banco, q) || contiene(p.material?.material, q)
+          ),
+    [pesosEspecificos, q]
+  );
+
+  // ─── Eliminar ──────────────────────────────────────────────────────────────
+  // Sin el try/catch, un fallo de RLS deja una promesa rechazada sin manejar.
+  const confirmarEliminar = (titulo, mensaje, accion, mensajeError) => {
+    crossAlert(titulo, mensaje, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Eliminar",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await accion();
+          } catch (e) {
+            console.error("[GestionBancos] Error al eliminar:", e);
+            Alert.alert("Error", mensajeError);
+          }
+        },
+      },
+    ]);
   };
 
-  const confirmarEliminarPeso = (item) => {
-    Alert.alert(
-      "Eliminar peso especifico",
-      `¿Eliminar ${item.bancos?.banco} · ${item.material?.material}?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Eliminar", style: "destructive", onPress: () => eliminarPeso(item.id_peso_especifico) },
-      ]
-    );
+  // ─── Configuracion de cada pestana ─────────────────────────────────────────
+  const PESTANA_CONFIG = {
+    Bancos: {
+      titulo: "Bancos registrados",
+      datos: bancosFiltrados,
+      total: bancos.length,
+      keyExtractor: (item) => String(item.id_banco),
+      renderItem: ({ item }) => (
+        <FilaBanco
+          banco={item}
+          conteos={conteosPorBanco[item.id_banco]}
+          onPress={() => {
+            setBancoSeleccionado(item);
+            setModalBancoVisible(true);
+          }}
+        />
+      ),
+      onAgregar: () => {
+        setBancoSeleccionado(null);
+        setModalBancoVisible(true);
+      },
+      iconoVacio: "home-city-outline",
+      textoVacio: "No hay bancos registrados",
+      placeholderBusqueda: "Buscar banco...",
+    },
+
+    Distancias: {
+      titulo: "Distancias banco-obra",
+      datos: distanciasFiltradas,
+      total: distancias.length,
+      keyExtractor: (item) => String(item.id_distancia_banco_obra),
+      renderItem: ({ item }) => (
+        <FilaRegistro
+          icono="map-marker-distance"
+          titulo={item.bancos?.banco}
+          subIcono="office-building-outline"
+          subTexto={item.obras?.obra}
+          badgeTexto={`${item.distancia_km} km`}
+          onEditar={() => {
+            setDistanciaSeleccionada(item);
+            setModalDistanciaVisible(true);
+          }}
+          onEliminar={() =>
+            confirmarEliminar(
+              "Eliminar distancia",
+              `¿Eliminar ${item.bancos?.banco} → ${item.obras?.obra}?`,
+              () => eliminarDistancia(item.id_distancia_banco_obra),
+              "No se pudo eliminar la distancia."
+            )
+          }
+        />
+      ),
+      onAgregar: () => {
+        setDistanciaSeleccionada(null);
+        setModalDistanciaVisible(true);
+      },
+      iconoVacio: "map-marker-distance",
+      textoVacio: "No hay distancias configuradas",
+      placeholderBusqueda: "Buscar banco u obra...",
+    },
+
+    "Dist. Planta": {
+      titulo: "Distancias a planta",
+      datos: distanciasPlantaFiltradas,
+      total: distanciasPlanta.length,
+      keyExtractor: (item) => String(item.id_distancia_banco_planta),
+      renderItem: ({ item }) => (
+        <FilaRegistro
+          icono="map-marker-distance"
+          titulo={item.bancos?.banco}
+          subIcono="factory"
+          subTexto="Planta de Asfaltos"
+          badgeTexto={`${item.distancia_km} km`}
+          onEditar={() => {
+            setDistanciaPlantaSeleccionada(item);
+            setModalDistanciaPlantaVisible(true);
+          }}
+          onEliminar={() =>
+            confirmarEliminar(
+              "Eliminar distancia",
+              `¿Eliminar ${item.bancos?.banco} → Planta de Asfaltos?`,
+              () => eliminarDistanciaPlanta(item.id_distancia_banco_planta),
+              "No se pudo eliminar la distancia."
+            )
+          }
+        />
+      ),
+      onAgregar: () => {
+        setDistanciaPlantaSeleccionada(null);
+        setModalDistanciaPlantaVisible(true);
+      },
+      iconoVacio: "map-marker-distance",
+      textoVacio: "No hay distancias a planta configuradas",
+      placeholderBusqueda: "Buscar banco...",
+    },
+
+    Pesos: {
+      titulo: "Pesos especificos",
+      datos: pesosFiltrados,
+      total: pesosEspecificos.length,
+      keyExtractor: (item) => String(item.id_peso_especifico),
+      renderItem: ({ item }) => (
+        <FilaRegistro
+          icono="weight-kilogram"
+          titulo={item.bancos?.banco}
+          subIcono="package-variant-closed"
+          subTexto={item.material?.material}
+          badgeTexto={`${item.peso_especifico} ton/m3`}
+          acentuada
+          onEditar={() => {
+            setPesoSeleccionado(item);
+            setModalPesoVisible(true);
+          }}
+          onEliminar={() =>
+            confirmarEliminar(
+              "Eliminar peso especifico",
+              `¿Eliminar ${item.bancos?.banco} · ${item.material?.material}?`,
+              () => eliminarPeso(item.id_peso_especifico),
+              "No se pudo eliminar el peso especifico."
+            )
+          }
+        />
+      ),
+      onAgregar: () => {
+        setPesoSeleccionado(null);
+        setModalPesoVisible(true);
+      },
+      iconoVacio: "weight-kilogram",
+      textoVacio: "No hay pesos especificos configurados",
+      placeholderBusqueda: "Buscar banco o material...",
+    },
   };
-
-  const renderBanco = ({ item }) => (
-    <TouchableOpacity style={estilos.fila} onPress={() => abrirEditarBanco(item)} activeOpacity={0.7}>
-      <View style={estilos.filaIcono}>
-        <MaterialCommunityIcons name="home-city-outline" size={22} color={colors.secondary} />
-      </View>
-      <View style={estilos.filaTextos}>
-        <Text style={estilos.filaNombre}>{item.banco}</Text>
-      </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textSecondary} />
-    </TouchableOpacity>
-  );
-
-  const renderDistancia = ({ item }) => (
-    <TouchableOpacity style={estilos.fila} onPress={() => abrirEditarDistancia(item)} activeOpacity={0.7}>
-      <View style={estilos.filaIcono}>
-        <MaterialCommunityIcons name="map-marker-distance" size={22} color={colors.secondary} />
-      </View>
-      <View style={estilos.filaTextos}>
-        <Text style={estilos.filaNombre}>{item.bancos?.banco}</Text>
-        <View style={estilos.filaSubRow}>
-          <MaterialCommunityIcons name="office-building-outline" size={12} color={colors.textSecondary} />
-          <Text style={estilos.filaSubtexto}>{item.obras?.obra}</Text>
-          <View style={estilos.badge}>
-            <MaterialCommunityIcons name="ruler" size={11} color={colors.secondary} />
-            <Text style={[estilos.badgeTexto, { color: colors.secondary }]}>
-              {item.distancia_km} km
-            </Text>
-          </View>
-        </View>
-      </View>
-      <TouchableOpacity
-        style={estilos.btnEliminar}
-        onPress={() => confirmarEliminarDistancia(item)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#E74C3C" />
-      </TouchableOpacity>
-    </TouchableOpacity>
-  );
-
-  const renderDistanciaPlanta = ({ item }) => (
-    <TouchableOpacity style={estilos.fila} onPress={() => abrirEditarDistanciaPlanta(item)} activeOpacity={0.7}>
-      <View style={estilos.filaIcono}>
-        <MaterialCommunityIcons name="map-marker-distance" size={22} color={colors.secondary} />
-      </View>
-      <View style={estilos.filaTextos}>
-        <Text style={estilos.filaNombre}>{item.bancos?.banco}</Text>
-        <View style={estilos.filaSubRow}>
-          <MaterialCommunityIcons name="factory" size={12} color={colors.textSecondary} />
-          <Text style={estilos.filaSubtexto}>Planta de Asfaltos</Text>
-          <View style={estilos.badge}>
-            <MaterialCommunityIcons name="ruler" size={11} color={colors.secondary} />
-            <Text style={[estilos.badgeTexto, { color: colors.secondary }]}>
-              {item.distancia_km} km
-            </Text>
-          </View>
-        </View>
-      </View>
-      <TouchableOpacity
-        style={estilos.btnEliminar}
-        onPress={() => confirmarEliminarDistanciaPlanta(item)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#E74C3C" />
-      </TouchableOpacity>
-    </TouchableOpacity>
-  );
-
-  const renderPeso = ({ item }) => (
-    <TouchableOpacity style={estilos.fila} onPress={() => abrirEditarPeso(item)} activeOpacity={0.7}>
-      <View style={estilos.filaIcono}>
-        <MaterialCommunityIcons name="weight-kilogram" size={22} color={colors.secondary} />
-      </View>
-      <View style={estilos.filaTextos}>
-        <Text style={estilos.filaNombre}>{item.bancos?.banco}</Text>
-        <View style={estilos.filaSubRow}>
-          <MaterialCommunityIcons name="package-variant-closed" size={12} color={colors.textSecondary} />
-          <Text style={estilos.filaSubtexto}>{item.material?.material}</Text>
-          <View style={[estilos.badge, { backgroundColor: "#EAF6F1", borderColor: colors.accent }]}>
-            <Text style={[estilos.badgeTexto, { color: colors.accent }]}>
-              {item.peso_especifico} ton/m3
-            </Text>
-          </View>
-        </View>
-      </View>
-      <TouchableOpacity
-        style={estilos.btnEliminar}
-        onPress={() => confirmarEliminarPeso(item)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#E74C3C" />
-      </TouchableOpacity>
-    </TouchableOpacity>
-  );
 
   if (error) {
     return (
       <View style={estilos.centrado}>
-        <MaterialCommunityIcons name="alert-circle-outline" size={40} color="#E74C3C" />
+        <MaterialCommunityIcons
+          name="alert-circle-outline"
+          size={40}
+          color={colors.danger}
+        />
         <Text style={estilos.errorTexto}>Error al cargar datos</Text>
-        <TouchableOpacity
-          style={estilos.btnReintentar}
-          onPress={() => { fetchBancos(); fetchDistancias(); fetchDistanciasPlanta(); fetchPesos(); }}
-        >
+        <Text style={estilos.errorDetalle}>{error}</Text>
+        <TouchableOpacity style={estilos.btnReintentar} onPress={cargarTodo}>
           <Text style={estilos.btnReintentarTexto}>Reintentar</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const listaBancosActivos = bancos;
+  const cfg = PESTANA_CONFIG[pestanaActiva];
 
   return (
     <View style={estilos.contenedor}>
@@ -240,133 +333,109 @@ export default function GestionBancosScreen() {
         {PESTANAS.map((p) => (
           <TouchableOpacity
             key={p}
-            style={[estilos.toggleBtn, pestanaActiva === p && estilos.toggleBtnActivo]}
-            onPress={() => setPestanaActiva(p)}
+            style={[
+              estilos.toggleBtn,
+              pestanaActiva === p && estilos.toggleBtnActivo,
+            ]}
+            onPress={() => cambiarPestana(p)}
           >
-            <Text style={[estilos.toggleTexto, pestanaActiva === p && estilos.toggleTextoActivo]}>
+            <Text
+              style={[
+                estilos.toggleTexto,
+                pestanaActiva === p && estilos.toggleTextoActivo,
+              ]}
+            >
               {p}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {pestanaActiva === "Bancos" && (
-        <>
-          <View style={estilos.tabHeader}>
-            <Text style={estilos.tabTitulo}>Bancos registrados</Text>
-            <TouchableOpacity style={estilos.btnAgregar} onPress={abrirNuevoBanco}>
-              <MaterialCommunityIcons name="plus" size={22} color={colors.surface} />
-            </TouchableOpacity>
-          </View>
-          {loading ? (
-            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.primary} />
-          ) : (
-            <FlatList
-              data={bancos}
-              keyExtractor={(item) => String(item.id_banco)}
-              renderItem={renderBanco}
-              contentContainerStyle={estilos.listaContenido}
-              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-              ListEmptyComponent={
-                <View style={estilos.vacio}>
-                  <MaterialCommunityIcons name="home-city-outline" size={36} color={colors.textSecondary} />
-                  <Text style={estilos.vacioTexto}>No hay bancos registrados</Text>
-                </View>
-              }
-            />
-          )}
-        </>
-      )}
+      <View style={estilos.tabHeader}>
+        <Text style={estilos.tabTitulo}>
+          {cfg.titulo}
+          {cfg.total > 0 ? ` (${cfg.total})` : ""}
+        </Text>
+        <TouchableOpacity
+          style={estilos.btnAgregar}
+          onPress={cfg.onAgregar}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="plus" size={22} color={colors.surface} />
+        </TouchableOpacity>
+      </View>
 
-      {pestanaActiva === "Distancias" && (
-        <>
-          <View style={estilos.tabHeader}>
-            <Text style={estilos.tabTitulo}>Distancias banco-obra</Text>
-            <TouchableOpacity style={estilos.btnAgregar} onPress={abrirNuevaDistancia}>
-              <MaterialCommunityIcons name="plus" size={22} color={colors.surface} />
+      <View style={estilos.searchRow}>
+        <View style={estilos.searchBox}>
+          <MaterialCommunityIcons
+            name="magnify"
+            size={18}
+            color={colors.textSecondary}
+          />
+          <TextInput
+            style={estilos.searchInput}
+            value={busqueda}
+            onChangeText={setBusqueda}
+            placeholder={cfg.placeholderBusqueda}
+            placeholderTextColor={colors.textSecondary}
+          />
+          {busqueda.length > 0 && (
+            <TouchableOpacity onPress={() => setBusqueda("")}>
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={16}
+                color={colors.textSecondary}
+              />
             </TouchableOpacity>
-          </View>
-          {loading ? (
-            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.primary} />
-          ) : (
-            <FlatList
-              data={distancias}
-              keyExtractor={(item) => String(item.id_distancia_banco_obra)}
-              renderItem={renderDistancia}
-              contentContainerStyle={estilos.listaContenido}
-              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-              ListEmptyComponent={
-                <View style={estilos.vacio}>
-                  <MaterialCommunityIcons name="map-marker-distance" size={36} color={colors.textSecondary} />
-                  <Text style={estilos.vacioTexto}>No hay distancias configuradas</Text>
-                </View>
-              }
-            />
           )}
-        </>
-      )}
+        </View>
+      </View>
 
-      {pestanaActiva === "Dist. Planta" && (
-        <>
-          <View style={estilos.tabHeader}>
-            <Text style={estilos.tabTitulo}>Distancias banco-planta de asfaltos</Text>
-            <TouchableOpacity style={estilos.btnAgregar} onPress={abrirNuevaDistanciaPlanta}>
-              <MaterialCommunityIcons name="plus" size={22} color={colors.surface} />
-            </TouchableOpacity>
-          </View>
-          {loading ? (
-            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.primary} />
-          ) : (
-            <FlatList
-              data={distanciasPlanta}
-              keyExtractor={(item) => String(item.id_distancia_banco_planta)}
-              renderItem={renderDistanciaPlanta}
-              contentContainerStyle={estilos.listaContenido}
-              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-              ListEmptyComponent={
-                <View style={estilos.vacio}>
-                  <MaterialCommunityIcons name="map-marker-distance" size={36} color={colors.textSecondary} />
-                  <Text style={estilos.vacioTexto}>No hay distancias a planta configuradas</Text>
-                </View>
-              }
+      {loading && !refrescando ? (
+        <ActivityIndicator
+          style={{ marginTop: 40 }}
+          size="large"
+          color={colors.primary}
+        />
+      ) : (
+        <FlatList
+          key={pestanaActiva}
+          data={cfg.datos}
+          keyExtractor={cfg.keyExtractor}
+          renderItem={cfg.renderItem}
+          contentContainerStyle={estilos.listaContenido}
+          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refrescando}
+              onRefresh={handleRefrescar}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
-          )}
-        </>
-      )}
-
-      {pestanaActiva === "Pesos" && (
-        <>
-          <View style={estilos.tabHeader}>
-            <Text style={estilos.tabTitulo}>Pesos especificos</Text>
-            <TouchableOpacity style={estilos.btnAgregar} onPress={abrirNuevoPeso}>
-              <MaterialCommunityIcons name="plus" size={22} color={colors.surface} />
-            </TouchableOpacity>
-          </View>
-          {loading ? (
-            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.primary} />
-          ) : (
-            <FlatList
-              data={pesosEspecificos}
-              keyExtractor={(item) => String(item.id_peso_especifico)}
-              renderItem={renderPeso}
-              contentContainerStyle={estilos.listaContenido}
-              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-              ListEmptyComponent={
-                <View style={estilos.vacio}>
-                  <MaterialCommunityIcons name="weight-kilogram" size={36} color={colors.textSecondary} />
-                  <Text style={estilos.vacioTexto}>No hay pesos especificos configurados</Text>
-                </View>
-              }
-            />
-          )}
-        </>
+          }
+          ListEmptyComponent={
+            <View style={estilos.vacio}>
+              <MaterialCommunityIcons
+                name={cfg.iconoVacio}
+                size={36}
+                color={colors.textSecondary}
+              />
+              <Text style={estilos.vacioTexto}>
+                {busqueda ? "Sin resultados para la busqueda" : cfg.textoVacio}
+              </Text>
+            </View>
+          }
+        />
       )}
 
       <ModalBanco
         visible={modalBancoVisible}
         banco={bancoSeleccionado}
+        bancos={bancos}
         onGuardar={async (nombre) => {
-          if (bancoSeleccionado) await editarBanco(bancoSeleccionado.id_banco, nombre);
+          if (bancoSeleccionado)
+            await editarBanco(bancoSeleccionado.id_banco, nombre);
           else await crearBanco(nombre);
         }}
         onCerrar={() => setModalBancoVisible(false)}
@@ -375,8 +444,9 @@ export default function GestionBancosScreen() {
       <ModalDistancia
         visible={modalDistanciaVisible}
         distancia={distanciaSeleccionada}
-        listaBancos={listaBancosActivos}
+        listaBancos={bancos}
         obras={obras}
+        distancias={distancias}
         onGuardar={async (idOrDatos, km) => {
           if (distanciaSeleccionada) await editarDistancia(idOrDatos, km);
           else await crearDistancia(idOrDatos);
@@ -387,9 +457,11 @@ export default function GestionBancosScreen() {
       <ModalDistanciaPlanta
         visible={modalDistanciaPlantaVisible}
         distancia={distanciaPlantaSeleccionada}
-        listaBancos={listaBancosActivos}
+        listaBancos={bancos}
+        distanciasPlanta={distanciasPlanta}
         onGuardar={async (idOrDatos, km) => {
-          if (distanciaPlantaSeleccionada) await editarDistanciaPlanta(idOrDatos, km);
+          if (distanciaPlantaSeleccionada)
+            await editarDistanciaPlanta(idOrDatos, km);
           else await crearDistanciaPlanta(idOrDatos);
         }}
         onCerrar={() => setModalDistanciaPlantaVisible(false)}
@@ -398,8 +470,9 @@ export default function GestionBancosScreen() {
       <ModalPesoEspecifico
         visible={modalPesoVisible}
         peso={pesoSeleccionado}
-        listaBancos={listaBancosActivos}
+        listaBancos={bancos}
         materiales={materiales}
+        pesosEspecificos={pesosEspecificos}
         onGuardar={async (idOrDatos, val) => {
           if (pesoSeleccionado) await editarPeso(idOrDatos, val);
           else await crearPeso(idOrDatos);
@@ -409,148 +482,3 @@ export default function GestionBancosScreen() {
     </View>
   );
 }
-
-const estilos = StyleSheet.create({
-  contenedor: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centrado: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    backgroundColor: colors.background,
-  },
-  errorTexto: {
-    fontSize: 15,
-    color: colors.textSecondary,
-  },
-  btnReintentar: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-  },
-  btnReintentarTexto: {
-    color: colors.surface,
-    fontWeight: "700",
-    fontSize: 14,
-  },
-  toggleRow: {
-    flexDirection: "row",
-    margin: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: "hidden",
-  },
-  toggleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  toggleBtnActivo: {
-    backgroundColor: colors.secondary,
-  },
-  toggleTexto: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textSecondary,
-  },
-  toggleTextoActivo: {
-    color: colors.surface,
-  },
-  tabHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    marginBottom: 4,
-  },
-  tabTitulo: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  btnAgregar: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  listaContenido: {
-    padding: 14,
-    paddingBottom: 40,
-  },
-  fila: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
-  },
-  filaIcono: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  filaTextos: {
-    flex: 1,
-    gap: 4,
-  },
-  filaNombre: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  filaSubRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  filaSubtexto: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  badgeTexto: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: colors.textSecondary,
-  },
-  btnEliminar: {
-    padding: 4,
-  },
-  vacio: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 60,
-    gap: 10,
-  },
-  vacioTexto: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
-});

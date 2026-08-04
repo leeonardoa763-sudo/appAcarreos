@@ -20,6 +20,7 @@ import useEvidenciaVale from "../../hooks/useEvidenciaVale";
 import {
   validateHoraFinNoPosterior,
   validateTiempoMinimoRenta,
+  validateVentanaTurnoNocturno,
 } from "../../utils/validations";
 
 import KeyboardAvoidingScrollView from "../common/KeyboardAvoidingScrollView";
@@ -214,6 +215,18 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   useEffect(() => {
     if (!canComplete || !detalleRenta) return;
 
+    // El vencimiento de la ventana nocturna es un bloqueo duro: tiene prioridad
+    // sobre el mínimo de horas de renta por día/medio día.
+    if (detalleRenta.es_turno_nocturno) {
+      const errorVentana = validateVentanaTurnoNocturno(
+        detalleRenta.hora_inicio,
+      );
+      if (errorVentana) {
+        setMensajeBloqueo(errorVentana);
+        return;
+      }
+    }
+
     if (esRentaPorDia) {
       setMensajeBloqueo(
         validateTiempoMinimoRenta(detalleRenta.hora_inicio, "dia"),
@@ -231,6 +244,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     esRentaPorDia,
     esRentaPorMedioDia,
     detalleRenta?.hora_inicio,
+    detalleRenta?.es_turno_nocturno,
   ]);
 
   // --- Formateadores ---
@@ -270,6 +284,18 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
         `Los tickets (${totalTicketsDescarga}) y los viajes (${totalViajes}) no coinciden. Deben ser iguales para completar el vale.`,
       );
       return;
+    }
+
+    // Re-chequeo al momento de completar: el efecto de bloqueo solo corre cuando
+    // cambian sus deps, asi que la ventana pudo vencer con la pantalla abierta.
+    if (detalleRenta?.es_turno_nocturno) {
+      const errorVentana = validateVentanaTurnoNocturno(
+        detalleRenta.hora_inicio,
+      );
+      if (errorVentana) {
+        setMensajeBloqueo(errorVentana);
+        return;
+      }
     }
 
     if (!esRentaPorDia && !esRentaPorMedioDia) {

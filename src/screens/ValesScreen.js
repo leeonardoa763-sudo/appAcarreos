@@ -17,7 +17,6 @@ import { useNavigation } from "@react-navigation/native";
 // 4. Local - Config
 import { colors } from "../config/colors";
 import { HIDE_ON_WEB } from "../config/features";
-import { getTourForRole, TUTORIAL_HELP_BUTTON_ENABLED } from "../config/tutorialSteps";
 
 // 5. Local - Hooks
 import { useAuth } from "../hooks/useAuth";
@@ -26,9 +25,6 @@ import useQRScanner from "../hooks/useQRScanner";
 import useValeByFolio from "../hooks/useValeByFolio";
 import useVehiculoQRScanner from "../hooks/useVehiculoQRScanner";
 import useVehiculoQRNavegacion from "../hooks/useVehiculoQRNavegacion";
-import { useSpotlightTutorial } from "../hooks/useSpotlightTutorial";
-import { useTutorialSeen } from "../hooks/useTutorialSeen";
-import { useTutorialAsignarFlow } from "../hooks/useTutorialAsignarFlow";
 
 // 6. Local - Componentes
 import UserProfile from "../componets/ButtonsGrid/UserProfile";
@@ -40,12 +36,6 @@ import ModalAsignarPlacas from "../componets/modals/ModalAsignarPlacas";
 import ModalAsignarVehiculo from "../componets/modals/asignarVehiculo/ModalAsignarVehiculo";
 import ModalSeleccionarVale from "../componets/modals/ModalSeleccionarVale";
 import SeccionOperadoresSindicato from "../componets/operadores/SeccionOperadoresSindicato";
-import TutorialHelpButton from "../componets/common/TutorialHelpButton";
-import TutorialSpotlightOverlay from "../componets/tutorial/TutorialSpotlightOverlay";
-import TutorialAsignarVehiculoFlow from "../componets/tutorial/TutorialAsignarVehiculoFlow";
-
-// 7. Local - Datos ficticios del tutorial
-import { TUTORIAL_VALE_FAKE } from "../config/tutorialFakeData";
 
 const ValesScreen = () => {
   const navigation = useNavigation();
@@ -148,42 +138,16 @@ const ValesScreen = () => {
   // ─── Handlers de navegación ───────────────────────────────────────────────
 
   const handleCrearVale = () => navigation.navigate("SeleccionarTipoVale");
-  const handleVerArchivados = () => navigation.navigate("Archivados");
+  const handleVerHistorial = () => navigation.navigate("Historial");
   const handleVerTarifas = () => setTarifasModalVisible(true);
   const handleAgregarOperador = () => setModalOperadorVisible(true);
   const handleAsignarPlacas = () => setModalAsignarPlacasVisible(true);
 
-  // ─── Tutorial guiado (checador) ───────────────────────────────────────────
-  // Se calcula aquí (antes del early return de authLoading) porque
-  // useSpotlightTutorial/useTutorialSeen son hooks y deben llamarse siempre
-  // en el mismo orden, sin importar el estado de carga.
+  // ─── Rol ──────────────────────────────────────────────────────────────────
+  // Se calcula aquí (antes del early return de authLoading) para que el orden
+  // de los hooks se mantenga estable sin importar el estado de carga.
 
   const esChecador = userRole === "CHECADOR";
-  const tourSteps = esChecador ? getTourForRole("CHECADOR") : [];
-  const tutorial = useSpotlightTutorial(tourSteps);
-  const tutorialSeen = useTutorialSeen(esChecador ? "CHECADOR" : null);
-
-  // "Armado": tras cerrar el spotlight del paso interactivo, el botón real
-  // "Asignar Vehículo" queda temporalmente conectado al flujo simulado en
-  // vez de abrir el modal real. Ver src/config/tutorialSteps.js (interactive: true).
-  const [tutorialArmed, setTutorialArmed] = useState(false);
-
-  const navegarATutorialVale = useCallback(() => {
-    const tabNavigator = navigation.getParent();
-    if (tabNavigator) {
-      tabNavigator.navigate("Acarreos", {
-        tutorialValeFicticio: TUTORIAL_VALE_FAKE,
-        tutorialTs: Date.now(),
-      });
-    }
-  }, [navigation]);
-
-  const tutorialFlow = useTutorialAsignarFlow({ onFinalizarIrAVale: navegarATutorialVale });
-
-  const handleStartFakeAsignarFlow = useCallback(() => {
-    setTutorialArmed(false);
-    tutorialFlow.start();
-  }, [tutorialFlow]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -232,15 +196,12 @@ const ValesScreen = () => {
       loading: loadingVale,
     },
     !HIDE_ON_WEB && {
-      onPress: tutorialArmed
-        ? handleStartFakeAsignarFlow
-        : () => setModalAsignarVisible(true),
+      onPress: () => setModalAsignarVisible(true),
       iconName: "truck-plus",
       buttonText: "Asignar Vehículo",
       subtitle: "Vincular camión a un vale",
       backgroundColor: "#34495E",
       isMain: true,
-      tutorialId: "asignar-vehiculo",
     },
     !HIDE_ON_WEB && {
       onPress: abrirEscanerNav,
@@ -250,7 +211,6 @@ const ValesScreen = () => {
       backgroundColor: "#3D566E",
       isMain: true,
       loading: buscandoVehiculo,
-      tutorialId: "registrar-viaje",
     },
     puedeGestionarOperadores && {
       onPress: handleAgregarOperador,
@@ -269,10 +229,10 @@ const ValesScreen = () => {
       isMain: true,
     },
     !esChecador && {
-      onPress: handleVerArchivados,
-      iconName: "archive",
-      buttonText: "Archivados",
-      subtitle: "Ver histórico",
+      onPress: handleVerHistorial,
+      iconName: "history",
+      buttonText: "Historial",
+      subtitle: "Consultar y exportar",
       backgroundColor: "#2C3E50",
     },
     !esChecador && {
@@ -315,7 +275,7 @@ const ValesScreen = () => {
           </View>
         )}
 
-        <ButtonsGrid buttons={buttonConfigs} registerRef={tutorial.registerTarget} />
+        <ButtonsGrid buttons={buttonConfigs} />
 
         {puedeGestionarOperadores && (
           <View style={styles.seccionOperadores}>
@@ -384,38 +344,6 @@ const ValesScreen = () => {
           onClose={cerrarEscanerNav}
         />
       </ScrollView>
-
-      {esChecador && tourSteps.length > 0 && (
-        <>
-          {TUTORIAL_HELP_BUTTON_ENABLED &&
-            !tutorial.visible &&
-            !tutorialArmed &&
-            !tutorialFlow.active && (
-              <TutorialHelpButton onPress={tutorial.start} showLabel={!tutorialSeen.seen} />
-            )}
-          <TutorialSpotlightOverlay
-            visible={tutorial.visible}
-            rect={tutorial.currentRect}
-            step={tutorial.currentStep}
-            stepIndex={tutorial.stepIndex}
-            totalSteps={tutorial.totalSteps}
-            hideNextButton={!!tutorial.currentStep?.interactive}
-            onArm={() => {
-              tutorial.close();
-              setTutorialArmed(true);
-            }}
-            onNext={() => {
-              if (tutorial.isLastStep) tutorialSeen.markSeen();
-              tutorial.next();
-            }}
-            onSkip={() => {
-              tutorialSeen.markSeen();
-              tutorial.close();
-            }}
-          />
-          <TutorialAsignarVehiculoFlow flow={tutorialFlow} />
-        </>
-      )}
     </View>
   );
 };

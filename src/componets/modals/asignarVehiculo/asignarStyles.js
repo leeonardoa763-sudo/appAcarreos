@@ -16,6 +16,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
+  // Lado derecho del header: ayuda + cerrar. Van juntos en una fila porque el
+  // header usa space-between; como tercer hijo suelto quedarian repartidos.
+  headerAcciones: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",

@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 
-export const NIVEL_COLOR = {
+const NIVEL_COLOR = {
   ok: colors.accent,
   warning: colors.warning,
   danger: colors.danger,
@@ -18,6 +18,29 @@ const NIVEL_LABEL = {
   blocked: "Agotado",
 };
 
+const NIVEL_ICONO = {
+  ok: "check-circle-outline",
+  warning: "alert-outline",
+  danger: "alert-circle-outline",
+  blocked: "close-octagon-outline",
+};
+
+// Formateo defensivo: cualquier valor no numerico se muestra como 0 en vez de
+// tumbar la pantalla.
+const numero = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
+
+export const formatM3 = (n) =>
+  `${numero(n).toLocaleString("es-MX", { maximumFractionDigits: 1 })} m3`;
+
+export const formatMonto = (n) =>
+  numero(n).toLocaleString("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    maximumFractionDigits: 0,
+  });
+
+const colorNivel = (nivel) => NIVEL_COLOR[nivel] ?? colors.accent;
+
 // ─── Barra de progreso ────────────────────────────────────────────────────────
 const BarraProgreso = ({ porcentaje, nivel }) => (
   <View style={estilos.barraFondo}>
@@ -25,83 +48,159 @@ const BarraProgreso = ({ porcentaje, nivel }) => (
       style={[
         estilos.barraRelleno,
         {
-          width: `${Math.min(100, porcentaje)}%`,
-          backgroundColor: NIVEL_COLOR[nivel] ?? colors.accent,
+          width: `${Math.max(0, Math.min(100, numero(porcentaje)))}%`,
+          backgroundColor: colorNivel(nivel),
         },
       ]}
     />
   </View>
 );
 
+// ─── Etiqueta de nivel ────────────────────────────────────────────────────────
+const EtiquetaNivel = ({ nivel }) => {
+  const color = colorNivel(nivel);
+  return (
+    <View style={[estilos.etiquetaNivel, { backgroundColor: `${color}1A` }]}>
+      <MaterialCommunityIcons
+        name={NIVEL_ICONO[nivel] ?? NIVEL_ICONO.ok}
+        size={12}
+        color={color}
+      />
+      <Text style={[estilos.etiquetaNivelTexto, { color }]}>
+        {NIVEL_LABEL[nivel] ?? NIVEL_LABEL.ok}
+      </Text>
+    </View>
+  );
+};
+
 // ─── Dato pequeño ─────────────────────────────────────────────────────────────
-const DatoItem = ({ label, valor }) => (
+const DatoItem = ({ label, valor, color }) => (
   <View style={estilos.datoItem}>
     <Text style={estilos.datoLabel}>{label}</Text>
-    <Text style={estilos.datoValor}>{valor}</Text>
+    <Text style={[estilos.datoValor, color && { color }]} numberOfLines={1}>
+      {valor}
+    </Text>
   </View>
 );
+
+// ─── Acciones de la tarjeta ───────────────────────────────────────────────────
+const AccionesCard = ({ onEditar, onEliminar }) => (
+  <View style={estilos.botonesAccion}>
+    <TouchableOpacity
+      style={estilos.botonEliminar}
+      onPress={onEliminar}
+      activeOpacity={0.7}
+      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+    >
+      <MaterialCommunityIcons
+        name="trash-can-outline"
+        size={15}
+        color={colors.danger}
+      />
+      <Text style={estilos.botonEliminarTexto}>Eliminar</Text>
+    </TouchableOpacity>
+    <TouchableOpacity
+      style={estilos.botonEditar}
+      onPress={onEditar}
+      activeOpacity={0.7}
+      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+    >
+      <MaterialCommunityIcons
+        name="pencil-outline"
+        size={15}
+        color={colors.surface}
+      />
+      <Text style={estilos.botonEditarTexto}>Editar</Text>
+    </TouchableOpacity>
+  </View>
+);
+
+// ─── Distintivo de carpeta asfaltica ──────────────────────────────────────────
+const EtiquetaAsfaltico = () => (
+  <View style={estilos.etiquetaAsfaltico}>
+    <MaterialCommunityIcons
+      name="road-variant"
+      size={11}
+      color={colors.primary}
+    />
+    <Text style={estilos.etiquetaAsfalticoTexto}>Carpeta asfaltica</Text>
+  </View>
+);
+
+// ─── Encabezado comun ─────────────────────────────────────────────────────────
+const CardEncabezado = ({ icono, titulo, nivel, porcentaje, esAsfaltico }) => {
+  const color = colorNivel(nivel);
+  return (
+    <>
+      <View style={estilos.cardEncabezado}>
+        <View style={[estilos.cardIcono, { backgroundColor: `${color}14` }]}>
+          <MaterialCommunityIcons name={icono} size={20} color={color} />
+        </View>
+        <View style={estilos.cardTitulos}>
+          <Text style={estilos.cardTitulo} numberOfLines={2}>
+            {titulo}
+          </Text>
+          {esAsfaltico && <EtiquetaAsfaltico />}
+        </View>
+        <EtiquetaNivel nivel={nivel} />
+      </View>
+
+      <View style={estilos.barraFila}>
+        <BarraProgreso porcentaje={porcentaje} nivel={nivel} />
+        <Text style={[estilos.barraPorcentaje, { color }]}>
+          {numero(porcentaje).toFixed(0)}%
+        </Text>
+      </View>
+    </>
+  );
+};
 
 // ─── Card material ────────────────────────────────────────────────────────────
 export const CardPresupuestoMaterial = ({ item, onEditar, onEliminar }) => (
   <View style={estilos.card}>
-    <View style={estilos.cardEncabezado}>
-      <Text style={estilos.cardTitulo}>{item.nombre}</Text>
-      <View
-        style={[
-          estilos.etiquetaNivel,
-          { backgroundColor: NIVEL_COLOR[item.nivel] + "22" },
-        ]}
-      >
-        <Text
-          style={[
-            estilos.etiquetaNivelTexto,
-            { color: NIVEL_COLOR[item.nivel] },
-          ]}
-        >
-          {NIVEL_LABEL[item.nivel]}
-        </Text>
-      </View>
-    </View>
-
-    <BarraProgreso porcentaje={item.porcentaje} nivel={item.nivel} />
+    <CardEncabezado
+      icono={item.esAsfaltico ? "road-variant" : "cube-outline"}
+      titulo={item.nombre}
+      nivel={item.nivel}
+      porcentaje={item.porcentaje}
+      esAsfaltico={item.esAsfaltico}
+    />
 
     <View style={estilos.cardFila}>
-      <DatoItem label="Presupuesto" valor={`${item.presupuestados} m3`} />
-      <DatoItem label="Consumido" valor={`${item.consumidos.toFixed(1)} m3`} />
-      <DatoItem label="Disponible" valor={`${item.disponible.toFixed(1)} m3`} />
-      <DatoItem label="%" valor={`${item.porcentaje.toFixed(0)}%`} />
+      <DatoItem label="Presupuesto" valor={formatM3(item.presupuestados)} />
+      <DatoItem label="Consumido" valor={formatM3(item.consumidos)} />
+      <DatoItem
+        label="Disponible"
+        valor={formatM3(item.disponible)}
+        color={colorNivel(item.nivel)}
+      />
     </View>
 
-    <View style={estilos.botonesAccion}>
-      <TouchableOpacity style={estilos.botonEliminar} onPress={() => onEliminar(item)}>
-        <MaterialCommunityIcons name="trash-can-outline" size={15} color={colors.danger} />
-        <Text style={estilos.botonEliminarTexto}>Eliminar</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={estilos.botonEditar} onPress={() => onEditar(item)}>
-        <MaterialCommunityIcons name="pencil-outline" size={15} color={colors.secondary} />
-        <Text style={estilos.botonEditarTexto}>Editar</Text>
-      </TouchableOpacity>
-    </View>
+    <AccionesCard
+      onEditar={() => onEditar(item)}
+      onEliminar={() => onEliminar(item)}
+    />
   </View>
 );
 
 // ─── Card renta ───────────────────────────────────────────────────────────────
-const formatMonto = (n) =>
-  n?.toLocaleString("es-MX", { style: "currency", currency: "MXN" }) ?? "$0";
-
 export const CardPresupuestoRenta = ({ renta, onEditar, onEliminar }) => {
   if (!renta) {
     return (
       <View style={[estilos.card, estilos.cardVacio]}>
         <MaterialCommunityIcons
           name="currency-usd-off"
-          size={28}
+          size={30}
           color={colors.textSecondary}
         />
         <Text style={estilos.cardVacioTexto}>
           Sin presupuesto de renta configurado
         </Text>
-        <TouchableOpacity style={estilos.botonAgregar} onPress={onEditar}>
+        <TouchableOpacity
+          style={estilos.botonAgregar}
+          onPress={onEditar}
+          activeOpacity={0.8}
+        >
           <MaterialCommunityIcons name="plus" size={16} color={colors.surface} />
           <Text style={estilos.botonAgregarTexto}>Configurar</Text>
         </TouchableOpacity>
@@ -111,44 +210,24 @@ export const CardPresupuestoRenta = ({ renta, onEditar, onEliminar }) => {
 
   return (
     <View style={estilos.card}>
-      <View style={estilos.cardEncabezado}>
-        <Text style={estilos.cardTitulo}>Renta de equipo</Text>
-        <View
-          style={[
-            estilos.etiquetaNivel,
-            { backgroundColor: NIVEL_COLOR[renta.nivel] + "22" },
-          ]}
-        >
-          <Text
-            style={[
-              estilos.etiquetaNivelTexto,
-              { color: NIVEL_COLOR[renta.nivel] },
-            ]}
-          >
-            {NIVEL_LABEL[renta.nivel]}
-          </Text>
-        </View>
-      </View>
-
-      <BarraProgreso porcentaje={renta.porcentaje} nivel={renta.nivel} />
+      <CardEncabezado
+        icono="excavator"
+        titulo="Renta de equipo"
+        nivel={renta.nivel}
+        porcentaje={renta.porcentaje}
+      />
 
       <View style={estilos.cardFila}>
         <DatoItem label="Presupuesto" valor={formatMonto(renta.presupuestado)} />
         <DatoItem label="Consumido" valor={formatMonto(renta.consumido)} />
-        <DatoItem label="Disponible" valor={formatMonto(renta.disponible)} />
-        <DatoItem label="%" valor={`${renta.porcentaje.toFixed(0)}%`} />
+        <DatoItem
+          label="Disponible"
+          valor={formatMonto(renta.disponible)}
+          color={colorNivel(renta.nivel)}
+        />
       </View>
 
-      <View style={estilos.botonesAccion}>
-        <TouchableOpacity style={estilos.botonEliminar} onPress={onEliminar}>
-          <MaterialCommunityIcons name="trash-can-outline" size={15} color={colors.danger} />
-          <Text style={estilos.botonEliminarTexto}>Eliminar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={estilos.botonEditar} onPress={onEditar}>
-          <MaterialCommunityIcons name="pencil-outline" size={15} color={colors.secondary} />
-          <Text style={estilos.botonEditarTexto}>Editar</Text>
-        </TouchableOpacity>
-      </View>
+      <AccionesCard onEditar={onEditar} onEliminar={onEliminar} />
     </View>
   );
 };
@@ -157,7 +236,7 @@ export const CardPresupuestoRenta = ({ renta, onEditar, onEliminar }) => {
 const estilos = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
@@ -165,50 +244,96 @@ const estilos = StyleSheet.create({
   },
   cardVacio: {
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 24,
+    gap: 10,
+    paddingVertical: 26,
   },
   cardVacioTexto: {
     color: colors.textSecondary,
     fontSize: 13,
     textAlign: "center",
   },
+
   cardEncabezado: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    gap: 10,
+    marginBottom: 12,
+  },
+  cardIcono: {
+    width: 36,
+    height: 36,
+    borderRadius: 9,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardTitulos: {
+    flex: 1,
+    gap: 4,
   },
   cardTitulo: {
     fontSize: 14,
     fontWeight: "700",
     color: colors.textPrimary,
-    flex: 1,
+  },
+  etiquetaAsfaltico: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: `${colors.primary}1A`,
+  },
+  etiquetaAsfalticoTexto: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.primary,
   },
   etiquetaNivel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 10,
   },
   etiquetaNivelTexto: {
     fontSize: 11,
     fontWeight: "700",
   },
-  barraFondo: {
-    height: 6,
-    backgroundColor: colors.background,
-    borderRadius: 3,
+
+  barraFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginBottom: 12,
+  },
+  barraFondo: {
+    flex: 1,
+    height: 7,
+    backgroundColor: colors.background,
+    borderRadius: 4,
     overflow: "hidden",
   },
   barraRelleno: {
     height: "100%",
-    borderRadius: 3,
+    borderRadius: 4,
   },
+  barraPorcentaje: {
+    fontSize: 11,
+    fontWeight: "700",
+    minWidth: 34,
+    textAlign: "right",
+  },
+
   cardFila: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
+    backgroundColor: colors.background,
+    borderRadius: 9,
+    paddingVertical: 9,
+    paddingHorizontal: 6,
+    marginBottom: 12,
   },
   datoItem: {
     alignItems: "center",
@@ -217,13 +342,14 @@ const estilos = StyleSheet.create({
   datoLabel: {
     fontSize: 10,
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: 3,
   },
   datoValor: {
     fontSize: 12,
     fontWeight: "700",
     color: colors.textPrimary,
   },
+
   botonesAccion: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -232,25 +358,24 @@ const estilos = StyleSheet.create({
   botonEditar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.secondary,
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 7,
+    backgroundColor: colors.secondary,
   },
   botonEditarTexto: {
-    color: colors.secondary,
+    color: colors.surface,
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   botonEliminar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: colors.danger,
   },
@@ -265,7 +390,7 @@ const estilos = StyleSheet.create({
     gap: 6,
     backgroundColor: colors.secondary,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: 8,
     marginTop: 4,
   },

@@ -12,11 +12,18 @@ intención de las migraciones). Falta solo `storage.objects` (bucket
 ## 🟢 BUG CORREGIDO (fix preparado, pendiente de aplicar en Supabase) — casing de rol Administrador
 
 El código de la app compara siempre `role === "Administrador"` (PascalCase) —
-ver `src/screens/CLAUDE.md:60`, `AcarreosScreen.js`, `BottomTabNavigator.js`,
-`ValesScreen.js`, `useViajesRenta.js`, `useViajesMaterial.js`. Los roles reales
-en la tabla `roles` son: `Administrador`, `Residente`, `Finanzas`, `Sindicato`,
-`CHECADOR` (este último sí en mayúsculas). **`'ADMINISTRADOR'` en mayúsculas
-no existe como valor real.**
+ver `src/screens/CLAUDE.md` (sección "Roles en componentes"), `AcarreosScreen.js`,
+`BottomTabNavigator.js`, `ValesScreen.js`, `useViajesRenta.js`,
+`useViajesMaterial.js`. Los roles confirmados en la tabla `roles` (2026-07-02)
+son: `Administrador`, `Residente`, `Finanzas`, `Sindicato`, `CHECADOR` (este
+último sí en mayúsculas). **`'ADMINISTRADOR'` en mayúsculas no existe como
+valor real.**
+
+> La app además compara contra `"Planta de Asfaltos"` (PascalCase con espacios)
+> en `utils/plantaAsfaltos.js`, `useVehiculoQR.js` y varias pantallas. Ese rol
+> es posterior a la verificación del 2026-07-02 y **no está confirmado contra
+> `pg_policies` ni contra la tabla `roles`** — correr la query de roles de más
+> abajo antes de escribir cualquier policy que lo mencione.
 
 Políticas que comparaban contra `'ADMINISTRADOR'` (mayúsculas) nunca
 matcheaban — bloqueaban en silencio incluso a un Administrador autenticado real:
@@ -110,8 +117,10 @@ WHERE schemaname = 'storage' AND tablename = 'objects';
 ## Modelo de roles de negocio
 
 Tabla `roles` (columna `role`), NO confundir con roles de Postgres
-(`anon`/`authenticated`/`service_role`). Valores reales: `Administrador`,
-`Residente`, `Finanzas`, `Sindicato`, `CHECADOR`.
+(`anon`/`authenticated`/`service_role`). Valores confirmados (2026-07-02):
+`Administrador`, `Residente`, `Finanzas`, `Sindicato`, `CHECADOR`.
+La app usa además `Planta de Asfaltos`, sin confirmar contra la BD — ver nota
+en la sección de casing arriba.
 
 Patrón estándar para "solo Administrador puede escribir":
 ```sql

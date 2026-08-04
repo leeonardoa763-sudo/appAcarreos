@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text } from "react-native";
 import { colors } from "../../../config/colors";
 import styles from "./valeDetalleMaterialStyles";
+import BotonAyuda from "../../common/BotonAyuda";
 import PrimaryButton from "../../common/PrimaryButton";
 import FormInput from "../../forms/FormInput";
 
@@ -10,10 +11,16 @@ const ValeFormCompletarNormal = ({
   onCompletar,
   notasAdicionales,
   onChangeNotas,
+  ayudaUrl,
 }) => {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Completar Vale</Text>
+      <View style={styles.sectionTitleRow}>
+        <Text style={[styles.sectionTitle, styles.sectionTitleFlex]}>
+          Completar Vale
+        </Text>
+        <BotonAyuda url={ayudaUrl} />
+      </View>
 
       <FormInput
         label="Notas (opcional)"

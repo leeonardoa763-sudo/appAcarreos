@@ -120,6 +120,50 @@ El botón de reimpresión en `ValeDetalleMaterial` y `ValeDetalleRenta` se muest
 
 | Carpeta | Contenido |
 |---|---|
-| `rentaHelpers/` | Subcomponentes de vales de renta (tipo 2) |
-| `helpersMaterial/` | Subcomponentes de vales de material (tipo 1 y 3) |
-| `modals/` | Modales reutilizables |
+| `acarreos/` | `ValeDetalleMaterial`, `ValeDetalleRenta`, `FilterBar`, tarjetas de vale |
+| `acarreos/helpersMaterial/` | Subcomponentes de vales de material (tipo 1 y 3) |
+| `acarreos/rentaHelpers/` | Subcomponentes de vales de renta (tipo 2) |
+| `modals/` | Modales reutilizables — incluye `agregarOperador/` y `asignarVehiculo/` |
+| `forms/` | `FormInput`, `FormCheckbox`, `CustomModalPicker`, `CustomTimePicker`, `CustomWeekPicker`, `CustomDatePicker` (ver nota abajo) |
+| `historial/` | `FiltrosHistorial`, `ListaFoliosHistorial` — pantalla de historial/exportación |
+| `common/` | `PrimaryButton`, `CollapsibleSection`, `QRScannerModal`, `StatusBadge`, `SuccessModal`, `ModalCancelarVale`, ... |
+| `stats/` | `EstadisticasMaterialTab` / `EstadisticasRentaTab` y sus tarjetas de gráfica (`BarChartCard`, `LineChartCard`, `PieChartCard`, `ChartCard`) |
+| `ButtonsGrid/` | `ButtonsGrid`, `UserProfile` |
+| `vale/`, `operadores/`, `bancos/`, `materiales/`, `obras/`, `presupuestos/`, `dev/`, `ValeSelectionModal/` | Por dominio |
+
+### Componentes de formulario — qué existe realmente
+
+`forms/` tiene exactamente seis: `FormInput`, `FormCheckbox`, `CustomModalPicker`, `CustomTimePicker`, `CustomWeekPicker`, `CustomDatePicker`.
+
+**`CustomDatePicker` y `CustomTimePicker` NO usan `@react-native-community/datetimepicker`,
+a propósito** — es un modal propio con columnas y `FlatList`. El paquete nativo daba
+problemas en distintos dispositivos (ver cabecera de `CustomTimePicker.js`) y, al no
+depender de un módulo nativo, estos dos funcionan igual en Android, iOS y en el build
+web sin necesitar una variante `.web.js`. No sustituirlos por el picker nativo.
+
+**Ojo con `CustomModalPicker`: su `keyExtractor` hace `item.id.toString()`**, así que
+un item con `id: null` tumba el componente. Para una opción "todos / sin filtro" usar
+un centinela string (`SIN_FILTRO` en `historial/FiltrosHistorial.js`) y traducirlo a
+`null` en la pantalla, no pasar `null` como `id`.
+
+Los `Form*` **se borraron el 2026-07-29** por no tener uso: `FormPicker`, `FormTimePicker`, `FormDecimalInput`, `FormNumberInput`, `FormAutocomplete`. Ojo con los pares de nombre parecido — el picker vivo es `CustomModalPicker` (no `FormPicker`) y el de hora es `CustomTimePicker` (no `FormTimePicker`). Para un input decimal no queda reemplazo: usar `FormInput` con `keyboardType="numeric"`, como ya hace `ViajesMaterialSection`.
+
+### No hay tutorial in-app — se enlaza la web de ayuda
+
+`componets/tutorial/` y `TutorialHelpButton` fueron eliminados: los tutoriales viven en una web aparte. `ButtonsGrid` ya no acepta `registerRef` ni lee `tutorialId` de los botones. Ver CLAUDE.md raíz, sección "Limpieza de código muerto".
+
+Lo que sí existe es **`common/BotonAyuda`**: un icono `help-circle-outline` que abre una página de esa web en un navegador dentro de la app. No reimplementar tutoriales aquí — agregar un enlace.
+
+```javascript
+import { urlAyudaVale } from "../../config/ayuda";
+import BotonAyuda from "../common/BotonAyuda";
+
+// En el header de la sección, al final de la fila (el titulo ya lleva flex: 1)
+<BotonAyuda url={urlAyudaVale(vale, "registrar")} />
+```
+
+- `variante="header"` para cabeceras de color (pinta el icono blanco); default azul.
+- **La URL la resuelve `src/config/ayuda.js`, no la sección.** `urlAyudaVale(vale, paso)` decide la guía según el tipo de vale (material / renta / pipa / asfáltico) y solo pega el `#paso-...` si esa guía tiene ese paso.
+- Si el componente no recibe el `vale` (caso de `acarreos/ViajesRentaSection`), el padre resuelve la URL y la baja como prop `ayudaUrl`. No agregar el `vale` como prop solo para esto.
+
+Ver también CLAUDE.md raíz, sección "CENTRO DE AYUDA".

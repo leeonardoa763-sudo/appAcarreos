@@ -27,10 +27,12 @@ import { useObras } from "../hooks/useObras";
 import useEvidenciaVale from "../hooks/useEvidenciaVale";
 import useVehiculoQRScanner from "../hooks/useVehiculoQRScanner";
 import useVehiculoQR from "../hooks/useVehiculoQR";
+import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
 
 // Componentes
 import SectionHeader from "../componets/common/SectionHeader";
 import PrimaryButton from "../componets/common/PrimaryButton";
+import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
 import SuccessModal from "../componets/common/SuccessModal";
 import FormInput from "../componets/forms/FormInput";
 import CustomModalPicker from "../componets/forms/CustomModalPicker";
@@ -102,6 +104,31 @@ const ValeMaterialAsfalticoScreen = () => {
     crearVale,
   } = useValeMaterialLogic(materialesFiltrados);
   const { generateFolio } = useFolioGenerator();
+
+  // Presupuesto disponible para obra + material asfaltico seleccionado
+  const { presupuestoMaterial, materialConsultado } = usePresupuestoObra({
+    id_obra: obraSeleccionada,
+    id_material: formData.materialId,
+  });
+
+  // A diferencia de material, "sin presupuesto configurado" NO bloquea aqui:
+  // permite seguir operando aunque la obra aun no tenga su presupuesto cargado.
+  const presupuestoAgotado = presupuestoMaterial?.nivel === "blocked";
+
+  const disponibleM3 =
+    presupuestoMaterial && !presupuestoMaterial.sinConfigurar
+      ? presupuestoMaterial.disponible
+      : null;
+
+  const cantidadCapturada = parseFloat(formData.cantidadMaterial);
+  const excedePresupuesto =
+    disponibleM3 !== null &&
+    Number.isFinite(cantidadCapturada) &&
+    cantidadCapturada > disponibleM3;
+
+  const mensajeExcede = excedePresupuesto
+    ? `Excede el presupuesto: solo quedan ${disponibleM3.toFixed(1)} m³ disponibles`
+    : null;
 
   const {
     vehiculo: vehiculoQR,
@@ -311,6 +338,17 @@ const ValeMaterialAsfalticoScreen = () => {
       alertarCamposIncompletos();
       return;
     }
+    if (presupuestoAgotado) {
+      Alert.alert(
+        "Presupuesto agotado",
+        "El presupuesto de este material para la obra está agotado. Contacta al administrador.",
+      );
+      return;
+    }
+    if (excedePresupuesto) {
+      Alert.alert("Cantidad excede el presupuesto", mensajeExcede);
+      return;
+    }
     if (!obraSeleccionada) {
       Alert.alert("Error", "Debes seleccionar una obra");
       return;
@@ -502,6 +540,19 @@ const ValeMaterialAsfalticoScreen = () => {
             error={errors.materialId}
           />
 
+          {materialConsultado && formData.materialId && presupuestoMaterial && (
+            <PresupuestoIndicator
+              label={materialSeleccionado?.material || "Material"}
+              sinConfigurar={presupuestoMaterial.sinConfigurar === true}
+              disponible={presupuestoMaterial.disponible}
+              presupuesto={presupuestoMaterial.presupuestados}
+              consumidos={presupuestoMaterial.consumidos}
+              porcentaje={presupuestoMaterial.porcentaje}
+              nivel={presupuestoMaterial.nivel}
+              tipo="material"
+            />
+          )}
+
           <FormInput
             label="Banco"
             value={
@@ -551,7 +602,7 @@ const ValeMaterialAsfalticoScreen = () => {
             }}
             placeholder="Ej: 12.5"
             keyboardType="numeric"
-            error={errors.cantidadMaterial}
+            error={errors.cantidadMaterial || mensajeExcede}
           />
 
           <PrimaryButton
@@ -657,11 +708,14 @@ const ValeMaterialAsfalticoScreen = () => {
 
         <View style={styles.buttonContainer}>
           <PrimaryButton
-            title="Crear Vale"
+            title={presupuestoAgotado ? "Presupuesto Agotado" : "Crear Vale"}
             onPress={handleCrearVale}
             loading={submitting}
-            icon="check-circle"
-            backgroundColor={colors.accent}
+            icon={presupuestoAgotado ? "cancel" : "check-circle"}
+            backgroundColor={
+              presupuestoAgotado ? colors.disabled : colors.accent
+            }
+            disabled={presupuestoAgotado || excedePresupuesto}
           />
         </View>
 

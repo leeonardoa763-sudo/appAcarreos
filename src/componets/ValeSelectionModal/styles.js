@@ -58,6 +58,19 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: colors.textPrimary,
   },
+  // Fila de ayuda: icono + texto, discreta debajo de las opciones
+  filaAyuda: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 20,
+    paddingVertical: 6,
+  },
+  textoAyuda: {
+    fontSize: 14,
+    color: colors.secondary,
+    fontWeight: "600",
+  },
   // Botón cancelar
   botonCerrar: {
     marginTop: 20,

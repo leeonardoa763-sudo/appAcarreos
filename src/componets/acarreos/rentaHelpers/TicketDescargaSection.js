@@ -19,11 +19,13 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 // 4. Local - Config
 import { colors } from "../../../config/colors";
 import { BLUETOOTH_ENABLED, IS_WEB } from "../../../config/features";
+import { urlAyudaVale } from "../../../config/ayuda";
 
 // 5. Local - Hooks
 import { useTicketsDescarga } from "../../../hooks/useTicketsDescarga";
 
 // 6. Local - Componentes
+import BotonAyuda from "../../common/BotonAyuda";
 import BancoDescargaModal from "./BancoDescargaModal";
 import ModalImprimirTicketRenta from "./ModalImprimirTicketRenta";
 import MaterialTicketModal from "./MaterialTicketModal";
@@ -251,6 +253,7 @@ const TicketDescargaSection = ({
         <View style={styles.badge}>
           <Text style={styles.badgeTexto}>{totalTickets}</Text>
         </View>
+        <BotonAyuda url={urlAyudaVale(vale, "ticket")} />
       </View>
 
       {/* Lista de tickets generados */}
@@ -460,9 +463,11 @@ const generarContenidoTicketDescarga = (vale, detalleRenta, ticketData) => {
   const material =
     ticketData.material?.material || detalleRenta?.material?.material || "N/A";
   const placas = vale.vehiculos?.placas || "N/A";
-  const capacidad = detalleRenta?.capacidad_m3
-    ? `${detalleRenta.capacidad_m3} m3`
-    : "N/A";
+  // La capacidad viene del vehiculo asignado; vale_renta_detalle solo la trae
+  // en vales viejos donde se capturo a mano
+  const capacidadRaw =
+    vale.vehiculos?.capacidad_m3 ?? detalleRenta?.capacidad_m3;
+  const capacidad = capacidadRaw ? `${capacidadRaw} m3` : "N/A";
   const fechaVale = formatearFecha(vale.fecha_creacion);
   const horaVale = formatearHora(vale.fecha_creacion);
   const fechaTicket = formatearFecha(ticketData.fecha_impresion || new Date());

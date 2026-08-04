@@ -26,12 +26,9 @@ import { colors } from "../../config/colors";
  * - Botones sin isMain        → cards secundarias en fila de 2
  *
  * PROPS:
- * - buttons: array de { onPress, iconName, buttonText, subtitle, backgroundColor, isMain, loading, tutorialId }
- * - registerRef: opcional, función (tutorialId) => ref, para que el tutorial guiado
- *   pueda medir la posición real de un botón. Si un botón no trae tutorialId, o no
- *   se pasa registerRef, el comportamiento es idéntico al de siempre.
+ * - buttons: array de { onPress, iconName, buttonText, subtitle, backgroundColor, isMain, loading }
  */
-const ButtonsGrid = ({ buttons, registerRef }) => {
+const ButtonsGrid = ({ buttons }) => {
   const mainButtons = buttons.filter((b) => b.isMain);
   const secondaryButtons = buttons.filter((b) => !b.isMain);
 
@@ -51,7 +48,6 @@ const ButtonsGrid = ({ buttons, registerRef }) => {
       {mainButtons.map((button, index) => (
         <TouchableOpacity
           key={index}
-          ref={button.tutorialId && registerRef ? registerRef(button.tutorialId) : undefined}
           style={[styles.mainCard, { backgroundColor: button.backgroundColor }]}
           onPress={button.onPress}
           activeOpacity={0.8}

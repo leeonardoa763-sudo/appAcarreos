@@ -34,8 +34,6 @@ import { useSectionPagination } from "../hooks/useSectionPagination";
 import SeccionValesPorEstado from "../componets/acarreos/SeccionValesPorEstado";
 import ValeDetalleModal from "../componets/acarreos/ValeDetalleModal";
 import ModalPruebaImpresion from "../componets/dev/ModalPruebaImpresion";
-import TutorialValeDetalleModal from "../componets/tutorial/TutorialValeDetalleModal";
-import { useTutorialSeen } from "../hooks/useTutorialSeen";
 
 const AcarreosScreen = () => {
   const { userProfile, userRole } = useAuth();
@@ -139,29 +137,6 @@ const AcarreosScreen = () => {
 
     return () => clearTimeout(timer);
   }, [route.params?.valeEscaneado]);
-
-  // ─── Tutorial guiado (checador): vale ficticio simulado ────────────────────
-  // Independiente del efecto de valeEscaneado real (arriba): usa un nombre de
-  // parámetro distinto para nunca disparar un fetch real a Supabase con un
-  // id_vale ficticio. Ver src/componets/tutorial/TutorialValeDetalleModal.js.
-
-  const tutorialSeenAcarreos = useTutorialSeen(esChecador ? "CHECADOR" : null);
-  const [tutorialValeVisible, setTutorialValeVisible] = useState(false);
-  const [tutorialValeFake, setTutorialValeFake] = useState(null);
-
-  useEffect(() => {
-    const valeFicticio = route.params?.tutorialValeFicticio;
-    if (!valeFicticio) return;
-
-    const timer = setTimeout(() => {
-      if (isMounted.current) {
-        setTutorialValeFake(valeFicticio);
-        setTutorialValeVisible(true);
-      }
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, [route.params?.tutorialValeFicticio, route.params?.tutorialTs]);
 
   // ─── Fetch ────────────────────────────────────────────────────────────────
 
@@ -509,13 +484,6 @@ const AcarreosScreen = () => {
         vale={selectedVale}
         onClose={handleCloseModal}
         onRefresh={() => fetchVales(true, true)}
-      />
-
-      <TutorialValeDetalleModal
-        visible={tutorialValeVisible}
-        vale={tutorialValeFake}
-        onClose={() => setTutorialValeVisible(false)}
-        onFinalizarTutorial={() => tutorialSeenAcarreos.markSeen()}
       />
     </>
   );

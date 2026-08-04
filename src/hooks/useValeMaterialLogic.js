@@ -8,7 +8,10 @@ import { useState, useEffect } from "react";
 import { Alert } from "react-native";
 import { supabase } from "../config/supabase";
 import { generateVerificationUrl } from "../utils/qrGenerator";
-import { calcularCostoValeMaterial } from "../utils/preciosMaterial";
+import {
+  calcularCostoValeMaterial,
+  verificarTarifaMaterial,
+} from "../utils/preciosMaterial";
 import { useFeatureFlags } from "./useFeatureFlags";
 
 export const useValeMaterialLogic = (materiales) => {
@@ -79,6 +82,25 @@ export const useValeMaterialLogic = (materiales) => {
       const cantidadPedida = options.cantidadPedidaM3 ??
         (formData.cantidadMaterial ? parseFloat(formData.cantidadMaterial) : null);
 
+      // PASO 4: Verificar la tarifa ANTES de insertar el vale.
+      // El calculo de precio corre despues del insert (PASO 6); si la tarifa no
+      // existia, el vale quedaba creado y sin detalle — folio quemado — y el
+      // error salia como "Cannot coerce the result to a single JSON object".
+      const materialSeleccionado = materiales.find(
+        (m) => m.id_material === formData.materialId,
+      );
+      const tipoMaterial = materialSeleccionado?.id_tipo_de_material ?? null;
+      const requiereTarifa = Boolean(
+        tipoMaterial &&
+          formData.sindicatoId &&
+          formData.distancia &&
+          cantidadPedida,
+      );
+
+      if (requiereTarifa) {
+        await verificarTarifaMaterial(tipoMaterial, formData.sindicatoId);
+      }
+
       const { data: valeNuevo, error: errorVale } = await supabase
         .from("vales")
         .insert([
@@ -111,18 +133,13 @@ export const useValeMaterialLogic = (materiales) => {
       // Ahora TODOS los vales se completan después de creados
 
       // PASO 6: Insertar detalles
-      const materialSeleccionado = materiales.find(
-        (m) => m.id_material === formData.materialId,
-      );
-      const tipoMaterial = materialSeleccionado?.id_tipo_de_material ?? null;
-
       let precioM3 = null;
       let costoTotal = null;
       let idPreciosMaterial = null;
       let tarifaPrimerKm = null;
       let tarifaSubsecuente = null;
 
-      if (tipoMaterial && formData.sindicatoId && formData.distancia && cantidadPedida) {
+      if (requiereTarifa) {
         const precioData = await calcularCostoValeMaterial(
           tipoMaterial,
           formData.sindicatoId,

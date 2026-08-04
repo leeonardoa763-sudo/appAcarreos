@@ -17,7 +17,7 @@
  * - Administrador, Finanzas y Sindicato ven todo, sin filtro.
  *
  * Mismo criterio de exclusion mutua que useVehiculoQR aplica al asignar
- * vehiculos. Centralizado aqui porque AcarreosScreen y ArchivadosScreen
+ * vehiculos. Centralizado aqui porque AcarreosScreen y HistorialValesScreen
  * deben filtrar identico.
  */
 

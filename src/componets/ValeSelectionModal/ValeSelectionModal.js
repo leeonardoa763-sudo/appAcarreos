@@ -1,9 +1,12 @@
 import React from "react";
 import { View, Text, TouchableOpacity, Modal } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { colors } from "../../config/colors";
+import { AYUDA_URLS } from "../../config/ayuda";
 import { useAuth } from "../../hooks/useAuth";
 import { MODO_PIPA } from "../../utils/pipasAgua";
+import abrirAyuda from "../../utils/abrirAyuda";
 import ValeOptionButton from "./ValeOptionButton";
 import styles from "./styles";
 
@@ -83,6 +86,21 @@ const ValeSelectionModal = () => {
             onPress={handlePipa}
             color={colors.info}
           />
+
+          {/* Ayuda: la portada del Centro de Ayuda ES el menú de estos mismos
+              cuatro tipos, así que el usuario elige ahí lo mismo que iba a
+              elegir aquí y cae en su tutorial */}
+          <TouchableOpacity
+            style={styles.filaAyuda}
+            onPress={() => abrirAyuda(AYUDA_URLS.portada)}
+          >
+            <MaterialCommunityIcons
+              name="help-circle-outline"
+              size={18}
+              color={colors.secondary}
+            />
+            <Text style={styles.textoAyuda}>¿Cómo se crea un vale?</Text>
+          </TouchableOpacity>
 
           {/* Botón Cancelar */}
           <TouchableOpacity style={styles.botonCerrar} onPress={handleClose}>

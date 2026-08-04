@@ -13,8 +13,10 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors } from "../../../config/colors";
+import { AYUDA_URLS } from "../../../config/ayuda";
 import useVehiculoQR from "../../../hooks/useVehiculoQR";
 import useValeByFolio from "../../../hooks/useValeByFolio";
+import BotonAyuda from "../../common/BotonAyuda";
 import QRScannerModal from "../../common/QRScannerModal";
 
 import styles from "./asignarStyles";
@@ -145,17 +147,28 @@ const ModalAsignarVehiculo = ({
             />
             <Text style={styles.headerTitulo}>Asignar Vehículo</Text>
           </View>
-          <TouchableOpacity
-            onPress={onClose}
-            style={styles.headerCerrar}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialCommunityIcons
-              name="close"
+          <View style={styles.headerAcciones}>
+            {/* Este modal se abre ANTES de escanear, o sea antes de saber de que
+                tipo es el vale. Por eso apunta fijo a la guia de material (el
+                flujo de asignar es identico en las dos y material es el volumen
+                dominante) en vez de resolverlo con urlAyudaVale. */}
+            <BotonAyuda
+              url={`${AYUDA_URLS.guiaMaterial}#paso-asignar`}
+              variante="header"
               size={24}
-              color={colors.surface}
             />
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.headerCerrar}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={colors.surface}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView

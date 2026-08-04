@@ -1,6 +1,15 @@
 // src/hooks/usePresupuestosAdmin.js
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "../config/supabase";
+
+// PostgREST puede devolver una columna numeric como string (o null si la fila
+// viene de una version vieja de la tabla). Todo valor que despues se formatea
+// con toFixed/toLocaleString pasa por aqui: un null colandose hasta la tarjeta
+// tiraba la pantalla completa.
+const aNumero = (valor) => {
+  const n = typeof valor === "number" ? valor : parseFloat(valor);
+  return Number.isFinite(n) ? n : 0;
+};
 
 const calcularNivel = (consumido, presupuestado) => {
   if (!presupuestado || presupuestado === 0) return "ok";
@@ -11,20 +20,43 @@ const calcularNivel = (consumido, presupuestado) => {
   return "ok";
 };
 
-// catalogMateriales: array del catálogo de materiales (de useCatalogos)
+const calcularPorcentaje = (consumido, presupuestado) =>
+  presupuestado > 0 ? Math.min(100, (consumido / presupuestado) * 100) : 0;
+
+// catalogMateriales: array del catálogo de materiales (de useCatalogos).
 // Se pasa desde la pantalla para evitar un JOIN en la query que puede fallar
-// por nombre de constraint.
+// por nombre de constraint. NO entra en las dependencias de `cargar`: el
+// catálogo solo sirve para resolver el nombre a mostrar, así que se aplica
+// sobre las filas ya cargadas (useMemo). Si entrara en `cargar`, cada refresco
+// del catálogo dispararía una recarga completa de presupuestos.
 export const usePresupuestosAdmin = (id_obra, catalogMateriales = []) => {
-  const [presupuestosMaterial, setPresupuestosMaterial] = useState([]);
-  const [presupuestoRenta, setPresupuestoRenta] = useState(null);
+  const [filasMaterial, setFilasMaterial] = useState([]);
+  const [filaRenta, setFilaRenta] = useState(null);
   const [loading, setLoading] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
+  // Guarda contra respuestas fuera de orden (cambiar de obra rapido) y contra
+  // setState despues de desmontar la pantalla.
+  const peticionRef = useRef(0);
+  const montadoRef = useRef(true);
+
+  useEffect(() => {
+    montadoRef.current = true;
+    return () => {
+      montadoRef.current = false;
+    };
+  }, []);
+
   const cargar = useCallback(async () => {
+    const peticion = ++peticionRef.current;
+    const vigente = () => montadoRef.current && peticion === peticionRef.current;
+
     if (!id_obra) {
-      setPresupuestosMaterial([]);
-      setPresupuestoRenta(null);
+      setFilasMaterial([]);
+      setFilaRenta(null);
+      setError(null);
+      setLoading(false);
       return;
     }
 
@@ -47,70 +79,78 @@ export const usePresupuestosAdmin = (id_obra, catalogMateriales = []) => {
           .maybeSingle(),
       ]);
 
+      if (!vigente()) return;
+
       if (materialRes.error) throw materialRes.error;
       if (rentaRes.error) throw rentaRes.error;
 
-      const registros = (materialRes.data || []).map((p) => {
-        const mat = catalogMateriales.find((m) => m.id_material === p.id_material);
-        return {
-          id_material: p.id_material,
-          nombre: mat?.material ?? `Material ${p.id_material}`,
-          presupuestados: p.m3_presupuestados,
-          consumidos: p.m3_consumidos,
-          disponible: Math.max(0, p.m3_presupuestados - p.m3_consumidos),
-          porcentaje: Math.min(
-            100,
-            p.m3_presupuestados > 0
-              ? (p.m3_consumidos / p.m3_presupuestados) * 100
-              : 0
-          ),
-          nivel: calcularNivel(p.m3_consumidos, p.m3_presupuestados),
-        };
-      });
-
-      setPresupuestosMaterial(registros);
-      setPresupuestoRenta(
-        rentaRes.data
-          ? {
-              presupuestado: rentaRes.data.monto_presupuestado,
-              consumido: rentaRes.data.monto_consumido,
-              disponible: Math.max(
-                0,
-                rentaRes.data.monto_presupuestado - rentaRes.data.monto_consumido
-              ),
-              porcentaje: Math.min(
-                100,
-                rentaRes.data.monto_presupuestado > 0
-                  ? (rentaRes.data.monto_consumido /
-                      rentaRes.data.monto_presupuestado) *
-                      100
-                  : 0
-              ),
-              nivel: calcularNivel(
-                rentaRes.data.monto_consumido,
-                rentaRes.data.monto_presupuestado
-              ),
-            }
-          : null
-      );
+      setFilasMaterial(materialRes.data || []);
+      setFilaRenta(rentaRes.data || null);
     } catch (err) {
+      if (!vigente()) return;
       console.error("[usePresupuestosAdmin] Error al cargar:", err);
-      setError(err.message);
+      setError(err?.message ?? "No se pudieron cargar los presupuestos.");
+      setFilasMaterial([]);
+      setFilaRenta(null);
     } finally {
-      setLoading(false);
+      if (vigente()) setLoading(false);
     }
-  }, [id_obra, catalogMateriales]);
+  }, [id_obra]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  const presupuestosMaterial = useMemo(() => {
+    return filasMaterial
+      .map((p) => {
+        const mat = catalogMateriales.find(
+          (m) => m.id_material === p.id_material
+        );
+        const presupuestados = aNumero(p.m3_presupuestados);
+        const consumidos = aNumero(p.m3_consumidos);
+
+        return {
+          id_material: p.id_material,
+          nombre: mat?.material ?? `Material ${p.id_material}`,
+          // Tipo 2 = carpeta asfaltica: mismo presupuesto en m3, pero lo
+          // consumen los vales de la planta de asfaltos, no los de material.
+          esAsfaltico: mat?.id_tipo_de_material === 2,
+          presupuestados,
+          consumidos,
+          disponible: Math.max(0, presupuestados - consumidos),
+          porcentaje: calcularPorcentaje(consumidos, presupuestados),
+          nivel: calcularNivel(consumidos, presupuestados),
+        };
+      })
+      // Los asfalticos van agrupados al final; alfabetico dentro de cada grupo.
+      .sort((a, b) => {
+        if (a.esAsfaltico !== b.esAsfaltico) return a.esAsfaltico ? 1 : -1;
+        return a.nombre.localeCompare(b.nombre, "es");
+      });
+  }, [filasMaterial, catalogMateriales]);
+
+  const presupuestoRenta = useMemo(() => {
+    if (!filaRenta) return null;
+
+    const presupuestado = aNumero(filaRenta.monto_presupuestado);
+    const consumido = aNumero(filaRenta.monto_consumido);
+
+    return {
+      presupuestado,
+      consumido,
+      disponible: Math.max(0, presupuestado - consumido),
+      porcentaje: calcularPorcentaje(consumido, presupuestado),
+      nivel: calcularNivel(consumido, presupuestado),
+    };
+  }, [filaRenta]);
 
   const guardarMaterial = useCallback(
     async (id_material, m3_presupuestados) => {
       try {
         setGuardando(true);
 
-        const yaExiste = presupuestosMaterial.some(
+        const yaExiste = filasMaterial.some(
           (p) => p.id_material === id_material
         );
 
@@ -124,7 +164,9 @@ export const usePresupuestosAdmin = (id_obra, catalogMateriales = []) => {
             .select("id_material");
           if (error) throw error;
           if (!filas || filas.length === 0) {
-            throw new Error("El servidor no actualizó el presupuesto. Verifica los permisos RLS de la tabla.");
+            throw new Error(
+              "El servidor no actualizó el presupuesto. Verifica los permisos RLS de la tabla."
+            );
           }
         } else {
           const { error: insertErr } = await supabase
@@ -158,10 +200,10 @@ export const usePresupuestosAdmin = (id_obra, catalogMateriales = []) => {
         console.error("[guardarMaterial]", err);
         throw err;
       } finally {
-        setGuardando(false);
+        if (montadoRef.current) setGuardando(false);
       }
     },
-    [id_obra, presupuestosMaterial, cargar]
+    [id_obra, filasMaterial, cargar]
   );
 
   const guardarRenta = useCallback(
@@ -169,7 +211,7 @@ export const usePresupuestosAdmin = (id_obra, catalogMateriales = []) => {
       try {
         setGuardando(true);
 
-        if (presupuestoRenta) {
+        if (filaRenta) {
           const { data: filas, error } = await supabase
             .from("presupuesto_renta_obra")
             .update({ monto_presupuestado })
@@ -178,7 +220,9 @@ export const usePresupuestosAdmin = (id_obra, catalogMateriales = []) => {
             .select("id_obra");
           if (error) throw error;
           if (!filas || filas.length === 0) {
-            throw new Error("El servidor no actualizó el presupuesto de renta. Verifica los permisos RLS de la tabla.");
+            throw new Error(
+              "El servidor no actualizó el presupuesto de renta. Verifica los permisos RLS de la tabla."
+            );
           }
         } else {
           const { error: insertErr } = await supabase
@@ -208,10 +252,10 @@ export const usePresupuestosAdmin = (id_obra, catalogMateriales = []) => {
         console.error("[guardarRenta]", err);
         throw err;
       } finally {
-        setGuardando(false);
+        if (montadoRef.current) setGuardando(false);
       }
     },
-    [id_obra, presupuestoRenta, cargar]
+    [id_obra, filaRenta, cargar]
   );
 
   const eliminarMaterial = useCallback(
@@ -230,7 +274,7 @@ export const usePresupuestosAdmin = (id_obra, catalogMateriales = []) => {
         console.error("[eliminarMaterial]", err);
         throw err;
       } finally {
-        setGuardando(false);
+        if (montadoRef.current) setGuardando(false);
       }
     },
     [id_obra, cargar]
@@ -250,7 +294,7 @@ export const usePresupuestosAdmin = (id_obra, catalogMateriales = []) => {
       console.error("[eliminarRenta]", err);
       throw err;
     } finally {
-      setGuardando(false);
+      if (montadoRef.current) setGuardando(false);
     }
   }, [id_obra, cargar]);
 

@@ -7,12 +7,27 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Platform,
   StyleSheet,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 
-export function ModalObra({ visible, obra, empresas, onGuardar, onCerrar }) {
+// Android no ofrece "numbers-and-punctuation"; con "numeric" al menos evita
+// el teclado completo y sigue permitiendo el signo negativo y el punto.
+const TECLADO_DECIMAL =
+  Platform.OS === "ios" ? "numbers-and-punctuation" : "numeric";
+
+const esEnteroValido = (texto) => /^\d+$/.test(texto.trim());
+
+export function ModalObra({
+  visible,
+  obra,
+  obras = [],
+  empresas,
+  onGuardar,
+  onCerrar,
+}) {
   const esEdicion = !!obra;
 
   const [nombre, setNombre] = useState("");
@@ -43,12 +58,68 @@ export function ModalObra({ visible, obra, empresas, onGuardar, onCerrar }) {
       setLatitud(obra?.latitud != null ? String(obra.latitud) : "");
       setLongitud(obra?.longitud != null ? String(obra.longitud) : "");
       setErrMsg("");
+      setGuardando(false);
     }
   }, [visible, obra]);
 
+  const limpiarError = (setter) => (valor) => {
+    setter(valor);
+    setErrMsg("");
+  };
+
+  const validar = () => {
+    const nombreLimpio = nombre.trim();
+    if (!nombreLimpio) return "Ingresa el nombre de la obra";
+
+    const duplicada = obras.some(
+      (o) =>
+        o.id_obra !== obra?.id_obra &&
+        String(o.obra ?? "").trim().toLowerCase() ===
+          nombreLimpio.toLowerCase(),
+    );
+    if (duplicada) return `Ya existe una obra llamada "${nombreLimpio}"`;
+
+    if (cc.trim()) {
+      if (!esEnteroValido(cc)) return "El centro de costo debe ser un numero entero";
+      const ccNum = parseInt(cc, 10);
+      const ccRepetido = obras.some(
+        (o) => o.id_obra !== obra?.id_obra && o.cc === ccNum,
+      );
+      if (ccRepetido)
+        return `El centro de costo ${ccNum} ya lo usa otra obra. Los folios se generan con el CC.`;
+    }
+
+    if (radioValidacion.trim()) {
+      if (!esEnteroValido(radioValidacion))
+        return "El radio debe ser un numero entero de metros";
+      if (parseInt(radioValidacion, 10) <= 0)
+        return "El radio debe ser mayor a 0 metros";
+    }
+
+    if (minMinutos.trim() && !esEnteroValido(minMinutos))
+      return "Los minutos minimos deben ser un numero entero";
+
+    const tieneLat = !!latitud.trim();
+    const tieneLon = !!longitud.trim();
+    if (tieneLat !== tieneLon)
+      return "Captura latitud y longitud, o deja ambas vacias";
+
+    if (tieneLat) {
+      const lat = parseFloat(latitud);
+      const lon = parseFloat(longitud);
+      if (Number.isNaN(lat) || lat < -90 || lat > 90)
+        return "La latitud debe estar entre -90 y 90";
+      if (Number.isNaN(lon) || lon < -180 || lon > 180)
+        return "La longitud debe estar entre -180 y 180";
+    }
+
+    return null;
+  };
+
   const handleGuardar = async () => {
-    if (!nombre.trim()) {
-      setErrMsg("Ingresa el nombre de la obra");
+    const problema = validar();
+    if (problema) {
+      setErrMsg(problema);
       return;
     }
 
@@ -71,19 +142,32 @@ export function ModalObra({ visible, obra, empresas, onGuardar, onCerrar }) {
       await onGuardar(datos);
       onCerrar();
     } catch (e) {
+      console.error("[ModalObra] Error al guardar:", e);
       setErrMsg(e.message ?? "Error al guardar");
     } finally {
       setGuardando(false);
     }
   };
 
+  const faltanDatosFolio = !cc.trim() || !empresaSelId;
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCerrar}>
       <View style={estilos.overlay}>
-        <View style={[estilos.caja, { maxHeight: "88%" }]}>
+        <View style={estilos.caja}>
           <View style={estilos.header}>
-            <Text style={estilos.titulo}>{esEdicion ? "Editar obra" : "Nueva obra"}</Text>
-            <TouchableOpacity onPress={onCerrar}>
+            <MaterialCommunityIcons
+              name="office-building-marker-outline"
+              size={20}
+              color={colors.secondary}
+            />
+            <Text style={estilos.titulo}>
+              {esEdicion ? "Editar obra" : "Nueva obra"}
+            </Text>
+            <TouchableOpacity
+              onPress={onCerrar}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -93,6 +177,21 @@ export function ModalObra({ visible, obra, empresas, onGuardar, onCerrar }) {
               <View style={estilos.infoRow}>
                 <MaterialCommunityIcons name="pound" size={16} color={colors.secondary} />
                 <Text style={estilos.infoTexto}>ID de obra: {obra?.id_obra}</Text>
+                <View
+                  style={[
+                    estilos.estadoPill,
+                    obra?.activo ? estilos.estadoActiva : estilos.estadoInactiva,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      estilos.estadoTexto,
+                      { color: obra?.activo ? colors.accent : colors.textSecondary },
+                    ]}
+                  >
+                    {obra?.activo ? "Activa" : "Inactiva"}
+                  </Text>
+                </View>
               </View>
             )}
 
@@ -100,56 +199,104 @@ export function ModalObra({ visible, obra, empresas, onGuardar, onCerrar }) {
             <TextInput
               style={estilos.input}
               value={nombre}
-              onChangeText={(v) => { setNombre(v); setErrMsg(""); }}
+              onChangeText={limpiarError(setNombre)}
               placeholder="Ej: Fraccionamiento Los Pinos"
               placeholderTextColor={colors.textSecondary}
-              autoFocus
+              autoFocus={!esEdicion}
             />
 
-            <Text style={[estilos.inputLabel, { marginTop: 14 }]}>Centro de costo (CC)</Text>
+            <Text style={[estilos.inputLabel, { marginTop: 14 }]}>
+              Centro de costo (CC)
+            </Text>
             <TextInput
               style={estilos.input}
               value={cc}
-              onChangeText={setCc}
+              onChangeText={limpiarError(setCc)}
               placeholder="Ej: 1200"
               placeholderTextColor={colors.textSecondary}
               keyboardType="number-pad"
             />
 
             <Text style={[estilos.inputLabel, { marginTop: 14 }]}>Empresa</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.chipsScroll}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={estilos.chipsScroll}
+              keyboardShouldPersistTaps="handled"
+            >
+              <TouchableOpacity
+                style={[estilos.chip, empresaSelId == null && estilos.chipActivo]}
+                onPress={() => { setEmpresaSelId(null); setErrMsg(""); }}
+              >
+                <Text
+                  style={[
+                    estilos.chipTexto,
+                    empresaSelId == null && estilos.chipTextoActivo,
+                  ]}
+                >
+                  Sin empresa
+                </Text>
+              </TouchableOpacity>
               {empresas.map((e) => (
                 <TouchableOpacity
                   key={e.id_empresa}
                   style={[estilos.chip, empresaSelId === e.id_empresa && estilos.chipActivo]}
-                  onPress={() => setEmpresaSelId(e.id_empresa)}
+                  onPress={() => { setEmpresaSelId(e.id_empresa); setErrMsg(""); }}
                 >
-                  <Text style={[estilos.chipTexto, empresaSelId === e.id_empresa && estilos.chipTextoActivo]}>
-                    {e.empresa}
+                  <Text
+                    style={[
+                      estilos.chipTexto,
+                      empresaSelId === e.id_empresa && estilos.chipTextoActivo,
+                    ]}
+                  >
+                    {e.sufijo ? `${e.empresa} (${e.sufijo})` : e.empresa}
                   </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
-            <Text style={[estilos.inputLabel, { marginTop: 14 }]}>Radio de validacion GPS (metros)</Text>
+            {faltanDatosFolio && (
+              <View style={estilos.avisoRow}>
+                <MaterialCommunityIcons
+                  name="alert-outline"
+                  size={16}
+                  color={colors.warning}
+                />
+                <Text style={estilos.avisoTexto}>
+                  Sin CC y empresa no se pueden generar folios de vales para esta obra.
+                </Text>
+              </View>
+            )}
+
+            <Text style={[estilos.inputLabel, { marginTop: 14 }]}>
+              Radio de validacion GPS (metros)
+            </Text>
             <TextInput
               style={estilos.input}
               value={radioValidacion}
-              onChangeText={setRadioValidacion}
+              onChangeText={limpiarError(setRadioValidacion)}
               placeholder="500"
               placeholderTextColor={colors.textSecondary}
               keyboardType="number-pad"
             />
+            <Text style={estilos.ayudaTexto}>
+              Distancia maxima desde el centro de la obra para registrar un viaje.
+            </Text>
 
-            <Text style={[estilos.inputLabel, { marginTop: 14 }]}>Minutos minimos entre viajes</Text>
+            <Text style={[estilos.inputLabel, { marginTop: 14 }]}>
+              Minutos minimos entre viajes
+            </Text>
             <TextInput
               style={estilos.input}
               value={minMinutos}
-              onChangeText={setMinMinutos}
+              onChangeText={limpiarError(setMinMinutos)}
               placeholder="20"
               placeholderTextColor={colors.textSecondary}
               keyboardType="number-pad"
             />
+            <Text style={estilos.ayudaTexto}>
+              Tiempo minimo que debe pasar entre dos viajes del mismo camion.
+            </Text>
 
             <View style={estilos.filaDoble}>
               <View style={estilos.mitad}>
@@ -157,10 +304,10 @@ export function ModalObra({ visible, obra, empresas, onGuardar, onCerrar }) {
                 <TextInput
                   style={estilos.input}
                   value={latitud}
-                  onChangeText={setLatitud}
+                  onChangeText={limpiarError(setLatitud)}
                   placeholder="Ej: 20.6736"
                   placeholderTextColor={colors.textSecondary}
-                  keyboardType="numbers-and-punctuation"
+                  keyboardType={TECLADO_DECIMAL}
                 />
               </View>
               <View style={estilos.mitad}>
@@ -168,26 +315,44 @@ export function ModalObra({ visible, obra, empresas, onGuardar, onCerrar }) {
                 <TextInput
                   style={estilos.input}
                   value={longitud}
-                  onChangeText={setLongitud}
+                  onChangeText={limpiarError(setLongitud)}
                   placeholder="Ej: -103.344"
                   placeholderTextColor={colors.textSecondary}
-                  keyboardType="numbers-and-punctuation"
+                  keyboardType={TECLADO_DECIMAL}
                 />
               </View>
             </View>
 
-            {errMsg ? <Text style={estilos.errorTexto}>{errMsg}</Text> : null}
+            {errMsg ? (
+              <View style={estilos.errorRow}>
+                <MaterialCommunityIcons
+                  name="alert-circle-outline"
+                  size={16}
+                  color={colors.danger}
+                />
+                <Text style={estilos.errorTexto}>{errMsg}</Text>
+              </View>
+            ) : null}
           </ScrollView>
 
           <View style={estilos.pie}>
-            <TouchableOpacity style={estilos.btnCancelar} onPress={onCerrar}>
+            <TouchableOpacity
+              style={estilos.btnCancelar}
+              onPress={onCerrar}
+              disabled={guardando}
+            >
               <Text style={estilos.btnCancelarTexto}>Cancelar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={estilos.btnGuardar} onPress={handleGuardar} disabled={guardando}>
-              {guardando
-                ? <ActivityIndicator size="small" color={colors.surface} />
-                : <Text style={estilos.btnGuardarTexto}>Guardar</Text>
-              }
+            <TouchableOpacity
+              style={[estilos.btnGuardar, guardando && estilos.btnGuardarInactivo]}
+              onPress={handleGuardar}
+              disabled={guardando}
+            >
+              {guardando ? (
+                <ActivityIndicator size="small" color={colors.surface} />
+              ) : (
+                <Text style={estilos.btnGuardarTexto}>Guardar</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -206,21 +371,23 @@ const estilos = StyleSheet.create({
   },
   caja: {
     width: "100%",
+    maxWidth: 560,
     backgroundColor: colors.surface,
     borderRadius: 16,
     overflow: "hidden",
-    maxHeight: "75%",
+    maxHeight: "88%",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 8,
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   titulo: {
+    flex: 1,
     fontSize: 16,
     fontWeight: "700",
     color: colors.textPrimary,
@@ -243,16 +410,42 @@ const estilos = StyleSheet.create({
     padding: 12,
     fontSize: 14,
     color: colors.textPrimary,
-    marginBottom: 4,
+  },
+  ayudaTexto: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 5,
+  },
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
   },
   errorTexto: {
+    flex: 1,
     fontSize: 12,
-    color: "#E74C3C",
-    marginTop: 8,
-    marginBottom: 4,
+    fontWeight: "600",
+    color: colors.danger,
+  },
+  avisoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: "#FDF3E3",
+    borderWidth: 1,
+    borderColor: colors.warning,
+  },
+  avisoTexto: {
+    flex: 1,
+    fontSize: 11,
+    color: colors.textPrimary,
   },
   chipsScroll: {
-    marginBottom: 4,
+    marginBottom: 2,
   },
   chip: {
     paddingHorizontal: 14,
@@ -282,13 +475,31 @@ const estilos = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: 10,
     padding: 12,
-    marginBottom: 4,
+    marginBottom: 14,
   },
   infoTexto: {
+    flex: 1,
     fontSize: 14,
     fontWeight: "600",
     color: colors.textPrimary,
-    flex: 1,
+  },
+  estadoPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  estadoActiva: {
+    borderColor: colors.accent,
+    backgroundColor: "#EAF6F1",
+  },
+  estadoInactiva: {
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  estadoTexto: {
+    fontSize: 11,
+    fontWeight: "700",
   },
   filaDoble: {
     flexDirection: "row",
@@ -324,6 +535,9 @@ const estilos = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.primary,
     alignItems: "center",
+  },
+  btnGuardarInactivo: {
+    opacity: 0.7,
   },
   btnGuardarTexto: {
     fontSize: 14,

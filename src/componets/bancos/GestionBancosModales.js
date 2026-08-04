@@ -1,18 +1,21 @@
-import React, { useState, useEffect } from "react";
-import {
-  Modal,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  StyleSheet,
-} from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import React, { useState, useEffect, useMemo } from "react";
+import { View, Text, TextInput } from "react-native";
 import { colors } from "../../config/colors";
+import { normalizarNombreBanco } from "../../hooks/useGestionBancos";
+import ListaSeleccion from "../common/ListaSeleccion";
+import {
+  CajaModal,
+  PieModal,
+  FilaInfo,
+  CampoNumero,
+  MensajeError,
+  estilosModal as estilos,
+} from "./modalPartes";
 
-export function ModalBanco({ visible, banco, onGuardar, onCerrar }) {
+const clave = (a, b) => `${a}-${b}`;
+
+// ─── Banco ───────────────────────────────────────────────────────────────────
+export function ModalBanco({ visible, banco, bancos = [], onGuardar, onCerrar }) {
   const [nombre, setNombre] = useState("");
   const [errMsg, setErrMsg] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -24,8 +27,24 @@ export function ModalBanco({ visible, banco, onGuardar, onCerrar }) {
     }
   }, [visible, banco]);
 
+  // Aviso en vivo mientras escribe, antes de intentar guardar.
+  const duplicado = useMemo(() => {
+    const normalizado = normalizarNombreBanco(nombre);
+    if (!normalizado) return null;
+    return (
+      bancos.find(
+        (b) =>
+          b.id_banco !== banco?.id_banco &&
+          normalizarNombreBanco(b.banco) === normalizado
+      ) ?? null
+    );
+  }, [nombre, bancos, banco]);
+
   const handleGuardar = async () => {
-    if (!nombre.trim()) { setErrMsg("Ingresa el nombre del banco"); return; }
+    if (!nombre.trim()) {
+      setErrMsg("Ingresa el nombre del banco");
+      return;
+    }
     setGuardando(true);
     try {
       await onGuardar(nombre.trim());
@@ -38,48 +57,60 @@ export function ModalBanco({ visible, banco, onGuardar, onCerrar }) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCerrar}>
-      <View style={estilos.overlay}>
-        <View style={estilos.caja}>
-          <View style={estilos.header}>
-            <Text style={estilos.titulo}>{banco ? "Editar banco" : "Nuevo banco"}</Text>
-            <TouchableOpacity onPress={onCerrar}>
-              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={estilos.cuerpo}>
-            <Text style={estilos.inputLabel}>Nombre del banco</Text>
-            <TextInput
-              style={[estilos.input, errMsg ? estilos.inputError : null]}
-              value={nombre}
-              onChangeText={(v) => { setNombre(v); setErrMsg(""); }}
-              placeholder="Ej: Banco Tepetate Norte"
-              placeholderTextColor={colors.textSecondary}
-              autoCapitalize="characters"
-              autoFocus
-            />
-            {errMsg ? <Text style={estilos.errorTexto}>{errMsg}</Text> : null}
-          </View>
-
-          <View style={estilos.pie}>
-            <TouchableOpacity style={estilos.btnCancelar} onPress={onCerrar}>
-              <Text style={estilos.btnCancelarTexto}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={estilos.btnGuardar} onPress={handleGuardar} disabled={guardando}>
-              {guardando
-                ? <ActivityIndicator size="small" color={colors.surface} />
-                : <Text style={estilos.btnGuardarTexto}>Guardar</Text>
-              }
-            </TouchableOpacity>
-          </View>
-        </View>
+    <CajaModal
+      visible={visible}
+      titulo={banco ? "Editar banco" : "Nuevo banco"}
+      onCerrar={onCerrar}
+      pie={
+        <PieModal
+          onCerrar={onCerrar}
+          onGuardar={handleGuardar}
+          guardando={guardando}
+          habilitado={!!nombre.trim() && !duplicado}
+        />
+      }
+    >
+      <Text style={estilos.inputLabel}>Nombre del banco</Text>
+      <View
+        style={[
+          estilos.inputFila,
+          (errMsg || duplicado) && estilos.inputError,
+        ]}
+      >
+        <TextInput
+          style={estilos.input}
+          value={nombre}
+          onChangeText={(v) => {
+            setNombre(v);
+            setErrMsg("");
+          }}
+          placeholder="Ej: BANCO TEPETATE NORTE"
+          placeholderTextColor={colors.input.placeholder}
+          autoCapitalize="characters"
+        />
       </View>
-    </Modal>
+
+      <MensajeError
+        texto={
+          duplicado
+            ? `Ya existe un banco registrado como "${duplicado.banco}".`
+            : errMsg
+        }
+      />
+    </CajaModal>
   );
 }
 
-export function ModalDistancia({ visible, distancia, listaBancos, obras, onGuardar, onCerrar }) {
+// ─── Distancia banco - obra ──────────────────────────────────────────────────
+export function ModalDistancia({
+  visible,
+  distancia,
+  listaBancos = [],
+  obras = [],
+  distancias = [],
+  onGuardar,
+  onCerrar,
+}) {
   const esEdicion = !!distancia;
   const [bancoSelId, setBancoSelId] = useState(null);
   const [obraSelId, setObraSelId] = useState(null);
@@ -96,17 +127,69 @@ export function ModalDistancia({ visible, distancia, listaBancos, obras, onGuard
     }
   }, [visible, distancia]);
 
+  const usadas = useMemo(
+    () => new Set(distancias.map((d) => clave(d.id_banco, d.id_obra))),
+    [distancias]
+  );
+
+  const itemsBancos = useMemo(
+    () =>
+      listaBancos.map((b) => {
+        const libres = obras.filter(
+          (o) => !usadas.has(clave(b.id_banco, o.id_obra))
+        ).length;
+        return {
+          id: b.id_banco,
+          label: b.banco,
+          deshabilitado: obras.length > 0 && libres === 0,
+          nota: "Todas configuradas",
+        };
+      }),
+    [listaBancos, obras, usadas]
+  );
+
+  const itemsObras = useMemo(
+    () =>
+      obras.map((o) => ({
+        id: o.id_obra,
+        label: o.obra,
+        deshabilitado:
+          bancoSelId != null && usadas.has(clave(bancoSelId, o.id_obra)),
+        nota: "Ya configurada",
+      })),
+    [obras, bancoSelId, usadas]
+  );
+
+  const handleSeleccionarBanco = (id) => {
+    setBancoSelId(id);
+    setErrMsg("");
+    // La obra elegida puede quedar bloqueada con el banco nuevo.
+    if (obraSelId != null && usadas.has(clave(id, obraSelId))) {
+      setObraSelId(null);
+    }
+  };
+
+  const km = parseFloat(distKm);
+  const kmValido = Number.isFinite(km) && km > 0;
+  const habilitado = esEdicion
+    ? kmValido
+    : !!bancoSelId && !!obraSelId && kmValido;
+
   const handleGuardar = async () => {
-    if (!esEdicion && !bancoSelId) { setErrMsg("Selecciona un banco"); return; }
-    if (!esEdicion && !obraSelId) { setErrMsg("Selecciona una obra"); return; }
-    const km = parseFloat(distKm);
-    if (!distKm.trim() || isNaN(km) || km <= 0) { setErrMsg("Ingresa una distancia valida en km"); return; }
+    if (!esEdicion && !bancoSelId) return setErrMsg("Selecciona un banco");
+    if (!esEdicion && !obraSelId) return setErrMsg("Selecciona una obra");
+    if (!kmValido) return setErrMsg("Ingresa una distancia valida en km");
+
     setGuardando(true);
     try {
       if (esEdicion) {
         await onGuardar(distancia.id_distancia_banco_obra, km);
       } else {
-        await onGuardar({ id_banco: bancoSelId, id_obra: obraSelId, distancia_km: km });
+        await onGuardar({
+          id_banco: bancoSelId,
+          id_obra: obraSelId,
+          distancia_km: km,
+        });
       }
       onCerrar();
     } catch (e) {
@@ -117,88 +200,79 @@ export function ModalDistancia({ visible, distancia, listaBancos, obras, onGuard
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCerrar}>
-      <View style={estilos.overlay}>
-        <View style={[estilos.caja, { maxHeight: "88%" }]}>
-          <View style={estilos.header}>
-            <Text style={estilos.titulo}>{esEdicion ? "Editar distancia" : "Nueva distancia"}</Text>
-            <TouchableOpacity onPress={onCerrar}>
-              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+    <CajaModal
+      visible={visible}
+      titulo={esEdicion ? "Editar distancia" : "Nueva distancia"}
+      onCerrar={onCerrar}
+      pie={
+        <PieModal
+          onCerrar={onCerrar}
+          onGuardar={handleGuardar}
+          guardando={guardando}
+          habilitado={habilitado}
+        />
+      }
+    >
+      {esEdicion ? (
+        <FilaInfo
+          icono="map-marker-distance"
+          texto={`${distancia?.bancos?.banco}  →  ${distancia?.obras?.obra}`}
+        />
+      ) : (
+        <>
+          <ListaSeleccion
+            label="Banco"
+            items={itemsBancos}
+            valor={bancoSelId}
+            onSeleccionar={handleSeleccionarBanco}
+            placeholderBusqueda="Buscar banco..."
+            mensajeVacio="No hay bancos registrados"
+          />
 
-          <ScrollView style={estilos.cuerpo} keyboardShouldPersistTaps="handled">
-            {esEdicion ? (
-              <View style={estilos.infoRow}>
-                <MaterialCommunityIcons name="map-marker-distance" size={16} color={colors.secondary} />
-                <Text style={estilos.infoTexto}>
-                  {distancia?.bancos?.banco}{"  →  "}{distancia?.obras?.obra}
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Text style={estilos.inputLabel}>Banco</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.chipsScroll}>
-                  {listaBancos.map((b) => (
-                    <TouchableOpacity
-                      key={b.id_banco}
-                      style={[estilos.chip, bancoSelId === b.id_banco && estilos.chipActivo]}
-                      onPress={() => { setBancoSelId(b.id_banco); setErrMsg(""); }}
-                    >
-                      <Text style={[estilos.chipTexto, bancoSelId === b.id_banco && estilos.chipTextoActivo]}>
-                        {b.banco}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+          <View style={estilos.espacio} />
 
-                <Text style={[estilos.inputLabel, { marginTop: 14 }]}>Obra</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.chipsScroll}>
-                  {obras.map((o) => (
-                    <TouchableOpacity
-                      key={o.id_obra}
-                      style={[estilos.chip, obraSelId === o.id_obra && estilos.chipActivo]}
-                      onPress={() => { setObraSelId(o.id_obra); setErrMsg(""); }}
-                    >
-                      <Text style={[estilos.chipTexto, obraSelId === o.id_obra && estilos.chipTextoActivo]}>
-                        {o.obra}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
+          <ListaSeleccion
+            label="Obra"
+            items={itemsObras}
+            valor={obraSelId}
+            onSeleccionar={(id) => {
+              setObraSelId(id);
+              setErrMsg("");
+            }}
+            placeholderBusqueda="Buscar obra..."
+            mensajeVacio="No hay obras activas"
+          />
 
-            <Text style={[estilos.inputLabel, { marginTop: esEdicion ? 0 : 14 }]}>Distancia (km)</Text>
-            <TextInput
-              style={[estilos.input, errMsg ? estilos.inputError : null]}
-              value={distKm}
-              onChangeText={(v) => { setDistKm(v); setErrMsg(""); }}
-              keyboardType="decimal-pad"
-              placeholder="Ej: 12.5"
-              placeholderTextColor={colors.textSecondary}
-            />
-            {errMsg ? <Text style={estilos.errorTexto}>{errMsg}</Text> : null}
-          </ScrollView>
+          <View style={estilos.espacio} />
+        </>
+      )}
 
-          <View style={estilos.pie}>
-            <TouchableOpacity style={estilos.btnCancelar} onPress={onCerrar}>
-              <Text style={estilos.btnCancelarTexto}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={estilos.btnGuardar} onPress={handleGuardar} disabled={guardando}>
-              {guardando
-                ? <ActivityIndicator size="small" color={colors.surface} />
-                : <Text style={estilos.btnGuardarTexto}>Guardar</Text>
-              }
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
+      <CampoNumero
+        label="Distancia"
+        valor={distKm}
+        onChange={(v) => {
+          setDistKm(v);
+          setErrMsg("");
+        }}
+        placeholder="Ej: 12.5"
+        sufijo="km"
+        error={!!errMsg}
+      />
+
+      <MensajeError texto={errMsg} />
+    </CajaModal>
   );
 }
 
-export function ModalDistanciaPlanta({ visible, distancia, listaBancos, onGuardar, onCerrar }) {
+// ─── Distancia banco - planta de asfaltos ────────────────────────────────────
+export function ModalDistanciaPlanta({
+  visible,
+  distancia,
+  listaBancos = [],
+  distanciasPlanta = [],
+  onGuardar,
+  onCerrar,
+}) {
   const esEdicion = !!distancia;
   const [bancoSelId, setBancoSelId] = useState(null);
   const [distKm, setDistKm] = useState("");
@@ -213,10 +287,26 @@ export function ModalDistanciaPlanta({ visible, distancia, listaBancos, onGuarda
     }
   }, [visible, distancia]);
 
+  // La tabla tiene UNIQUE (id_banco): un banco solo puede tener una distancia
+  // a la planta.
+  const itemsBancos = useMemo(() => {
+    const usados = new Set(distanciasPlanta.map((d) => d.id_banco));
+    return listaBancos.map((b) => ({
+      id: b.id_banco,
+      label: b.banco,
+      deshabilitado: usados.has(b.id_banco),
+      nota: "Ya configurado",
+    }));
+  }, [listaBancos, distanciasPlanta]);
+
+  const km = parseFloat(distKm);
+  const kmValido = Number.isFinite(km) && km > 0;
+  const habilitado = esEdicion ? kmValido : !!bancoSelId && kmValido;
+
   const handleGuardar = async () => {
-    if (!esEdicion && !bancoSelId) { setErrMsg("Selecciona un banco"); return; }
-    const km = parseFloat(distKm);
-    if (!distKm.trim() || isNaN(km) || km <= 0) { setErrMsg("Ingresa una distancia valida en km"); return; }
+    if (!esEdicion && !bancoSelId) return setErrMsg("Selecciona un banco");
+    if (!kmValido) return setErrMsg("Ingresa una distancia valida en km");
+
     setGuardando(true);
     try {
       if (esEdicion) {
@@ -233,73 +323,68 @@ export function ModalDistanciaPlanta({ visible, distancia, listaBancos, onGuarda
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCerrar}>
-      <View style={estilos.overlay}>
-        <View style={[estilos.caja, { maxHeight: "88%" }]}>
-          <View style={estilos.header}>
-            <Text style={estilos.titulo}>{esEdicion ? "Editar distancia a planta" : "Nueva distancia a planta"}</Text>
-            <TouchableOpacity onPress={onCerrar}>
-              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+    <CajaModal
+      visible={visible}
+      titulo={esEdicion ? "Editar distancia a planta" : "Nueva distancia a planta"}
+      onCerrar={onCerrar}
+      pie={
+        <PieModal
+          onCerrar={onCerrar}
+          onGuardar={handleGuardar}
+          guardando={guardando}
+          habilitado={habilitado}
+        />
+      }
+    >
+      {esEdicion ? (
+        <FilaInfo
+          icono="map-marker-distance"
+          texto={`${distancia?.bancos?.banco}  →  Planta de Asfaltos`}
+        />
+      ) : (
+        <>
+          <ListaSeleccion
+            label="Banco"
+            items={itemsBancos}
+            valor={bancoSelId}
+            onSeleccionar={(id) => {
+              setBancoSelId(id);
+              setErrMsg("");
+            }}
+            placeholderBusqueda="Buscar banco..."
+            mensajeVacio="No hay bancos registrados"
+          />
+          <View style={estilos.espacio} />
+        </>
+      )}
 
-          <ScrollView style={estilos.cuerpo} keyboardShouldPersistTaps="handled">
-            {esEdicion ? (
-              <View style={estilos.infoRow}>
-                <MaterialCommunityIcons name="map-marker-distance" size={16} color={colors.secondary} />
-                <Text style={estilos.infoTexto}>
-                  {distancia?.bancos?.banco}{"  →  "}Planta de Asfaltos
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Text style={estilos.inputLabel}>Banco</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.chipsScroll}>
-                  {listaBancos.map((b) => (
-                    <TouchableOpacity
-                      key={b.id_banco}
-                      style={[estilos.chip, bancoSelId === b.id_banco && estilos.chipActivo]}
-                      onPress={() => { setBancoSelId(b.id_banco); setErrMsg(""); }}
-                    >
-                      <Text style={[estilos.chipTexto, bancoSelId === b.id_banco && estilos.chipTextoActivo]}>
-                        {b.banco}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
+      <CampoNumero
+        label="Distancia"
+        valor={distKm}
+        onChange={(v) => {
+          setDistKm(v);
+          setErrMsg("");
+        }}
+        placeholder="Ej: 12.5"
+        sufijo="km"
+        error={!!errMsg}
+      />
 
-            <Text style={[estilos.inputLabel, { marginTop: esEdicion ? 0 : 14 }]}>Distancia (km)</Text>
-            <TextInput
-              style={[estilos.input, errMsg ? estilos.inputError : null]}
-              value={distKm}
-              onChangeText={(v) => { setDistKm(v); setErrMsg(""); }}
-              keyboardType="decimal-pad"
-              placeholder="Ej: 12.5"
-              placeholderTextColor={colors.textSecondary}
-            />
-            {errMsg ? <Text style={estilos.errorTexto}>{errMsg}</Text> : null}
-          </ScrollView>
-
-          <View style={estilos.pie}>
-            <TouchableOpacity style={estilos.btnCancelar} onPress={onCerrar}>
-              <Text style={estilos.btnCancelarTexto}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={estilos.btnGuardar} onPress={handleGuardar} disabled={guardando}>
-              {guardando
-                ? <ActivityIndicator size="small" color={colors.surface} />
-                : <Text style={estilos.btnGuardarTexto}>Guardar</Text>
-              }
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
+      <MensajeError texto={errMsg} />
+    </CajaModal>
   );
 }
 
-export function ModalPesoEspecifico({ visible, peso, listaBancos, materiales, onGuardar, onCerrar }) {
+// ─── Peso especifico ─────────────────────────────────────────────────────────
+export function ModalPesoEspecifico({
+  visible,
+  peso,
+  listaBancos = [],
+  materiales = [],
+  pesosEspecificos = [],
+  onGuardar,
+  onCerrar,
+}) {
   const esEdicion = !!peso;
   const [bancoSelId, setBancoSelId] = useState(null);
   const [materialSelId, setMaterialSelId] = useState(null);
@@ -316,17 +401,69 @@ export function ModalPesoEspecifico({ visible, peso, listaBancos, materiales, on
     }
   }, [visible, peso]);
 
+  // La tabla tiene UNIQUE (id_material, id_banco).
+  const usados = useMemo(
+    () => new Set(pesosEspecificos.map((p) => clave(p.id_banco, p.id_material))),
+    [pesosEspecificos]
+  );
+
+  const itemsBancos = useMemo(
+    () =>
+      listaBancos.map((b) => {
+        const libres = materiales.filter(
+          (m) => !usados.has(clave(b.id_banco, m.id_material))
+        ).length;
+        return {
+          id: b.id_banco,
+          label: b.banco,
+          deshabilitado: materiales.length > 0 && libres === 0,
+          nota: "Todos configurados",
+        };
+      }),
+    [listaBancos, materiales, usados]
+  );
+
+  const itemsMateriales = useMemo(
+    () =>
+      materiales.map((m) => ({
+        id: m.id_material,
+        label: m.material,
+        deshabilitado:
+          bancoSelId != null && usados.has(clave(bancoSelId, m.id_material)),
+        nota: "Ya configurado",
+      })),
+    [materiales, bancoSelId, usados]
+  );
+
+  const handleSeleccionarBanco = (id) => {
+    setBancoSelId(id);
+    setErrMsg("");
+    if (materialSelId != null && usados.has(clave(id, materialSelId))) {
+      setMaterialSelId(null);
+    }
+  };
+
+  const val = parseFloat(valorPeso);
+  const valValido = Number.isFinite(val) && val > 0;
+  const habilitado = esEdicion
+    ? valValido
+    : !!bancoSelId && !!materialSelId && valValido;
+
   const handleGuardar = async () => {
-    if (!esEdicion && !bancoSelId) { setErrMsg("Selecciona un banco"); return; }
-    if (!esEdicion && !materialSelId) { setErrMsg("Selecciona un material"); return; }
-    const val = parseFloat(valorPeso);
-    if (!valorPeso.trim() || isNaN(val) || val <= 0) { setErrMsg("Ingresa un peso valido mayor a 0"); return; }
+    if (!esEdicion && !bancoSelId) return setErrMsg("Selecciona un banco");
+    if (!esEdicion && !materialSelId) return setErrMsg("Selecciona un material");
+    if (!valValido) return setErrMsg("Ingresa un peso valido mayor a 0");
+
     setGuardando(true);
     try {
       if (esEdicion) {
         await onGuardar(peso.id_peso_especifico, val);
       } else {
-        await onGuardar({ id_banco: bancoSelId, id_material: materialSelId, peso_especifico: val });
+        await onGuardar({
+          id_banco: bancoSelId,
+          id_material: materialSelId,
+          peso_especifico: val,
+        });
       }
       onCerrar();
     } catch (e) {
@@ -337,216 +474,66 @@ export function ModalPesoEspecifico({ visible, peso, listaBancos, materiales, on
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCerrar}>
-      <View style={estilos.overlay}>
-        <View style={[estilos.caja, { maxHeight: "88%" }]}>
-          <View style={estilos.header}>
-            <Text style={estilos.titulo}>{esEdicion ? "Editar peso" : "Nuevo peso especifico"}</Text>
-            <TouchableOpacity onPress={onCerrar}>
-              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+    <CajaModal
+      visible={visible}
+      titulo={esEdicion ? "Editar peso" : "Nuevo peso especifico"}
+      onCerrar={onCerrar}
+      pie={
+        <PieModal
+          onCerrar={onCerrar}
+          onGuardar={handleGuardar}
+          guardando={guardando}
+          habilitado={habilitado}
+        />
+      }
+    >
+      {esEdicion ? (
+        <FilaInfo
+          icono="weight-kilogram"
+          texto={`${peso?.bancos?.banco}  ·  ${peso?.material?.material}`}
+        />
+      ) : (
+        <>
+          <ListaSeleccion
+            label="Banco"
+            items={itemsBancos}
+            valor={bancoSelId}
+            onSeleccionar={handleSeleccionarBanco}
+            placeholderBusqueda="Buscar banco..."
+            mensajeVacio="No hay bancos registrados"
+          />
 
-          <ScrollView style={estilos.cuerpo} keyboardShouldPersistTaps="handled">
-            {esEdicion ? (
-              <View style={estilos.infoRow}>
-                <MaterialCommunityIcons name="weight-kilogram" size={16} color={colors.secondary} />
-                <Text style={estilos.infoTexto}>
-                  {peso?.bancos?.banco}{"  ·  "}{peso?.material?.material}
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Text style={estilos.inputLabel}>Banco</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.chipsScroll}>
-                  {listaBancos.map((b) => (
-                    <TouchableOpacity
-                      key={b.id_banco}
-                      style={[estilos.chip, bancoSelId === b.id_banco && estilos.chipActivo]}
-                      onPress={() => { setBancoSelId(b.id_banco); setErrMsg(""); }}
-                    >
-                      <Text style={[estilos.chipTexto, bancoSelId === b.id_banco && estilos.chipTextoActivo]}>
-                        {b.banco}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+          <View style={estilos.espacio} />
 
-                <Text style={[estilos.inputLabel, { marginTop: 14 }]}>Material</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.chipsScroll}>
-                  {materiales.map((m) => (
-                    <TouchableOpacity
-                      key={m.id_material}
-                      style={[estilos.chip, materialSelId === m.id_material && estilos.chipActivo]}
-                      onPress={() => { setMaterialSelId(m.id_material); setErrMsg(""); }}
-                    >
-                      <Text style={[estilos.chipTexto, materialSelId === m.id_material && estilos.chipTextoActivo]}>
-                        {m.material}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
+          <ListaSeleccion
+            label="Material"
+            items={itemsMateriales}
+            valor={materialSelId}
+            onSeleccionar={(id) => {
+              setMaterialSelId(id);
+              setErrMsg("");
+            }}
+            placeholderBusqueda="Buscar material..."
+            mensajeVacio="No hay materiales en el catalogo"
+          />
 
-            <Text style={[estilos.inputLabel, { marginTop: esEdicion ? 0 : 14 }]}>
-              Peso especifico (ton/m3)
-            </Text>
-            <TextInput
-              style={[estilos.input, errMsg ? estilos.inputError : null]}
-              value={valorPeso}
-              onChangeText={(v) => { setValorPeso(v); setErrMsg(""); }}
-              keyboardType="decimal-pad"
-              placeholder="Ej: 1.85"
-              placeholderTextColor={colors.textSecondary}
-            />
-            {errMsg ? <Text style={estilos.errorTexto}>{errMsg}</Text> : null}
-          </ScrollView>
+          <View style={estilos.espacio} />
+        </>
+      )}
 
-          <View style={estilos.pie}>
-            <TouchableOpacity style={estilos.btnCancelar} onPress={onCerrar}>
-              <Text style={estilos.btnCancelarTexto}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={estilos.btnGuardar} onPress={handleGuardar} disabled={guardando}>
-              {guardando
-                ? <ActivityIndicator size="small" color={colors.surface} />
-                : <Text style={estilos.btnGuardarTexto}>Guardar</Text>
-              }
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
+      <CampoNumero
+        label="Peso especifico"
+        valor={valorPeso}
+        onChange={(v) => {
+          setValorPeso(v);
+          setErrMsg("");
+        }}
+        placeholder="Ej: 1.85"
+        sufijo="ton/m3"
+        error={!!errMsg}
+      />
+
+      <MensajeError texto={errMsg} />
+    </CajaModal>
   );
 }
-
-const estilos = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  caja: {
-    width: "100%",
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    overflow: "hidden",
-    maxHeight: "75%",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  titulo: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  cuerpo: {
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 14,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  inputError: {
-    borderColor: "#E74C3C",
-  },
-  errorTexto: {
-    fontSize: 12,
-    color: "#E74C3C",
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  chipsScroll: {
-    marginBottom: 4,
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-    marginRight: 8,
-  },
-  chipActivo: {
-    backgroundColor: colors.secondary,
-    borderColor: colors.secondary,
-  },
-  chipTexto: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.textSecondary,
-  },
-  chipTextoActivo: {
-    color: colors.surface,
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: colors.background,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-  },
-  infoTexto: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  pie: {
-    flexDirection: "row",
-    gap: 10,
-    padding: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  btnCancelar: {
-    flex: 1,
-    paddingVertical: 13,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-  },
-  btnCancelarTexto: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textSecondary,
-  },
-  btnGuardar: {
-    flex: 2,
-    paddingVertical: 13,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-  },
-  btnGuardarTexto: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.surface,
-  },
-});

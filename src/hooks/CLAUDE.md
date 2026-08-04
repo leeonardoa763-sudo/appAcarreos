@@ -27,6 +27,43 @@ Si agregas un campo nuevo a la query, agrégalo en `queries/valesSelect.js` — 
 
 ---
 
+## PostgREST corta en `max-rows` — paginar o perder filas
+
+Supabase limita cada respuesta a `max-rows` (1000 por defecto) **sin avisar**: no
+hay error, solo llegan menos filas. Una query "de todo el histórico" devuelve 1000
+vales y el resto desaparece en silencio — un CSV incompleto que nadie nota.
+
+Si una query no está acotada por fecha o por un `.limit()` explícito que tú
+elegiste, hay que paginar con `.range()` hasta que una página vuelva incompleta,
+con un tope duro para no colgar la app:
+
+```javascript
+const PAGE_SIZE = 500;
+let offset = 0;
+for (;;) {
+  const { data, error } = await supabase
+    .from("vales")
+    .select(SELECT)
+    .order("fecha_creacion", { ascending: false })
+    .order("id_vale", { ascending: false })   // orden estable entre paginas
+    .range(offset, offset + PAGE_SIZE - 1);
+  if (error) throw error;
+  filas.push(...(data || []));
+  if ((data || []).length < PAGE_SIZE) break;
+  if (filas.length >= MAX_FILAS) { truncado = true; break; }
+  offset += PAGE_SIZE;
+}
+```
+
+El **segundo `.order()` no es opcional**: sin un desempate determinista, dos
+páginas pueden repetir u omitir filas con el mismo `fecha_creacion`.
+
+Implementación de referencia: `exportHelpers/historialQueries.js`. Cuando se
+alcanza el tope, la UI debe decirlo (`truncado`) en vez de entregar datos
+parciales como si estuvieran completos.
+
+---
+
 ## Patrón estándar de query Supabase
 
 ```javascript
@@ -106,21 +143,31 @@ Si un join devuelve `null` inesperadamente, verificar constraints en `informatio
 
 Babel transpila `let`/`const` en modo *loose* para nativo (sin TDZ real), por lo que un `useCallback` que referencia en su arreglo de dependencias una función `const` declarada MÁS ABAJO en el mismo hook "funciona por accidente" en Android/iOS. El build web sí aplica TDZ estricta y truena con `Cannot access 'X' before initialization`. Siempre declarar las funciones dependientes (`_cargarX`, helpers internos) ANTES del `useCallback` que las usa, sin depender del hoisting.
 
-## Estado stale en callbacks
+## Estado stale en callbacks — BUG REAL, no teórico
+
+Si un `useCallback` **lee** un state, ese state va en el arreglo de dependencias. Omitirlo no da error ni warning en runtime: la función simplemente guarda el valor que tenía la última vez que el callback se recreó, y escribe eso en la BD.
+
+**Caso real (corregido 2026-07-29):** en `ValeDetalleMaterial.js`, `handleCompletar` leía `notasAdicionales` pero sus deps eran `[completarVale, userProfile, totalTickets, totalViajes]`. El callback solo se recreaba al registrar un viaje o imprimir un ticket, así que **las notas escritas después del último viaje —el flujo normal— se guardaban como `null`**. Parecía intermitente y "dependiente del rol", pero no había ninguna condición de rol: dependía de si escribías la nota antes o después del último viaje. El equivalente en `ValeDetalleRenta.js` sí tenía la dep y funcionaba bien.
+
+Antes de completar/guardar, revisar que **todo state leído dentro del callback esté en sus deps**.
 
 ```javascript
-// MAL — puede leer valor stale de state
-const handleGuardar = useCallback(async () => {
-  await guardar(miEstado);
-}, []);
+// MAL — guarda el valor de notas de hace varios renders
+const handleCompletar = useCallback(async () => {
+  await completar({ notas: notasAdicionales });
+}, [completarVale, totalViajes]);
 
-// BIEN — useRef para valores que cambian frecuente
-const miEstadoRef = useRef(miEstado);
-useEffect(() => { miEstadoRef.current = miEstado; }, [miEstado]);
+// BIEN — la dep faltante
+const handleCompletar = useCallback(async () => {
+  await completar({ notas: notasAdicionales });
+}, [completarVale, totalViajes, notasAdicionales]);
 
-const handleGuardar = useCallback(async () => {
-  await guardar(miEstadoRef.current);
-}, []);
+// ALTERNATIVA — useRef cuando el valor cambia en cada tecla y no quieres recrear
+const notasRef = useRef(notasAdicionales);
+useEffect(() => { notasRef.current = notasAdicionales; }, [notasAdicionales]);
+const handleCompletar = useCallback(async () => {
+  await completar({ notas: notasRef.current });
+}, [completarVale]);
 ```
 
 ---
@@ -177,4 +224,7 @@ Un usuario accede a vales de una obra si:
 
 Roles exactos (casing importa en las políticas):
 - `Administrador`, `Residente`, `Finanzas`, `Sindicato` — PascalCase
+- `Planta de Asfaltos` — PascalCase **con espacios**. Ver screens/CLAUDE.md para sus reglas
 - `CHECADOR` — MAYÚSCULAS
+
+`userRole` viene de `useAuth()` ya resuelto (`AuthContext` lo calcula como `userProfile?.roles?.role`). No leer `userProfile?.role` — no existe.

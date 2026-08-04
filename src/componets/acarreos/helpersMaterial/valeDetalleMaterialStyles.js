@@ -46,6 +46,16 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: 4,
   },
+  // Fila para poner el titulo de la seccion y el icono de ayuda en la misma
+  // linea. El titulo lleva flex 1 para empujar el icono a la derecha.
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sectionTitleFlex: {
+    flex: 1,
+  },
   sectionSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,

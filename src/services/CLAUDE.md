@@ -49,11 +49,38 @@ Los QR de vales se generan via `api.qrserver.com` como imagen en el PDF/ticket.
 
 ---
 
-## Feature flags (`src/config/features.js`)
+## Feature flags — dos archivos distintos, no confundirlos
 
-| Flag | Estado | Descripción |
+### `src/config/features.js` — flags de plataforma (constantes en código)
+
+| Flag | Valor actual | Descripción |
 |---|---|---|
-| `BLUETOOTH_ENABLED` | Activo | Muestra/oculta UI de impresión Bluetooth |
-| `TIPO3_FLUJO_DOS_PASOS` | Activo (pendiente cleanup) | Flujo especial vales tipo 3 con override por viaje |
+| `BLUETOOTH_ENABLED` | `true` | Muestra/oculta UI de impresión Bluetooth |
+| `IS_WEB` | `Platform.OS === "web"` | Detección pura de plataforma. Usar para **fixes de correctitud** que siempre deben aplicar en web (ej. el skip de versión en `AuthGuard`) |
+| `HIDE_ON_WEB` | `IS_WEB && !MOSTRAR_TODO_EN_WEB` | Lo que realmente oculta las funciones fuera de alcance en web. **TEMPORAL:** `MOSTRAR_TODO_EN_WEB = true` desde 2026-07-09 para probar la app completa desde iPhone, así que hoy `HIDE_ON_WEB` es siempre `false` y **no oculta nada** |
+
+Elegir entre `IS_WEB` y `HIDE_ON_WEB` es deliberado: `HIDE_ON_WEB` para UI fuera de alcance de la v1 web (impresión, PDF, registrar viaje), `IS_WEB` para correctitud que no debe depender del flag temporal de pruebas.
+
+### `src/config/featureFlags.js` — flags por usuario (columna `feature_flags` de `persona`)
+
+| Flag | Default | Descripción |
+|---|---|---|
+| `TIPO2_GENERAR_PDF_ROJO` | `false` | `true` genera PDF rojo al crear vale tipo 2; `false` lo deja en `en_proceso` para completar después |
+
+Es el **único** flag por usuario que existe. Se leen con `useFeatureFlags()`. Para cambiarlo a un usuario se edita en Supabase, no en el archivo:
+
+```sql
+UPDATE persona SET feature_flags = feature_flags || '{"TIPO2_GENERAR_PDF_ROJO": true}'::jsonb WHERE id_persona = X;
+```
+
+> `TIPO3_FLUJO_DOS_PASOS` **no existe** — aparecía en versiones viejas de esta doc y en un comentario de ejemplo de `useFeatureFlags.js`. El flujo de tipo 3 con override por viaje es comportamiento fijo, sin flag.
+
+---
+
+## Servicios vivos
+
+`bluetoothPrinter.js` (+ `.web.js`), `ticketGenerator.js`, `pdfGenerator.js`, `pdfTicketGenerator.js`, `pdfMaterialGeneratorRecibo.js`, `pdfRentaGenerator.js`, `pdfRentaGeneratorRecibo.js`, `pdfOperadoresGenerator.js`, `pdfFileHandler.js`, `presupuestoService.js`.
+
+Los recibos se llaman **directo desde `componets/vale/GenerarPDFButton.js`**. Los hooks intermedios `useValeMaterialPDF` / `useValeRentaPDF` se borraron el 2026-07-29 por no tener usuarios — no recrearlos.
 
 **Metro bundler:** los imports se resuelven estáticamente. Un `require()` condicional dentro de un `if` NO previene que el módulo se compile. Imports problemáticos deben resolverse en configuración de Metro o eliminarse del bundle.

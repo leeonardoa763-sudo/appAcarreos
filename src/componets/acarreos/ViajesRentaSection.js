@@ -11,6 +11,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../config/colors";
 import { HIDE_ON_WEB } from "../../config/features";
 import crossAlert from "../../utils/crossAlert";
+import BotonAyuda from "../common/BotonAyuda";
 
 const formatHora = (isoString) => {
   if (!isoString) return "--:--";
@@ -54,6 +55,9 @@ const ViajesRentaSection = ({
   eliminandoViaje = false,
   totalTickets = 0,
   esMaterialDescarga = false,
+  // La resuelve el padre (ValeDetalleRenta) con urlAyudaVale: esta seccion no
+  // recibe el vale, asi que no puede saber a que guia pertenece.
+  ayudaUrl,
 }) => {
   const tieneTicketPendiente = !esMaterialDescarga || totalTickets > totalViajes;
   return (
@@ -68,6 +72,7 @@ const ViajesRentaSection = ({
         <View style={styles.badge}>
           <Text style={styles.badgeTexto}>{totalViajes}</Text>
         </View>
+        <BotonAyuda url={ayudaUrl} />
       </View>
 
       {loading ? (

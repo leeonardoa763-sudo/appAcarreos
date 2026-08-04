@@ -36,9 +36,11 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 // 4. Local - Config
 import { colors } from "../../../config/colors";
 import { BLUETOOTH_ENABLED, HIDE_ON_WEB } from "../../../config/features";
+import { urlAyudaVale } from "../../../config/ayuda";
 import crossAlert from "../../../utils/crossAlert";
 
 // 5. Local - Componentes
+import BotonAyuda from "../../common/BotonAyuda";
 import FormInput from "../../forms/FormInput";
 import ModalImprimirTicketRenta from "../rentaHelpers/ModalImprimirTicketRenta";
 import ValeFormCompletarNormal from "./ValeFormCompletarNormal";
@@ -396,6 +398,7 @@ const ViajesMaterialSection = ({
         <View style={styles.badge}>
           <Text style={styles.badgeTexto}>{totalViajes}</Text>
         </View>
+        <BotonAyuda url={urlAyudaVale(vale, "registrar")} />
       </View>
 
       {/* Lista o estado vacío */}
@@ -563,6 +566,7 @@ const ViajesMaterialSection = ({
             onChangeNotas={setNotasAdicionales}
             savingToneladas={saving}
             onCompletar={onCompletar}
+            ayudaUrl={urlAyudaVale(vale, "completar")}
           />
         </>
       )}
