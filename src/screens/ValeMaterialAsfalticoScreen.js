@@ -16,6 +16,7 @@ import { colors } from "../config/colors";
 import { commonStyles } from "../styles/";
 import { supabase } from "../config/supabase";
 import crossAlert from "../utils/crossAlert";
+import { motivoEsValido } from "../utils/tiempoEntreViajes";
 
 // Hooks personalizados
 import { useAuth } from "../hooks/useAuth";
@@ -33,7 +34,6 @@ import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
 import SectionHeader from "../componets/common/SectionHeader";
 import PrimaryButton from "../componets/common/PrimaryButton";
 import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
-import SuccessModal from "../componets/common/SuccessModal";
 import FormInput from "../componets/forms/FormInput";
 import CustomModalPicker from "../componets/forms/CustomModalPicker";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
@@ -45,6 +45,10 @@ import ModalBuscarVehiculoPlacas from "../componets/acarreos/ModalBuscarVehiculo
 import ModalSeleccionarOperador from "../componets/modals/asignarVehiculo/ModalSeleccionarOperador";
 import { generarYCompartirPDFTicket } from "../services/pdfTicketGenerator";
 import { BLUETOOTH_ENABLED, HIDE_ON_WEB } from "../config/features";
+import {
+  buscarValeMaterialDuplicado,
+  minutosDesde,
+} from "../utils/duplicadoVale";
 
 let generarTicketMaterial;
 if (BLUETOOTH_ENABLED) {
@@ -56,6 +60,12 @@ const ValeMaterialAsfalticoScreen = () => {
   const navigation = useNavigation();
   const { userProfile } = useAuth();
   const isMounted = useRef(true);
+
+  // Seguros contra vales duplicados. Son refs y no state a proposito:
+  // setSubmitting no alcanza a re-renderizar entre dos toques dentro del mismo
+  // frame, asi que el boton deshabilitado no basta — el ref si es sincrono.
+  const flujoEnCursoRef = useRef(false);
+  const insertEnCursoRef = useRef(false);
 
   // Datos de obra
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
@@ -79,7 +89,7 @@ const ValeMaterialAsfalticoScreen = () => {
   // Estados locales
   const [valeCreado, setValeCreado] = useState(null);
   const [folioCreado, setFolioCreado] = useState(null);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [verificandoDuplicado, setVerificandoDuplicado] = useState(false);
   const [obraSeleccionada, setObraSeleccionada] = useState(null);
   const [obraDataParaFolio, setObraDataParaFolio] = useState(null);
   const [showModalImpresion, setShowModalImpresion] = useState(false);
@@ -182,6 +192,11 @@ const ValeMaterialAsfalticoScreen = () => {
     resetEvidencia,
   } = useEvidenciaVale(obraSeleccionadaData);
 
+  // Alternativa declarada a la foto, para cuando el vale se captura fuera de
+  // campo. Ver componets/vale/EvidenciaCaptura.js
+  const [motivoSinFoto, setMotivoSinFoto] = useState(null);
+  const evidenciaResuelta = !!fotoUrl || motivoEsValido(motivoSinFoto);
+
   useEffect(() => {
     return () => {
       isMounted.current = false;
@@ -239,8 +254,12 @@ const ValeMaterialAsfalticoScreen = () => {
     }
   }, [obraSeleccionada, obras]);
 
+  // Depende tambien de formData.bancoId para que vuelva a fijar la planta
+  // despues de un reset del formulario ("Crear otro vale"): sin esa dep el
+  // efecto no se re-dispara y el banco queda vacio.
   useEffect(() => {
     if (bancos.length === 0) return;
+    if (formData.bancoId) return;
     const planta = bancos.find((b) =>
       b.banco.toLowerCase().includes("asfalto"),
     );
@@ -249,7 +268,7 @@ const ValeMaterialAsfalticoScreen = () => {
       if (prev.bancoId) return prev;
       return { ...prev, bancoId: planta.id_banco };
     });
-  }, [bancos, setFormData]);
+  }, [bancos, formData.bancoId, setFormData]);
 
   useEffect(() => {
     const calcularDistancia = async () => {
@@ -334,6 +353,20 @@ const ValeMaterialAsfalticoScreen = () => {
   };
 
   const handleCrearVale = () => {
+    // Seguro 1: ya hay una creacion corriendo (doble toque).
+    if (flujoEnCursoRef.current || insertEnCursoRef.current) return;
+
+    // Seguro 2: este formulario ya genero un vale y sigue lleno. El unico
+    // camino de salida es terminar la evidencia y compartir el PDF, que al
+    // final limpia el formulario y regresa a Vales.
+    if (valeCreado) {
+      crossAlert(
+        "Este vale ya fue creado",
+        `El folio ${folioCreado} ya quedó registrado. Toma la foto de evidencia y comparte el PDF para terminar.`,
+      );
+      return;
+    }
+
     if (!validateForm(false, false)) {
       alertarCamposIncompletos();
       return;
@@ -360,21 +393,11 @@ const ValeMaterialAsfalticoScreen = () => {
     ejecutarCreacionValeAsfaltico();
   };
 
-  const ejecutarCreacionValeAsfaltico = async () => {
-    if (!validateForm(false, false)) {
-      alertarCamposIncompletos();
-      return;
-    }
-
-    if (!obraSeleccionada) {
-      Alert.alert("Error", "Debes seleccionar una obra");
-      return;
-    }
-
-    if (!obraDataParaFolio) {
-      Alert.alert("Error", "Datos de obra no disponibles. Intenta de nuevo.");
-      return;
-    }
+  // Inserta el vale. Solo se llama despues de validar y de resolver el
+  // chequeo de duplicado.
+  const insertarValeAsfaltico = async () => {
+    if (insertEnCursoRef.current) return;
+    insertEnCursoRef.current = true;
 
     try {
       const { valeCompleto, folio } = await crearVale(
@@ -395,12 +418,71 @@ const ValeMaterialAsfalticoScreen = () => {
       if (isMounted.current) {
         setValeCreado(valeCompleto);
         setFolioCreado(folio);
-        setShowSuccessModal(false);
       }
     } catch (error) {
       if (isMounted.current) {
         Alert.alert("Error", `No se pudo crear el vale: ${error.message}`);
       }
+    } finally {
+      insertEnCursoRef.current = false;
+    }
+  };
+
+  const ejecutarCreacionValeAsfaltico = async () => {
+    if (flujoEnCursoRef.current || insertEnCursoRef.current) return;
+    flujoEnCursoRef.current = true;
+
+    try {
+      if (!validateForm(false, false)) {
+        alertarCamposIncompletos();
+        return;
+      }
+
+      if (!obraSeleccionada) {
+        Alert.alert("Error", "Debes seleccionar una obra");
+        return;
+      }
+
+      if (!obraDataParaFolio) {
+        Alert.alert("Error", "Datos de obra no disponibles. Intenta de nuevo.");
+        return;
+      }
+
+      // Seguro 3: mismo vehiculo, material y cantidad en los ultimos minutos.
+      // Cubre el caso en que el vale anterior si se guardo pero la app se
+      // reinicio o se salio de la pantalla antes de verlo.
+      setVerificandoDuplicado(true);
+      const duplicado = await buscarValeMaterialDuplicado({
+        idObra: obraSeleccionada,
+        idPersonaCreador: userProfile?.id_persona,
+        idVehiculo: formData.selectedVehiculo?.id_vehiculo,
+        idMaterial: formData.materialId,
+        cantidadM3: parseFloat(formData.cantidadMaterial),
+      });
+
+      if (!isMounted.current) return;
+
+      if (duplicado) {
+        crossAlert(
+          "Posible vale duplicado",
+          `Ya existe el vale ${duplicado.folio}, creado ${minutosDesde(duplicado.fecha_creacion)} con el mismo vehículo, material y cantidad. Revísalo en Acarreos antes de crear otro.`,
+          [
+            { text: "Cancelar", style: "cancel" },
+            {
+              text: "Crear de todos modos",
+              onPress: () => {
+                insertarValeAsfaltico();
+              },
+            },
+          ],
+        );
+        return;
+      }
+
+      await insertarValeAsfaltico();
+    } finally {
+      flujoEnCursoRef.current = false;
+      if (isMounted.current) setVerificandoDuplicado(false);
     }
   };
 
@@ -411,36 +493,45 @@ const ValeMaterialAsfalticoScreen = () => {
     }
 
     try {
-      // Antes de generar el PDF, si hay evidencia (foto) cargarla en la DB
+      // Antes de generar el PDF, guardar la evidencia en la BD: la foto, o el
+      // motivo por el que no se tomo (una ausencia declarada tambien es dato).
       try {
-        if (fotoUrl && valeCreado?.vale_material_detalles?.[0]?.id_detalle_material) {
-          const idDetalle = valeCreado.vale_material_detalles[0].id_detalle_material;
+        const sinFotoDeclarada = !fotoUrl && motivoEsValido(motivoSinFoto);
+        const idDetalle =
+          valeCreado?.vale_material_detalles?.[0]?.id_detalle_material;
+
+        if ((fotoUrl || sinFotoDeclarada) && idDetalle) {
+          const campos = {
+            foto_evidencia_url: fotoUrl ?? null,
+            foto_omitida: sinFotoDeclarada,
+            motivo_sin_foto_codigo: sinFotoDeclarada
+              ? motivoSinFoto.codigo
+              : null,
+            motivo_sin_foto_texto: sinFotoDeclarada
+              ? motivoSinFoto.texto?.trim() || null
+              : null,
+          };
+
           await supabase
             .from("vale_material_detalles")
-            .update({
-              foto_evidencia_url: fotoUrl,
-              // Si tenemos coordenadas, guardarlas junto con la foto
-              // las columnas latitud_registro/longitud_registro están en viajes, pero
-              // guardaremos ubicacion en la tabla de detalles si existen columnas
-              // Alternativamente, solo actualizamos la foto aquí
-            })
+            .update(campos)
             .eq("id_detalle_material", idDetalle);
 
-          // Refrescar el objeto local para incluir la foto
+          // Refrescar el objeto local para incluir la evidencia
           setValeCreado((prev) => {
             if (!prev) return prev;
             const copia = { ...prev };
             if (copia.vale_material_detalles && copia.vale_material_detalles[0]) {
               copia.vale_material_detalles[0] = {
                 ...copia.vale_material_detalles[0],
-                foto_evidencia_url: fotoUrl,
+                ...campos,
               };
             }
             return copia;
           });
         }
       } catch (uErr) {
-        console.warn("No se pudo actualizar la foto en la DB:", uErr.message || uErr);
+        console.warn("No se pudo actualizar la evidencia en la DB:", uErr.message || uErr);
       }
 
       await generarYCompartirPDFTicket(valeCreado);
@@ -459,6 +550,7 @@ const ValeMaterialAsfalticoScreen = () => {
     setValeParaImpresion(null);
     resetForm();
     resetEvidencia();
+    setMotivoSinFoto(null);
     resetVehiculoQR();
     navigation.navigate("ValesMain");
   };
@@ -708,20 +800,36 @@ const ValeMaterialAsfalticoScreen = () => {
 
         <View style={styles.buttonContainer}>
           <PrimaryButton
-            title={presupuestoAgotado ? "Presupuesto Agotado" : "Crear Vale"}
+            title={
+              presupuestoAgotado
+                ? "Presupuesto Agotado"
+                : valeCreado
+                  ? `Vale creado: ${folioCreado}`
+                  : "Crear Vale"
+            }
             onPress={handleCrearVale}
-            loading={submitting}
-            icon={presupuestoAgotado ? "cancel" : "check-circle"}
+            loading={submitting || verificandoDuplicado}
+            icon={
+              presupuestoAgotado
+                ? "cancel"
+                : valeCreado
+                  ? "check-all"
+                  : "check-circle"
+            }
             backgroundColor={
               presupuestoAgotado ? colors.disabled : colors.accent
             }
-            disabled={presupuestoAgotado || excedePresupuesto}
+            disabled={presupuestoAgotado || excedePresupuesto || !!valeCreado}
           />
         </View>
 
-        {valeCreado && HIDE_ON_WEB && (
+        {valeCreado && (
           <View style={styles.section}>
-            <SectionHeader title="Vale Creado" infoTitle="Vale Creado" />
+            <SectionHeader
+              title="Vale Creado"
+              infoTitle="Vale Creado"
+              infoMessage="El vale ya quedó registrado con este folio. Toma la foto de evidencia y comparte el PDF para terminar."
+            />
             <Text style={{ color: colors.textPrimary, fontSize: 15 }}>
               Vale creado: folio {folioCreado}
             </Text>
@@ -751,6 +859,9 @@ const ValeMaterialAsfalticoScreen = () => {
               onTomarFoto={tomarFoto}
               onCapturarUbicacion={capturarUbicacion}
               radioConfigurado={radioConfigurado}
+              motivoSinFoto={motivoSinFoto}
+              onOmitirFoto={setMotivoSinFoto}
+              onDeshacerOmision={() => setMotivoSinFoto(null)}
             />
 
             <View style={styles.buttonContainer}>
@@ -760,7 +871,7 @@ const ValeMaterialAsfalticoScreen = () => {
                 loading={false}
                 icon="share-variant"
                 backgroundColor={colors.secondary}
-                disabled={!fotoUrl}
+                disabled={!evidenciaResuelta}
               />
             </View>
           </View>

@@ -15,6 +15,7 @@ import {
   getCopiaInfoRecibo,
 } from "../utils/pdfReceiptHelpers";
 import { renamePDFWithAutoName } from "./pdfFileHandler";
+import { tarifaRentaEfectiva } from "../utils/preciosRenta";
 
 /**
  * Genera HTML del vale de RENTA en formato recibo térmico
@@ -67,8 +68,9 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
       ? "0.5 días"
       : "N/A";
 
-  // Obtener tarifas
-  const precioRenta = detalle.precios_renta || {};
+  // Obtener tarifas — congelada en el vale (puede ser la tarifa por obra); en
+  // vales previos a 2026-08-04 cae al join precios_renta
+  const precioRenta = tarifaRentaEfectiva(detalle);
   const tarifaHora = precioRenta.costo_hr
     ? `$${parseFloat(precioRenta.costo_hr).toFixed(2)}`
     : "N/A";

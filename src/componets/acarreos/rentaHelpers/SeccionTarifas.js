@@ -7,7 +7,9 @@
  * PROPS:
  * - vale: object — datos completos del vale
  * - detalleRenta: object — detalle específico de renta
- * - preciosRenta: object — tarifas del sindicato (costo_hr, costo_dia)
+ * - preciosRenta: object — tarifa vigente del vale (costo_hr, costo_dia), ya
+ *   resuelta por el padre con tarifaRentaEfectiva: puede venir de la tarifa
+ *   propia de la obra o del default del sindicato
  * - userProfile: object — perfil del usuario autenticado
  * - formatCurrency: function — formateador de moneda
  */

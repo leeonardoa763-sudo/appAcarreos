@@ -46,7 +46,6 @@ const ViajesRentaSection = ({
   viajes,
   loading,
   registrando,
-  puedeRegistrar,
   totalViajes,
   onRegistrarViaje,
   esResidente = false,
@@ -144,10 +143,10 @@ const ViajesRentaSection = ({
               <TouchableOpacity
                 style={[
                   styles.botonRegistrar,
-                  (!puedeRegistrar || !tieneTicketPendiente || registrando) && styles.botonDeshabilitado,
+                  (!tieneTicketPendiente || registrando) && styles.botonDeshabilitado,
                 ]}
                 onPress={onRegistrarViaje}
-                disabled={!puedeRegistrar || !tieneTicketPendiente || registrando}
+                disabled={!tieneTicketPendiente || registrando}
                 activeOpacity={0.8}
               >
                 {registrando ? (
@@ -157,12 +156,12 @@ const ViajesRentaSection = ({
                     <MaterialCommunityIcons
                       name="plus-circle"
                       size={20}
-                      color={(puedeRegistrar && tieneTicketPendiente) ? colors.surface : colors.textSecondary}
+                      color={tieneTicketPendiente ? colors.surface : colors.textSecondary}
                     />
                     <Text
                       style={[
                         styles.botonTexto,
-                        (!puedeRegistrar || !tieneTicketPendiente) && styles.botonTextoDeshabilitado,
+                        !tieneTicketPendiente && styles.botonTextoDeshabilitado,
                       ]}
                     >
                       {totalViajes === 0

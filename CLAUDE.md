@@ -214,6 +214,231 @@ Informes los ignora y por eso sus cifras no cuadran con la app en vales tipo 3.
 
 ---
 
+## TARIFAS POR OBRA (2026-08-04)
+
+Una obra puede tener tarifa propia que **sustituye** a la del sindicato. Lo que ya
+existía pasa a llamarse **tarifa por defecto del sindicato**.
+
+| Capa | Tabla | Clave |
+|---|---|---|
+| Default del sindicato | `precios_material` | `(id_tipo_de_material, id_sindicato)` |
+| Default del sindicato | `precios_renta` | `(id_sindicato)` |
+| **Tarifa de obra** | `precios_material_obra` | `(id_obra, id_tipo_de_material, id_sindicato)` |
+| **Tarifa de obra** | `precios_renta_obra` | `(id_obra, id_sindicato)` |
+
+**Regla única de resolución**, igual para material, asfáltico, renta y pipas:
+`tarifa de (obra, …) → si no existe → tarifa del sindicato`. Vive en
+`utils/preciosMaterial.js` (`obtenerTarifaMaterial`) y `utils/preciosRenta.js`
+(`resolverTarifaRenta`). Las tablas de obra son **espejo** de las de sindicato, así
+que `calcularPrecioM3` es el mismo motor para ambas.
+
+**Se eligieron tablas nuevas y no una columna `id_obra` nullable** en las existentes:
+todos los consumidores actuales leen `precios_material` / `precios_renta` sin filtrar
+por obra, así que agregarles filas de obra las haría devolver 2 filas por combinación
+y elegir una al azar — un cambio de precio silencioso en la obra 146.
+
+**Congelado del importe.** Material ya lo hacía (`precio_m3`, `costo_total`,
+`tarifa_primer_km`, `tarifa_subsecuente`). Renta **no**: leía `costo_hr`/`costo_dia`
+del join en vivo, así que editar una tarifa repreciaba todos los vales históricos.
+Ahora `vale_renta_detalle` guarda `costo_hr_aplicado` / `costo_dia_aplicado` al crear
+el vale. **Toda lectura de tarifa de renta va por `tarifaRentaEfectiva(detalle)`** —
+nunca `detalle.precios_renta` directo; en vales previos a esta fecha esas columnas
+son `null` y el helper cae al join, sin alterar el histórico.
+
+`id_precios_renta` se sigue poblando **siempre** con el default del sindicato, gane o
+no la tarifa de obra: la columna es anterior y tiene consumidores fuera de este repo
+(web pública) además del trigger de abajo. Qué tarifa ganó se sabe por
+`id_precios_renta_obra`. En material es al revés: solo una de `id_precios_material` /
+`id_precios_material_obra` queda poblada.
+
+**El trigger `calcular_totales_vale_renta` también aplica la misma regla.** Es
+`BEFORE INSERT/UPDATE` sobre `vale_renta_detalle` y reescribe `NEW.costo_total`; leía
+el precio **siempre** de `precios_renta`, así que pisaba el importe correcto que
+escribía la app y dejaba el vale con la tarifa del sindicato. Corregido en
+`20260804_trigger_renta_respeta_tarifa_obra.sql` para que prefiera
+`costo_hr_aplicado` / `costo_dia_aplicado`. Su cuerpo **no estaba versionado** — si
+tocas precios de renta, revisa ese archivo antes.
+Ojo con sus ramas: día completo y renta por horas recalculan `costo_total`, pero
+**medio día** (`es_renta_por_dia = false` + `hora_fin NULL`) no entra a ninguna y
+conserva lo que escribió la app.
+
+**Pantalla:** panel de Administrador → *Tarifas por obra* (`GestionTarifasScreen`).
+Muestra los defaults en **solo lectura** y hace CRUD únicamente de las tarifas de obra
+— editar un default desde la app afectaría a todas las obras, incluida la 146.
+Quitar una tarifa de obra la devuelve al default; los vales ya creados no se tocan.
+
+> `useCatalogos` ya **no** expone `preciosRenta`: la tarifa se resuelve contra la BD
+> al crear el vale, porque una tarifa recién capturada debe aplicar de inmediato y el
+> catálogo tenía TTL de 4 h.
+
+---
+
+## TIEMPO MÍNIMO ENTRE VIAJES Y EVIDENCIA (2026-08-04)
+
+### El tiempo mínimo se calcula, ya no es un número fijo
+
+Antes: `obras.min_minutos_entre_viajes` (20 por defecto), el mismo valor para un banco
+a 2 km y para uno a 40 km. **Solo aplica a vales de material** — se quitó de renta
+(`useViajesRenta`), donde un viaje no es un ciclo de acarreo; el asfáltico nunca
+registró viajes.
+
+Regla, en `utils/tiempoEntreViajes.js` (`resolverTiempoMinimo`):
+
+```
+umbral = MAX(formula, piso_historico_de_la_ruta)   acotado a [5, 180] min
+
+formula = ((km * 2 / velocidad_promedio_kmh) * 60
+           + minutos_carga_descarga) * factor_tolerancia_tiempo
+
+piso_historico = percentil 5 de los ciclos de esa RUTA exacta
+                 (obra + banco + es_planta_asfaltos), y solo si tiene
+                 >= 30 ciclos registrados
+Sin distancia -> obras.min_minutos_entre_viajes (comportamiento anterior)
+```
+
+Los 3 parámetros viven en `obras` y se editan en el modal de admin de obras — **no son
+constantes en el código a propósito**: recalibrar sin publicar APK.
+
+#### El historial solo puede SUBIR el umbral, nunca bajarlo
+
+Es la decisión menos obvia y la más importante. La calibración sobre los 9,439 viajes
+reales del 2026-03-23 al 2026-08-04 mostró que **el percentil 10 histórico está
+contaminado por el problema mismo que este feature ataca**: hay ciclos registrados de
+1.0 min para un banco a 5 km y de 1.3 min para uno a 16 km — físicamente imposibles.
+Si el historial pudiera bajar el umbral, esos registros se volverían la norma del banco
+y la regla se autodestruiría (CHUPON habría quedado en el piso de 5 min para 16 km).
+
+Con `MAX` el historial solo aporta lo que sí sabe con confianza: que un banco concreto
+es **más** lento que la física — camino malo, cola larga. Ejemplo real: MAGDALENO CEDILLO
+a 15 km da 43 min por fórmula, pero en la obra 15 su p10 real es 61 min, y ese gana.
+
+Por lo mismo `MUESTRAS_MINIMAS_HISTORICO` es **30** y no 10: los bancos con 18-24 ciclos
+daban percentiles sin sentido, y los que de verdad importan tienen entre 80 y 5,021 ciclos.
+
+#### Por qué percentil 5 y no 10
+
+Cuando gana el historial, **el umbral *es* el percentil**, así que ese número fija por
+construcción cuántos viajes van a pedir motivo. Con p10 sería 1 de cada 10 incluso en
+rutas impecables — INCASA→obra tiene 50 ciclos y ninguno imposible (el más rápido son
+108 min), y aun así habría pedido motivo en ~5 de ellos.
+
+En las rutas sucias el percentil **ni se usa**, porque ahí gana la fórmula. Por eso bajar
+a p05 no debilita la detección: solo quita fricción donde no había nada que detectar.
+
+#### Los viajes anticipados se descartan DESPUÉS del LAG
+
+La vista **`ciclos_banco_obra`** (`security_invoker`, últimos 180 días) excluye del
+cálculo los ciclos que tocan un `registro_anticipado` — si no, los registros forzados con
+motivo contaminarían el umbral, vuelta tras vuelta.
+
+**Pero el filtro va en el `SELECT` exterior, no en el `WHERE` del CTE.** `WHERE` se evalúa
+*antes* que las funciones de ventana: filtrar ahí borra la fila de la partición y el `LAG`
+acaba emparejando el viaje 2 con el 4, inventando un ciclo que vale la suma de dos y que
+nunca ocurrió. Se descarta el ciclo si **cualquiera** de sus dos extremos es anticipado —
+la `hora_registro` de un viaje capturado tarde no dice cuándo ocurrió, así que envenena
+tanto el ciclo que termina en él como el que arranca de él.
+
+**Y agrupa por `es_planta_asfaltos`, no solo por `(obra, banco)`.** Un vale de planta se
+carga a una obra pero el material no se descarga ahí: va a la Planta de Asfaltos, y su
+distancia sale de `distancias_banco_planta` (banco→planta), más corta que banco→obra.
+Son **dos rutas distintas desde el mismo banco**. Sin separarlas, el p10 mezcla ciclos
+cortos de planta con ciclos largos de obra y no describe ninguna de las dos — fue lo que
+hizo que INCASA apareciera con 21.5 km promedio teniendo 40 configurados.
+`useViajesMaterial` filtra igual al consultarla.
+
+#### Calibración de los defaults (2026-08-04)
+
+`velocidad_promedio_kmh = 30`, `minutos_carga_descarga = 19`, `factor_tolerancia_tiempo = 0.55`.
+
+Salen de ajustar una recta a las **medianas** de duración por distancia (5 km→39 min,
+15→76, 21.5→87, 36→165): pendiente 4.06 min/km ida y vuelta ⇒ 29.5 km/h de recorrido,
+con 19 min de intercepto. **Se ajustó contra medianas y no contra percentiles bajos**
+precisamente porque estos están contaminados.
+
+El factor 0.55 no es arbitrario: deja el umbral por debajo del percentil 25 observado en
+todos los bancos medidos (el único que queda arriba es CHUPON, cuyo p25 de 22 min para
+16 km ya es implausible), y muy por encima de los ciclos de 1-3 min. Con factor 1.0 se
+bloquearía la mitad de los viajes legítimos por definición.
+
+#### Umbrales reales en producción (verificados 2026-08-04, tras correr la vista)
+
+| ruta | km | n ciclos | fórmula | p05 | **umbral** | gana |
+|---|---|---|---|---|---|---|
+| o16 CALLE PROL SALK | 5 | 5020 | 21 | 4.8 | **21** | fórmula |
+| o16 SATURNINO CEDILLO | 10 | 130 | 32 | 15.5 | **32** | fórmula |
+| o16 MAGDALENO CEDILLO | 15 | 944 | 43 | 11.6 | **43** | fórmula |
+| o15 MAGDALENO CEDILLO | 15 | 142 | 43 | 47.3 | **47** | histórico |
+| o16 CHUPON | 16 | 81 | 46 | 1.1 | **46** | fórmula |
+| o16 INCASA (planta) | 17 | 207 | 48 | 59.2 | **59** | histórico |
+| o15 GRAMOL | 36 | 111 | 90 | 16.5 | **90** | fórmula |
+| o16 GRAMOL | 36 | 200 | 90 | 133.0 | **133** | histórico |
+| o16 INCASA (obra) | 40 | 50 | 98 | 115.2 | **115** | histórico |
+
+El `TECHO_MINUTOS` se subió de 120 a **180** por esta tabla: el p05 de GRAMOL (133 min)
+es legítimo y 120 se lo recortaba. El banco más lejano configurado está a 40 km, así que
+180 cubre cualquier ruta real con margen.
+
+Los p05 de un solo dígito en bancos con miles de ciclos (PROL SALK: 4.8 min para 5 km con
+5,020 ciclos) son la prueba de por qué el historial no puede bajar el umbral: son ~250
+ciclos físicamente imposibles en el banco más transitado.
+
+`min_minutos_entre_viajes` **ya no es un piso, solo el fallback** — dejarlo como piso
+mantendría el problema original en los bancos cercanos. La columna no se migró ni se borró.
+
+### Registrar antes de tiempo: se permite, con motivo
+
+El umbral dejó de ser un muro. Si faltan minutos, `ViajesMaterialSection` abre
+`ModalMotivo` (chips + texto libre, obligatorio solo en "Otro") y el viaje se registra
+con `registro_anticipado`, `minutos_faltantes_anticipado` y el motivo.
+
+**El botón NO se pinta en gris antes del tiempo mínimo** — se queda en color, en ámbar,
+y cambia a *"Registrar Viaje N apresurado"* con icono de reloj. Un botón gris comunica
+"no se puede" y el usuario ni lo intenta, que es justo lo contrario de lo que se busca:
+el registro sí se puede hacer, solo pide motivo. El gris queda reservado para el único
+bloqueo real de esa pantalla, que es no haber impreso el ticket.
+`minutos_minimos_calculados` se guarda **en todos los viajes**, no solo los anticipados:
+es lo único que permite auditar después si el umbral quedó bien calibrado.
+
+Sin motivo válido sigue siendo un bloqueo (`useViajesMaterial:276`). **El Administrador
+ya no está exento de esta regla** (sí sigue exento de la jornada): es justamente quien
+captura vales fuera de campo, el caso que se quiere auditar.
+
+### La foto de evidencia es opcional, pero la ausencia se declara
+
+Aplica a los **tres** tipos de vale. Antes, cuando el vale se capturaba después y fuera
+de campo, el usuario fotografiaba la nada solo para poder avanzar — una evidencia falsa
+guardada como válida, peor que ninguna. Ahora hay un botón "No tomar foto" que exige
+motivo, guardado en `foto_omitida` + `motivo_sin_foto_codigo` + `motivo_sin_foto_texto`
+(en `vale_material_viajes`, `vale_renta_detalle` y `vale_material_detalles`).
+
+`componets/vale/ModalMotivo.js` exporta dos piezas: `FormularioMotivo` (solo el
+contenido) y `ModalMotivo` (con su `<Modal>`). **`ModalEvidenciaViaje` usa el primero
+dentro de su propio modal, con un estado `paso`** — Android no apila dos `<Modal>`.
+
+Los motivos **sí se leen**, en tres lugares. Se hizo a propósito para no repetir lo de
+`foto_evidencia_url`, que se guarda desde 2026-04 y no se muestra en ninguna pantalla ni
+PDF:
+
+| Dónde | Qué muestra |
+|---|---|
+| `ViajesMaterialSection` → `ViajeItem` (vale `en_proceso`) | Chips "Anticipado" / "Sin foto"; al tocarlos, el motivo |
+| `SeccionViajesMaterialCompletado` (vale **ya emitido**) | Badge ámbar en el header con el total de excepciones, nota que **lista cada viaje con sus minutos y su motivo**, e iconos en la columna Hora |
+| CSV de historial | 6 columnas (`historialConverter.js`) |
+
+El bloque del vale emitido **lista los motivos completos, no solo un icono**: el residente
+revisa el vale días después y necesita reconstruir qué pasó sin llamarle al checador.
+
+> El distintivo **no** está en `ValeCard` (la lista). `VALE_SELECT_LISTA` excluye a
+> propósito `vale_material_viajes` para que la lista siga siendo ligera, y saber si un
+> vale tiene excepciones exige leer sus viajes. Si se quiere en la lista, la vía barata
+> es una columna agregada en `vale_material_detalles`, no engordar el select.
+
+> Migración: `20260804_tiempo_dinamico_y_motivos.sql`. **Correrla antes de desplegar** —
+> el INSERT de viajes ya manda las columnas nuevas. `cargarConfiguracion` reintenta con
+> el select viejo si falla, pero eso solo cubre la lectura, no el insert.
+
+---
+
 ## LIMPIEZA DE CÓDIGO MUERTO (2026-07-29)
 
 Se eliminaron **54 archivos** sin uso. `src/` quedó en **189 archivos, todos alcanzables** desde `index.js`. No reintroducir lo borrado:
@@ -240,6 +465,20 @@ Se eliminaron **54 archivos** sin uso. `src/` quedó en **189 archivos, todos al
 | `888` | **TEST** | Excluir de toda lógica, reporte o estadística de producción |
 
 Siempre filtrar `id_obra != 888` en reportes y estadísticas.
+
+> **⚠️ 146 y 888 son CC (centro de costo), NO `id_obra`** (confirmado con el usuario,
+> 2026-08-04). Son columnas distintas de `obras`: `id_obra` es la PK y `cc` el centro de
+> costo que además se usa para armar los folios.
+>
+> Los `id_obra` reales están en el rango 8–21. La obra con más volumen registrado es la
+> **`id_obra` 16** (5,021 ciclos en un solo banco); la que se comporta como obra de
+> pruebas es la **`id_obra` 14** — sus bancos se llaman "BANCO PRUEBA" / "BANCO PRUEBA 2"
+> y su velocidad implícita da 797 km/h.
+>
+> **Por lo tanto todos los `id_obra != 888` del repo comparan una PK contra un CC y no
+> excluyen nada**, y la obra de pruebas real sí entra en reportes y estadísticas.
+> Pendiente de decidir con el usuario. Antes de escribir un filtro nuevo:
+> `SELECT id_obra, cc, obra, activo FROM obras ORDER BY id_obra;`
 
 ---
 

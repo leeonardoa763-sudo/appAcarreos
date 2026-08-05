@@ -215,7 +215,9 @@ export const useTicketsMaterial = (vale) => {
       try {
         const { data: valeData, error: errorVale } = await supabase
           .from("vales")
-          .select("id_vehiculo, vale_material_detalles!inner(id_material)")
+          .select(
+            "id_obra, id_vehiculo, vale_material_detalles!inner(id_material)",
+          )
           .eq("id_vale", vale.id_vale)
           .single();
 
@@ -257,6 +259,7 @@ export const useTicketsMaterial = (vale) => {
           vehiculoData.id_sindicato,
           bancoOverride.distancia_km,
           viajeData.volumen_m3,
+          valeData.id_obra,
         );
 
         const { error: errorUpdate } = await supabase

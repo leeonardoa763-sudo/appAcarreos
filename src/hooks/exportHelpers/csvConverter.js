@@ -12,6 +12,7 @@ import {
   formatDateOnly,
   formatDateTimeForCSV,
 } from "../../utils/dateUtils";
+import { tarifaRentaEfectiva } from "../../utils/preciosRenta";
 
 /**
  * Escapa caracteres especiales para CSV
@@ -145,8 +146,8 @@ export const transformRentaData = (vales) => {
       hora_fin: detalle.hora_fin ? formatDateTimeForCSV(detalle.hora_fin) : "-",
       total_horas: detalle.total_horas || "0",
       total_dias: detalle.total_dias || "0",
-      tarifa_hora: detalle.precios_renta?.costo_hr || "0",
-      tarifa_dia: detalle.precios_renta?.costo_dia || "0",
+      tarifa_hora: tarifaRentaEfectiva(detalle).costo_hr || "0",
+      tarifa_dia: tarifaRentaEfectiva(detalle).costo_dia || "0",
       costo_total: detalle.costo_total || "0",
       creado_por: getNombreCompleto(vale.persona),
       fecha_creacion: formatFechaHoraCompleta(vale.fecha_creacion),

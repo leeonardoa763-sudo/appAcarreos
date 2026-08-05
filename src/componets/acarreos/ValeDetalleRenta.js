@@ -9,7 +9,13 @@
  * - ValeDetalleModal
  */
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { View, Alert, TouchableOpacity } from "react-native";
 import { colors } from "../../config/colors";
 import { HIDE_ON_WEB } from "../../config/features";
@@ -22,6 +28,7 @@ import {
   validateTiempoMinimoRenta,
   validateVentanaTurnoNocturno,
 } from "../../utils/validations";
+import { motivoEsValido } from "../../utils/tiempoEntreViajes";
 
 import KeyboardAvoidingScrollView from "../common/KeyboardAvoidingScrollView";
 import StatusBadge from "../common/StatusBadge";
@@ -39,6 +46,7 @@ import SeccionViajesCompletado from "./rentaHelpers/SeccionViajesCompletado";
 import { useReimprimirPDF } from "../../hooks/useReimprimirPDF";
 
 import { useCancelarVale } from "../../hooks/useCancelarVale";
+import { tarifaRentaEfectiva } from "../../utils/preciosRenta";
 import ModalCancelarVale from "../common/ModalCancelarVale";
 import ModalImprimirTicketRenta from "./rentaHelpers/ModalImprimirTicketRenta";
 
@@ -77,7 +85,18 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const tieneDatosPendientes = !vale?.id_operador || !vale?.id_vehiculo;
   const esMaterialDescarga = detalleRenta?.material?.es_material_descarga === true;
   const canComplete = vale?.estado === "en_proceso" && detalleRenta && !tieneDatosPendientes;
-  const preciosRenta = detalleRenta?.precios_renta;
+  // Tarifa congelada en el vale (puede venir de la tarifa por obra); en vales
+  // anteriores a 2026-08-04 cae al join precios_renta. Ver utils/preciosRenta.js
+  //
+  // useMemo, no una llamada directa: preciosRenta es dependencia de
+  // handleCompletar y de SeccionTarifas — un objeto nuevo en cada render los
+  // recrearia siempre. Devuelve null cuando no hay tarifa alguna para conservar
+  // el guard `!preciosRenta` que oculta la seccion de tarifas.
+  const preciosRenta = useMemo(() => {
+    if (!detalleRenta) return null;
+    const tarifa = tarifaRentaEfectiva(detalleRenta);
+    return tarifa.costo_hr == null && tarifa.costo_dia == null ? null : tarifa;
+  }, [detalleRenta]);
   const obraData = vale?.obras || null;
 
   // --- Estados del formulario ---
@@ -136,19 +155,20 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     resetEvidencia,
   } = useEvidenciaVale(obraData);
 
+  // Alternativa declarada a la foto: cuando el vale se captura fuera de campo,
+  // el motivo escrito sustituye a la evidencia fotografica.
+  const [motivoSinFoto, setMotivoSinFoto] = useState(null);
+
   const {
     viajes,
     loading: loadingViajes,
     registrando,
     eliminandoViaje,
-    puedeRegistrar,
     totalViajes,
     registrarViaje,
     eliminarUltimoViaje,
   } = useViajesRenta(
     detalleRenta?.id_vale_renta_detalle,
-    vale?.id_obra,
-    detalleRenta?.hora_inicio,
     vale?.fecha_creacion,
   );
 
@@ -335,6 +355,8 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     try {
       setSaving(true);
 
+      const sinFotoDeclarada = !fotoUrl && motivoEsValido(motivoSinFoto);
+
       const horaInicio = new Date(detalleRenta.hora_inicio);
       let horaFinFinal,
         totalHoras = 0,
@@ -382,6 +404,13 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
           latitud_completado: ubicacion?.latitud ?? null,
           longitud_completado: ubicacion?.longitud ?? null,
           distancia_obra_metros: distanciaObra ?? null,
+          foto_omitida: sinFotoDeclarada,
+          motivo_sin_foto_codigo: sinFotoDeclarada
+            ? motivoSinFoto.codigo
+            : null,
+          motivo_sin_foto_texto: sinFotoDeclarada
+            ? motivoSinFoto.texto?.trim() || null
+            : null,
         })
         .eq("id_vale_renta_detalle", detalleRenta.id_vale_renta_detalle);
 
@@ -423,6 +452,13 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             latitud_completado: ubicacion?.latitud ?? null,
             longitud_completado: ubicacion?.longitud ?? null,
             distancia_obra_metros: distanciaObra ?? null,
+            foto_omitida: sinFotoDeclarada,
+            motivo_sin_foto_codigo: sinFotoDeclarada
+              ? motivoSinFoto.codigo
+              : null,
+            motivo_sin_foto_texto: sinFotoDeclarada
+              ? motivoSinFoto.texto?.trim() || null
+              : null,
             // Viajes actuales del hook (más frescos que detalleRenta.vale_renta_viajes)
             vale_renta_viajes: viajes,
           },
@@ -460,11 +496,13 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     fotoUrl,
     ubicacion,
     distanciaObra,
+    motivoSinFoto,
   ]);
 
   const handleCloseSuccess = useCallback(() => {
     setShowSuccessModal(false);
     resetEvidencia();
+    setMotivoSinFoto(null);
     onRefresh();
     onClose();
   }, [onRefresh, onClose, resetEvidencia]);
@@ -496,6 +534,11 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     errorUbicacion,
     onTomarFoto: tomarFoto,
     onCapturarUbicacion: capturarUbicacion,
+    motivoSinFoto,
+    onOmitirFoto: setMotivoSinFoto,
+    onDeshacerOmision: () => setMotivoSinFoto(null),
+    // La evidencia esta resuelta con foto O con un motivo escrito
+    evidenciaResuelta: evidenciaLista || motivoEsValido(motivoSinFoto),
   };
 
   return (
@@ -576,7 +619,6 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             viajes={viajes}
             loadingViajes={loadingViajes}
             registrando={registrando}
-            puedeRegistrar={puedeRegistrar}
             totalViajes={totalViajes}
             onRegistrarViaje={registrarViaje}
             esRentaPorDia={esRentaPorDia}

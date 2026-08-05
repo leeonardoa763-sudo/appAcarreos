@@ -7,7 +7,8 @@
  * - Conversión ton → m³ usando peso_especifico
  * - Cálculo de costo por viaje al momento de registrar
  * - Folio vale físico (solo tipo 3 / tepetate)
- * - Tiempo mínimo entre viajes (min_minutos_entre_viajes de obras)
+ * - Tiempo mínimo entre viajes, calculado por distancia al banco
+ *   (ver utils/tiempoEntreViajes.js)
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -16,6 +17,10 @@ import { supabase } from "../config/supabase";
 import { useAuth } from "./useAuth";
 import { calcularCostoValeMaterial } from "../utils/preciosMaterial";
 import { esDentroJornada } from "../utils/jornadaLaboral";
+import {
+  resolverTiempoMinimo,
+  motivoEsValido,
+} from "../utils/tiempoEntreViajes";
 
 const MINUTOS_DEFAULT = 20;
 
@@ -36,27 +41,84 @@ export const useViajesMaterial = (
   const [minutosRestantes, setMinutosRestantes] = useState(0);
   const [minMinutosEntreViajes, setMinMinutosEntreViajes] =
     useState(MINUTOS_DEFAULT);
+  const [origenTiempoMinimo, setOrigenTiempoMinimo] = useState("fallback");
   const intervaloRef = useRef(null);
+
+  // ─── Banco y distancia efectivos ──────────────────────────────────────────
+  // En tipo 3 el banco puede cambiarse por viaje (ModalCambiarBanco escribe los
+  // *_override). El siguiente ciclo sale del último banco usado, no del que
+  // quedó congelado en el detalle al crear el vale.
+  const ultimoViaje = viajes.length > 0 ? viajes[viajes.length - 1] : null;
+  const idBancoEfectivo = ultimoViaje?.id_banco_override ?? detalle?.id_banco ?? null;
+  const distanciaEfectivaKm =
+    ultimoViaje?.distancia_km_override ?? detalle?.distancia_km ?? null;
+  // El alias es bancos_override (plural) en todo el repo — valesSelect,
+  // historialQueries, los PDFs y ticketGenerator lo leen asi.
+  const bancoEfectivoNombre =
+    ultimoViaje?.bancos_override?.banco ?? detalle?.bancos?.banco ?? null;
 
   // ─── Cargar configuración de tiempo mínimo ────────────────────────────────
 
   const cargarConfiguracion = useCallback(async () => {
     if (!idObra) return;
     try {
+      // Si la migración 20260804_tiempo_dinamico_y_motivos aún no corrió, el
+      // select con las columnas nuevas falla entero. Se reintenta con el select
+      // viejo para no perder min_minutos_entre_viajes — el umbral queda como
+      // estaba antes de este cambio en vez de caer al default genérico.
+      let obra = null;
       const { data, error } = await supabase
         .from("obras")
-        .select("min_minutos_entre_viajes")
+        .select(
+          "min_minutos_entre_viajes, velocidad_promedio_kmh, minutos_carga_descarga, factor_tolerancia_tiempo",
+        )
         .eq("id_obra", idObra)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        const { data: basico, error: errorBasico } = await supabase
+          .from("obras")
+          .select("min_minutos_entre_viajes")
+          .eq("id_obra", idObra)
+          .single();
+        if (errorBasico) throw errorBasico;
+        obra = basico;
+      } else {
+        obra = data;
+      }
 
-      const valor = data?.min_minutos_entre_viajes ?? MINUTOS_DEFAULT;
-      setMinMinutosEntreViajes(valor);
+      // El piso histórico es opcional. Si la vista no existe o falla, se sigue
+      // con la fórmula: nunca puede impedir registrar un viaje.
+      //
+      // Se filtra por es_planta_asfaltos porque un vale de planta se carga a la
+      // obra pero descarga en la Planta de Asfaltos: es otra ruta desde el
+      // mismo banco, con otra distancia (distancias_banco_planta) y otro
+      // tiempo. Mezclarlas daria un piso que no describe ninguna de las dos.
+      let historico = null;
+      if (idBancoEfectivo) {
+        const { data: fila, error: errorHistorico } = await supabase
+          .from("ciclos_banco_obra")
+          .select("n_ciclos, p05_minutos")
+          .eq("id_obra", idObra)
+          .eq("id_banco", idBancoEfectivo)
+          .eq("es_planta_asfaltos", !!detalle?.es_planta_asfaltos)
+          .maybeSingle();
+        if (!errorHistorico) historico = fila;
+      }
+
+      const { minutos, origen } = resolverTiempoMinimo({
+        distanciaKm: distanciaEfectivaKm,
+        obra,
+        historico,
+      });
+
+      setMinMinutosEntreViajes(minutos);
+      setOrigenTiempoMinimo(origen);
     } catch (error) {
       console.error("[useViajesMaterial] Error cargando configuracion:", error);
+      setOrigenTiempoMinimo("fallback");
     }
-  }, [idObra]);
+  }, [idObra, idBancoEfectivo, distanciaEfectivaKm, detalle?.es_planta_asfaltos]);
 
   // ─── Cargar viajes existentes ─────────────────────────────────────────────
 
@@ -84,7 +146,15 @@ export const useViajesMaterial = (
           latitud_registro,
           longitud_registro,
           distancia_obra_metros,
-          banco_override:id_banco_override (id_banco, banco),
+          registro_anticipado,
+          minutos_minimos_calculados,
+          minutos_faltantes_anticipado,
+          motivo_anticipado_codigo,
+          motivo_anticipado_texto,
+          foto_omitida,
+          motivo_sin_foto_codigo,
+          motivo_sin_foto_texto,
+          bancos_override:id_banco_override (id_banco, banco),
           persona:id_persona_registro (
             nombre,
             primer_apellido
@@ -136,7 +206,9 @@ export const useViajesMaterial = (
             clearInterval(intervaloRef.current);
             intervaloRef.current = null;
           }
-        }, 30000);
+          // 15 s y no 30: con umbrales cortos (5-8 min en bancos cercanos) un
+          // desfase de medio minuto es proporcionalmente grande.
+        }, 15000);
       }
     },
     [calcularMinutosRestantes],
@@ -175,7 +247,12 @@ export const useViajesMaterial = (
   // ─── Registrar viaje ──────────────────────────────────────────────────────
 
   const registrarViaje = useCallback(
-    async ({ pesoTon, volumenDirecto, folioValeFisico } = {}) => {
+    async ({
+      pesoTon,
+      volumenDirecto,
+      folioValeFisico,
+      motivoAnticipado = null,
+    } = {}) => {
       const esAdministrador = userProfile?.roles?.role === "Administrador";
       const esChecador = userProfile?.roles?.role === "CHECADOR";
 
@@ -196,10 +273,18 @@ export const useViajesMaterial = (
         return false;
       }
 
-      if (!esAdministrador && !puedeRegistrar()) {
+      // El tiempo mínimo ya no es un muro: se puede pasar dejando un motivo
+      // escrito, que se guarda con el viaje. Sin motivo válido sigue siendo un
+      // bloqueo — nunca se salta el umbral sin dejar rastro.
+      // A diferencia de la jornada, aquí el Administrador NO está exento: es
+      // justamente quien captura vales fuera de campo, el caso que se audita.
+      const minutosFaltantes = minutosRestantes;
+      const esRegistroAnticipado = !puedeRegistrar();
+
+      if (esRegistroAnticipado && !motivoEsValido(motivoAnticipado)) {
         Alert.alert(
           "No disponible",
-          `Debes esperar ${minutosRestantes} min antes de registrar el siguiente viaje.`,
+          `Faltan ${minutosFaltantes} min para registrar el siguiente viaje.`,
           [{ text: "OK" }],
         );
         return false;
@@ -216,169 +301,198 @@ export const useViajesMaterial = (
       }
 
       return new Promise((resolve) => {
+        // Con motivo anticipado el usuario ya confirmo en el modal de motivo;
+        // un segundo dialogo encadenado solo lo entrena a aceptar sin leer.
+        const confirmar = async () => {
+          try {
+            setRegistrando(true);
+
+            // PASO 1: Calcular volumen m³
+            let volumenM3;
+            if (volumenDirecto != null) {
+              volumenM3 = parseFloat(volumenDirecto);
+            } else if (pesoTon != null) {
+              volumenM3 = await calcularVolumenDesdeTomeladas(
+                parseFloat(pesoTon),
+              );
+            } else {
+              throw new Error(
+                "Se requiere peso en toneladas o volumen en m³",
+              );
+            }
+
+            if (!volumenM3 || volumenM3 <= 0) {
+              throw new Error("El volumen calculado no es válido");
+            }
+
+            // PASO 2: Obtener obra, sindicato y tipo de material en una sola query.
+            // id_obra es lo que decide si aplica la tarifa propia de la
+            // obra o la del sindicato (ver utils/preciosMaterial.js).
+            const { data: valeData, error: errorVale } = await supabase
+              .from("vales")
+              .select(
+                `id_obra,
+                vehiculos:id_vehiculo(id_sindicato),
+                vale_material_detalles!inner(
+                  material:id_material(id_tipo_de_material)
+                )`,
+              )
+              .eq("id_vale", idVale)
+              .single();
+
+            if (errorVale || !valeData)
+              throw new Error("No se pudo obtener datos del vale");
+
+            const idSindicato = valeData.vehiculos?.id_sindicato;
+            const idTipoDeMaterial =
+              valeData.vale_material_detalles?.[0]?.material?.id_tipo_de_material;
+
+            if (!idSindicato)
+              throw new Error(
+                "No se pudo obtener el sindicato del vehículo",
+              );
+            if (!idTipoDeMaterial)
+              throw new Error("No se pudo obtener el tipo de material");
+
+            const costos = await calcularCostoValeMaterial(
+              idTipoDeMaterial,
+              idSindicato,
+              detalle.distancia_km,
+              volumenM3,
+              valeData.id_obra,
+            );
+
+            // PASO 3: Insertar viaje
+            const { data: viajeNuevo, error: errorInsert } =
+              await supabase
+                .from("vale_material_viajes")
+                .insert({
+                  id_detalle_material: idDetalleMaterial,
+                  numero_viaje: viajes.length + 1,
+                  hora_registro: new Date().toISOString(),
+                  id_persona_registro: userProfile.id_persona,
+                  peso_ton: pesoTon != null ? parseFloat(pesoTon) : null,
+                  volumen_m3: volumenM3,
+                  precio_m3: costos.precioM3,
+                  costo_viaje: costos.costoTotal,
+                  id_precios_material: costos.idPreciosMaterial,
+                  id_precios_material_obra: costos.idPreciosMaterialObra,
+                  tarifa_primer_km: costos.tarifaPrimerKm,
+                  tarifa_subsecuente: costos.tarifaSubsecuente,
+                  folio_vale_fisico: folioValeFisico || null,
+                  // Se guarda siempre, no solo cuando es anticipado: es
+                  // lo unico que permite auditar despues si el umbral
+                  // quedo bien calibrado contra los ciclos reales.
+                  minutos_minimos_calculados: minMinutosEntreViajes,
+                  registro_anticipado: esRegistroAnticipado,
+                  minutos_faltantes_anticipado: esRegistroAnticipado
+                    ? minutosFaltantes
+                    : null,
+                  motivo_anticipado_codigo: esRegistroAnticipado
+                    ? motivoAnticipado.codigo
+                    : null,
+                  motivo_anticipado_texto: esRegistroAnticipado
+                    ? motivoAnticipado.texto?.trim() || null
+                    : null,
+                })
+                .select(
+                  `
+                  id_viaje,
+                  numero_viaje,
+                  hora_registro,
+                  peso_ton,
+                  volumen_m3,
+                  precio_m3,
+                  costo_viaje,
+                  folio_vale_fisico,
+                  foto_evidencia_url,
+                  latitud_registro,
+                  longitud_registro,
+                  distancia_obra_metros,
+                  registro_anticipado,
+                  minutos_minimos_calculados,
+                  minutos_faltantes_anticipado,
+                  motivo_anticipado_codigo,
+                  motivo_anticipado_texto,
+                  foto_omitida,
+                  motivo_sin_foto_codigo,
+                  motivo_sin_foto_texto,
+                  persona:id_persona_registro (
+                    nombre,
+                    primer_apellido
+                  )
+                `,
+                )
+                .single();
+
+            if (errorInsert) throw errorInsert;
+
+            // PASO 4: Acumular totales en vale_material_detalles
+            const totalVolumen = viajes.reduce(
+              (acc, v) => acc + parseFloat(v.volumen_m3 || 0),
+              volumenM3,
+            );
+            const totalCosto = viajes.reduce(
+              (acc, v) =>
+                acc +
+                parseFloat(v.costo_viaje_override ?? v.costo_viaje ?? 0),
+              costos.costoTotal,
+            );
+            const totalPeso =
+              pesoTon != null
+                ? viajes.reduce(
+                    (acc, v) => acc + parseFloat(v.peso_ton || 0),
+                    parseFloat(pesoTon),
+                  )
+                : null;
+
+            const { error: errorDetalles } = await supabase
+              .from("vale_material_detalles")
+              .update({
+                volumen_real_m3: totalVolumen,
+                costo_total: totalCosto,
+                ...(totalPeso != null && { peso_ton: totalPeso }),
+                precio_m3: costos.precioM3,
+                id_precios_material: costos.idPreciosMaterial,
+                id_precios_material_obra: costos.idPreciosMaterialObra,
+                tarifa_primer_km: costos.tarifaPrimerKm,
+                tarifa_subsecuente: costos.tarifaSubsecuente,
+              })
+              .eq("id_detalle_material", idDetalleMaterial);
+
+            if (errorDetalles) throw errorDetalles;
+
+            const viajesActualizados = [...viajes, viajeNuevo];
+            setViajes(viajesActualizados);
+            iniciarCuentaRegresiva(viajesActualizados);
+            resolve(viajeNuevo);
+          } catch (error) {
+            console.error(
+              "[useViajesMaterial] Error registrando viaje:",
+              error,
+            );
+            Alert.alert(
+              "Error",
+              `No se pudo registrar el viaje: ${error.message}`,
+              [{ text: "OK" }],
+            );
+            resolve(false);
+          } finally {
+            setRegistrando(false);
+          }
+        };
+
+        if (esRegistroAnticipado) {
+          confirmar();
+          return;
+        }
+
         Alert.alert(
           "Registrar Viaje",
           `Se registrará el viaje ${viajes.length + 1}. Esta acción no se puede revertir. ¿Deseas continuar?`,
           [
-            {
-              text: "Cancelar",
-              style: "cancel",
-              onPress: () => resolve(false),
-            },
-            {
-              text: "Confirmar",
-              style: "default",
-              onPress: async () => {
-                try {
-                  setRegistrando(true);
-
-                  // PASO 1: Calcular volumen m³
-                  let volumenM3;
-                  if (volumenDirecto != null) {
-                    volumenM3 = parseFloat(volumenDirecto);
-                  } else if (pesoTon != null) {
-                    volumenM3 = await calcularVolumenDesdeTomeladas(
-                      parseFloat(pesoTon),
-                    );
-                  } else {
-                    throw new Error(
-                      "Se requiere peso en toneladas o volumen en m³",
-                    );
-                  }
-
-                  if (!volumenM3 || volumenM3 <= 0) {
-                    throw new Error("El volumen calculado no es válido");
-                  }
-
-                  // PASO 2: Obtener sindicato y tipo de material en una sola query
-                  const { data: valeData, error: errorVale } = await supabase
-                    .from("vales")
-                    .select(
-                      `vehiculos:id_vehiculo(id_sindicato),
-                      vale_material_detalles!inner(
-                        material:id_material(id_tipo_de_material)
-                      )`,
-                    )
-                    .eq("id_vale", idVale)
-                    .single();
-
-                  if (errorVale || !valeData)
-                    throw new Error("No se pudo obtener datos del vale");
-
-                  const idSindicato = valeData.vehiculos?.id_sindicato;
-                  const idTipoDeMaterial =
-                    valeData.vale_material_detalles?.[0]?.material?.id_tipo_de_material;
-
-                  if (!idSindicato)
-                    throw new Error(
-                      "No se pudo obtener el sindicato del vehículo",
-                    );
-                  if (!idTipoDeMaterial)
-                    throw new Error("No se pudo obtener el tipo de material");
-
-                  const costos = await calcularCostoValeMaterial(
-                    idTipoDeMaterial,
-                    idSindicato,
-                    detalle.distancia_km,
-                    volumenM3,
-                  );
-
-                  // PASO 3: Insertar viaje
-                  const { data: viajeNuevo, error: errorInsert } =
-                    await supabase
-                      .from("vale_material_viajes")
-                      .insert({
-                        id_detalle_material: idDetalleMaterial,
-                        numero_viaje: viajes.length + 1,
-                        hora_registro: new Date().toISOString(),
-                        id_persona_registro: userProfile.id_persona,
-                        peso_ton: pesoTon != null ? parseFloat(pesoTon) : null,
-                        volumen_m3: volumenM3,
-                        precio_m3: costos.precioM3,
-                        costo_viaje: costos.costoTotal,
-                        id_precios_material: costos.idPreciosMaterial,
-                        tarifa_primer_km: costos.tarifaPrimerKm,
-                        tarifa_subsecuente: costos.tarifaSubsecuente,
-                        folio_vale_fisico: folioValeFisico || null,
-                      })
-                      .select(
-                        `
-                        id_viaje,
-                        numero_viaje,
-                        hora_registro,
-                        peso_ton,
-                        volumen_m3,
-                        precio_m3,
-                        costo_viaje,
-                        folio_vale_fisico,
-                        foto_evidencia_url,
-                        latitud_registro,
-                        longitud_registro,
-                        distancia_obra_metros,
-                        persona:id_persona_registro (
-                          nombre,
-                          primer_apellido
-                        )
-                      `,
-                      )
-                      .single();
-
-                  if (errorInsert) throw errorInsert;
-
-                  // PASO 4: Acumular totales en vale_material_detalles
-                  const totalVolumen = viajes.reduce(
-                    (acc, v) => acc + parseFloat(v.volumen_m3 || 0),
-                    volumenM3,
-                  );
-                  const totalCosto = viajes.reduce(
-                    (acc, v) =>
-                      acc +
-                      parseFloat(v.costo_viaje_override ?? v.costo_viaje ?? 0),
-                    costos.costoTotal,
-                  );
-                  const totalPeso =
-                    pesoTon != null
-                      ? viajes.reduce(
-                          (acc, v) => acc + parseFloat(v.peso_ton || 0),
-                          parseFloat(pesoTon),
-                        )
-                      : null;
-
-                  const { error: errorDetalles } = await supabase
-                    .from("vale_material_detalles")
-                    .update({
-                      volumen_real_m3: totalVolumen,
-                      costo_total: totalCosto,
-                      ...(totalPeso != null && { peso_ton: totalPeso }),
-                      precio_m3: costos.precioM3,
-                      id_precios_material: costos.idPreciosMaterial,
-                      tarifa_primer_km: costos.tarifaPrimerKm,
-                      tarifa_subsecuente: costos.tarifaSubsecuente,
-                    })
-                    .eq("id_detalle_material", idDetalleMaterial);
-
-                  if (errorDetalles) throw errorDetalles;
-
-                  const viajesActualizados = [...viajes, viajeNuevo];
-                  setViajes(viajesActualizados);
-                  iniciarCuentaRegresiva(viajesActualizados);
-                  resolve(viajeNuevo);
-                } catch (error) {
-                  console.error(
-                    "[useViajesMaterial] Error registrando viaje:",
-                    error,
-                  );
-                  Alert.alert(
-                    "Error",
-                    `No se pudo registrar el viaje: ${error.message}`,
-                    [{ text: "OK" }],
-                  );
-                  resolve(false);
-                } finally {
-                  setRegistrando(false);
-                }
-              },
-            },
+            { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
+            { text: "Confirmar", style: "default", onPress: confirmar },
           ],
         );
       });
@@ -386,6 +500,7 @@ export const useViajesMaterial = (
     [
       puedeRegistrar,
       minutosRestantes,
+      minMinutosEntreViajes,
       viajes,
       idDetalleMaterial,
       idVale,
@@ -515,7 +630,7 @@ export const useViajesMaterial = (
                 latitud_registro,
                 longitud_registro,
                 distancia_obra_metros,
-                banco_override:id_banco_override (id_banco, banco)
+                bancos_override:id_banco_override (id_banco, banco)
               )
             )
             `,
@@ -540,33 +655,34 @@ export const useViajesMaterial = (
 
   // ─── Actualizar foto de un viaje ─────────────────────────────────────────
 
+  // motivoSinFoto solo se usa cuando NO hay foto: registra por qué no se tomó,
+  // en vez de dejar el viaje sin evidencia y sin explicación (o con una foto de
+  // la nada, que es lo que pasaba cuando la foto era obligatoria).
   const actualizarFotoViaje = useCallback(
-    async (idViaje, fotoUrl, latitud, longitud, distanciaObra) => {
+    async (idViaje, fotoUrl, latitud, longitud, distanciaObra, motivoSinFoto = null) => {
+      const omitida = !fotoUrl && motivoEsValido(motivoSinFoto);
+      const campos = {
+        foto_evidencia_url: fotoUrl ?? null,
+        latitud_registro: latitud ?? null,
+        longitud_registro: longitud ?? null,
+        distancia_obra_metros: distanciaObra ?? null,
+        foto_omitida: omitida,
+        motivo_sin_foto_codigo: omitida ? motivoSinFoto.codigo : null,
+        motivo_sin_foto_texto: omitida
+          ? motivoSinFoto.texto?.trim() || null
+          : null,
+      };
+
       try {
         const { error } = await supabase
           .from("vale_material_viajes")
-          .update({
-            foto_evidencia_url: fotoUrl,
-            latitud_registro: latitud ?? null,
-            longitud_registro: longitud ?? null,
-            distancia_obra_metros: distanciaObra ?? null,
-          })
+          .update(campos)
           .eq("id_viaje", idViaje);
 
         if (error) throw error;
 
         setViajes((prev) =>
-          prev.map((v) =>
-            v.id_viaje === idViaje
-              ? {
-                  ...v,
-                  foto_evidencia_url: fotoUrl,
-                  latitud_registro: latitud ?? null,
-                  longitud_registro: longitud ?? null,
-                  distancia_obra_metros: distanciaObra ?? null,
-                }
-              : v,
-          ),
+          prev.map((v) => (v.id_viaje === idViaje ? { ...v, ...campos } : v)),
         );
 
         return true;
@@ -575,7 +691,12 @@ export const useViajesMaterial = (
           "[useViajesMaterial] Error actualizando foto viaje:",
           error,
         );
-        Alert.alert("Error", "No se pudo guardar la foto del viaje.");
+        Alert.alert(
+          "Error",
+          omitida
+            ? "No se pudo guardar el motivo. Intenta de nuevo."
+            : "No se pudo guardar la foto del viaje.",
+        );
         return false;
       }
     },
@@ -592,11 +713,14 @@ export const useViajesMaterial = (
     cargarViajes();
   }, [cargarViajes]);
 
+  // minMinutosEntreViajes va en las deps porque el umbral llega de forma
+  // asincrona (obras + vista de historico). Sin el, la cuenta regresiva se
+  // quedaria congelada con el valor por defecto.
   useEffect(() => {
     if (!loading) {
       iniciarCuentaRegresiva(viajes);
     }
-  }, [loading]);
+  }, [loading, minMinutosEntreViajes]);
 
   useEffect(() => {
     return () => {
@@ -613,6 +737,10 @@ export const useViajesMaterial = (
     totalViajes: viajes.length,
     puedeRegistrar: puedeRegistrar(),
     minutosRestantes,
+    minutosMinimos: minMinutosEntreViajes,
+    origenTiempoMinimo,
+    distanciaEfectivaKm,
+    bancoEfectivoNombre,
     registrarViaje,
     completarVale,
     actualizarFotoViaje,

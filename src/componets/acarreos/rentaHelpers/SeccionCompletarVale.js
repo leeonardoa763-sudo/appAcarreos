@@ -16,7 +16,6 @@
  * - viajes: array
  * - loadingViajes: boolean
  * - registrando: boolean
- * - puedeRegistrar: boolean
  * - totalViajes: number
  * - onRegistrarViaje: function
  * - esRentaPorDia: boolean
@@ -54,7 +53,6 @@ const SeccionCompletarVale = ({
   viajes,
   loadingViajes,
   registrando,
-  puedeRegistrar,
   totalViajes,
   onRegistrarViaje,
   esRentaPorDia,
@@ -83,7 +81,8 @@ const SeccionCompletarVale = ({
     saving ||
     !!mensajeBloqueo ||
     (!esRentaPorDia && !esRentaPorMedioDia && !horaFin) ||
-    !evidenciaProps.evidenciaLista ||
+    // Resuelta = con foto, o con el motivo escrito de por que no la hay
+    !evidenciaProps.evidenciaResuelta ||
     ticketsViajesDesbalanceados;
 
   const helperText = esRentaPorDia
@@ -109,7 +108,6 @@ const SeccionCompletarVale = ({
         viajes={viajes}
         loading={loadingViajes}
         registrando={registrando}
-        puedeRegistrar={puedeRegistrar}
         totalViajes={totalViajes}
         onRegistrarViaje={onRegistrarViaje}
         esResidente={esResidente}
@@ -166,6 +164,9 @@ const SeccionCompletarVale = ({
             errorUbicacion={evidenciaProps.errorUbicacion}
             onTomarFoto={evidenciaProps.onTomarFoto}
             onCapturarUbicacion={evidenciaProps.onCapturarUbicacion}
+            motivoSinFoto={evidenciaProps.motivoSinFoto}
+            onOmitirFoto={evidenciaProps.onOmitirFoto}
+            onDeshacerOmision={evidenciaProps.onDeshacerOmision}
           />
 
           {mensajeBloqueo && (

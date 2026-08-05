@@ -8,9 +8,36 @@
  * - Aplicar lógica de intervalos (primer km + subsecuentes)
  * - Manejar límites NULL (sin límite de distancia)
  * - Obtener tarifa correcta desde BD
+ *
+ * TARIFA POR OBRA (2026-08-04):
+ * Una obra puede tener tarifa propia en `precios_material_obra`. La resolución
+ * es siempre la misma:
+ *
+ *   tarifa de (obra, tipo de material, sindicato)
+ *     → si no existe → tarifa por defecto del sindicato (precios_material)
+ *
+ * Las dos tablas tienen los mismos campos de intervalos, así que `calcularPrecioM3`
+ * no distingue entre una y otra. El origen viaja en `_origen` para poder guardar
+ * la FK correcta en el vale.
  */
 
 import { supabase } from "../config/supabase";
+
+// Marca de origen que se adjunta a la fila de tarifa resuelta
+const ORIGEN_OBRA = "obra";
+const ORIGEN_SINDICATO = "sindicato";
+
+/**
+ * Referencia legible de la tarifa para mensajes de error: dice qué fila revisar
+ * y en qué pantalla. Las dos tablas usan PK distinta, así que no se puede leer
+ * `id_precios_material` a secas.
+ */
+const referenciaTarifa = (tarifa) =>
+  tarifa?._origen === ORIGEN_OBRA
+    ? `la tarifa de obra (id_precios_material_obra ${tarifa.id_precios_material_obra}). ` +
+      `Revísala en Tarifas por Obra.`
+    : `la tarifa del sindicato (id_precios_material ${tarifa?.id_precios_material}). ` +
+      `Revísala en Precios de Material.`;
 
 /**
  * Calcula el precio por m³ según la distancia y los intervalos de precios
@@ -53,8 +80,8 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
       precioMaterial.primer_km
     );
     throw new Error(
-      `Tarifa de primer km inválida ("${precioMaterial.primer_km}") en la tarifa ` +
-        `id_precios_material ${precioMaterial.id_precios_material}. Revísala en Precios de Material.`
+      `Tarifa de primer km inválida ("${precioMaterial.primer_km}") en ` +
+        referenciaTarifa(precioMaterial)
     );
   }
 
@@ -78,8 +105,8 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
         "[preciosMaterial] Error: Tarifa subsecuente intervalo 1 inválida"
       );
       throw new Error(
-        `Tarifa de intervalo 1 inválida ("${precioMaterial.km_sub_int1}") en la tarifa ` +
-          `id_precios_material ${precioMaterial.id_precios_material}. Revísala en Precios de Material.`
+        `Tarifa de intervalo 1 inválida ("${precioMaterial.km_sub_int1}") en ` +
+          referenciaTarifa(precioMaterial)
       );
     }
 
@@ -118,8 +145,8 @@ export const calcularPrecioM3 = (distanciaKm, precioMaterial) => {
         "[preciosMaterial] Error: Tarifa subsecuente intervalo 2 inválida"
       );
       throw new Error(
-        `Tarifa de intervalo 2 inválida ("${precioMaterial.km_sub_int2}") en la tarifa ` +
-          `id_precios_material ${precioMaterial.id_precios_material}. Revísala en Precios de Material.`
+        `Tarifa de intervalo 2 inválida ("${precioMaterial.km_sub_int2}") en ` +
+          referenciaTarifa(precioMaterial)
       );
     }
 
@@ -191,18 +218,73 @@ const describirCombinacion = async (idTipoMaterial, idSindicato) => {
 };
 
 /**
- * Obtiene la tarifa de precios_material según tipo de material y sindicato
+ * Busca la tarifa específica de una obra en precios_material_obra.
  *
- * NO usa .single(): con 0 filas PostgREST lanza "Cannot coerce the result to a
- * single JSON object", un mensaje que no dice qué combinación falta y que dejaba
- * el vale a medio crear. Aquí 0 filas devuelve null (lo que promete el @returns)
- * y el duplicado se reporta con su propio mensaje.
+ * Puede usar .maybeSingle() sin riesgo: la tabla tiene UNIQUE
+ * (id_obra, id_tipo_de_material, id_sindicato), así que hay 0 o 1 fila.
  *
  * @param {number} idTipoMaterial - ID del tipo de material
  * @param {number} idSindicato - ID del sindicato
- * @returns {Promise<object|null>} - Objeto con datos de precios_material o null
+ * @param {number} idObra - ID de la obra del vale
+ * @returns {Promise<object|null>} - Tarifa de la obra, o null si no tiene una propia
  */
-export const obtenerTarifaMaterial = async (idTipoMaterial, idSindicato) => {
+const obtenerTarifaMaterialObra = async (
+  idTipoMaterial,
+  idSindicato,
+  idObra
+) => {
+  if (!idObra) return null;
+
+  const { data, error } = await supabase
+    .from("precios_material_obra")
+    .select("*")
+    .eq("id_obra", idObra)
+    .eq("id_tipo_de_material", idTipoMaterial)
+    .eq("id_sindicato", idSindicato)
+    .eq("activo", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      "[preciosMaterial] Error consultando precios_material_obra:",
+      error.message
+    );
+    throw error;
+  }
+
+  return data ? { ...data, _origen: ORIGEN_OBRA } : null;
+};
+
+/**
+ * Obtiene la tarifa vigente para tipo de material + sindicato, dando prioridad
+ * a la tarifa propia de la obra si la tiene.
+ *
+ * El SELECT sobre precios_material NO usa .single(): con 0 filas PostgREST lanza
+ * "Cannot coerce the result to a single JSON object", un mensaje que no dice qué
+ * combinación falta y que dejaba el vale a medio crear. Aquí 0 filas devuelve
+ * null (lo que promete el @returns) y el duplicado se reporta con su propio
+ * mensaje.
+ *
+ * @param {number} idTipoMaterial - ID del tipo de material
+ * @param {number} idSindicato - ID del sindicato
+ * @param {number} [idObra] - ID de la obra. Sin él se usa siempre la del sindicato
+ * @returns {Promise<object|null>} - Tarifa con `_origen`, o null si no hay ninguna
+ */
+export const obtenerTarifaMaterial = async (
+  idTipoMaterial,
+  idSindicato,
+  idObra
+) => {
+  const tarifaObra = await obtenerTarifaMaterialObra(
+    idTipoMaterial,
+    idSindicato,
+    idObra
+  );
+
+  if (tarifaObra) {
+    return tarifaObra;
+  }
+
   const { data, error } = await supabase
     .from("precios_material")
     .select("*")
@@ -236,22 +318,32 @@ export const obtenerTarifaMaterial = async (idTipoMaterial, idSindicato) => {
     );
   }
 
-  return tarifas[0];
+  return { ...tarifas[0], _origen: ORIGEN_SINDICATO };
 };
 
 /**
- * Verifica que exista tarifa para la combinación tipo de material + sindicato.
- * Lanza un error con nombres reales si falta o si está duplicada.
+ * Verifica que exista tarifa para la combinación tipo de material + sindicato
+ * (o la propia de la obra). Lanza un error con nombres reales si falta o si
+ * está duplicada.
  *
  * Llamar ANTES de insertar el vale: así no queda un vale sin detalle (folio
  * quemado) cuando la tarifa no está cargada.
  *
  * @param {number} idTipoMaterial - ID del tipo de material
  * @param {number} idSindicato - ID del sindicato
+ * @param {number} [idObra] - ID de la obra del vale
  * @returns {Promise<object>} - La tarifa encontrada
  */
-export const verificarTarifaMaterial = async (idTipoMaterial, idSindicato) => {
-  const tarifa = await obtenerTarifaMaterial(idTipoMaterial, idSindicato);
+export const verificarTarifaMaterial = async (
+  idTipoMaterial,
+  idSindicato,
+  idObra
+) => {
+  const tarifa = await obtenerTarifaMaterial(
+    idTipoMaterial,
+    idSindicato,
+    idObra
+  );
 
   if (tarifa) {
     return tarifa;
@@ -271,21 +363,31 @@ export const verificarTarifaMaterial = async (idTipoMaterial, idSindicato) => {
 /**
  * Calcula precio y costo total de un vale de material
  *
+ * `idObra` va al final a propósito: una llamada que se quedara sin actualizar
+ * sigue funcionando y cae en la tarifa del sindicato (el comportamiento previo),
+ * en vez de tronar o de cobrar con la tarifa equivocada.
+ *
  * @param {number} idTipoMaterial - ID del tipo de material
  * @param {number} idSindicato - ID del sindicato
  * @param {number} distanciaKm - Distancia al banco
  * @param {number} cantidadM3 - Cantidad de metros cúbicos
- * @returns {Promise<object>} - { precioM3, costoTotal, idPreciosMaterial, tarifaPrimerKm, tarifaSubsecuente }
+ * @param {number} [idObra] - ID de la obra del vale (para la tarifa por obra)
+ * @returns {Promise<object>} - { precioM3, costoTotal, idPreciosMaterial, idPreciosMaterialObra, tarifaPrimerKm, tarifaSubsecuente }
  */
 export const calcularCostoValeMaterial = async (
   idTipoMaterial,
   idSindicato,
   distanciaKm,
-  cantidadM3
+  cantidadM3,
+  idObra
 ) => {
 
   // Obtener tarifa — lanza mensaje con nombres si falta o está duplicada
-  const tarifa = await verificarTarifaMaterial(idTipoMaterial, idSindicato);
+  const tarifa = await verificarTarifaMaterial(
+    idTipoMaterial,
+    idSindicato,
+    idObra
+  );
 
   // Calcular precio por m³
   const precioM3 = calcularPrecioM3(distanciaKm, tarifa);
@@ -312,11 +414,19 @@ export const calcularCostoValeMaterial = async (
   }
 
 
+  // Solo una de las dos FK se puebla: la otra queda null. Así el vale registra
+  // de qué tabla salió el precio, y el importe ya viaja congelado en precioM3 /
+  // tarifaPrimerKm / tarifaSubsecuente.
+  const esTarifaDeObra = tarifa._origen === ORIGEN_OBRA;
+
   return {
     precioM3: parseFloat(precioM3.toFixed(2)),
     costoTotal: parseFloat(costoTotal.toFixed(2)),
-    idPreciosMaterial: tarifa.id_precios_material,
-    tarifaPrimerKm: parseFloat(tarifa.primer_km.toFixed(2)),
-    tarifaSubsecuente: parseFloat(tarifaSubsecuente.toFixed(2)),
+    idPreciosMaterial: esTarifaDeObra ? null : tarifa.id_precios_material,
+    idPreciosMaterialObra: esTarifaDeObra
+      ? tarifa.id_precios_material_obra
+      : null,
+    tarifaPrimerKm: parseFloat(parseFloat(tarifa.primer_km).toFixed(2)),
+    tarifaSubsecuente: parseFloat(parseFloat(tarifaSubsecuente).toFixed(2)),
   };
 };

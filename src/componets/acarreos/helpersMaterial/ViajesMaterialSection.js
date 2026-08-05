@@ -38,6 +38,12 @@ import { colors } from "../../../config/colors";
 import { BLUETOOTH_ENABLED, HIDE_ON_WEB } from "../../../config/features";
 import { urlAyudaVale } from "../../../config/ayuda";
 import crossAlert from "../../../utils/crossAlert";
+import {
+  MOTIVOS_ANTICIPADO,
+  MOTIVOS_SIN_FOTO,
+  etiquetaMotivo,
+  explicacionOrigen,
+} from "../../../utils/tiempoEntreViajes";
 
 // 5. Local - Componentes
 import BotonAyuda from "../../common/BotonAyuda";
@@ -45,6 +51,7 @@ import FormInput from "../../forms/FormInput";
 import ModalImprimirTicketRenta from "../rentaHelpers/ModalImprimirTicketRenta";
 import ValeFormCompletarNormal from "./ValeFormCompletarNormal";
 import ModalEvidenciaViaje from "./ModalEvidenciaViaje";
+import ModalMotivo from "../../vale/ModalMotivo";
 
 // 6. Imports condicionales Bluetooth
 let generarTicketMaterialViaje;
@@ -151,6 +158,69 @@ const ViajeItem = ({ viaje, detalle, esTipo3, esChecador, onTomarFoto }) => {
           <Text style={styles.viajeFolio}>Rem. {viaje.folio_vale_fisico}</Text>
         ) : null}
         <Text style={styles.viajeBanco}>{bancoEfectivo}</Text>
+
+        {/* Excepciones: un motivo que nadie puede consultar no sirve de nada */}
+        {(viaje.registro_anticipado || viaje.foto_omitida) && (
+          <View style={styles.viajeAvisos}>
+            {viaje.registro_anticipado && (
+              <TouchableOpacity
+                style={styles.avisoChip}
+                onPress={() =>
+                  crossAlert(
+                    "Registro anticipado",
+                    `Se registro ${viaje.minutos_faltantes_anticipado ?? "?"} min antes del tiempo minimo.\n\nMotivo: ${
+                      etiquetaMotivo(
+                        MOTIVOS_ANTICIPADO,
+                        viaje.motivo_anticipado_codigo,
+                      )
+                    }${
+                      viaje.motivo_anticipado_texto
+                        ? `\n\n"${viaje.motivo_anticipado_texto}"`
+                        : ""
+                    }`,
+                    [{ text: "Entendido" }],
+                  )
+                }
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name="clock-alert-outline"
+                  size={12}
+                  color={colors.warning}
+                />
+                <Text style={styles.avisoChipTexto}>Anticipado</Text>
+              </TouchableOpacity>
+            )}
+
+            {viaje.foto_omitida && (
+              <TouchableOpacity
+                style={styles.avisoChip}
+                onPress={() =>
+                  crossAlert(
+                    "Sin foto de evidencia",
+                    `Motivo: ${etiquetaMotivo(
+                      MOTIVOS_SIN_FOTO,
+                      viaje.motivo_sin_foto_codigo,
+                    )}${
+                      viaje.motivo_sin_foto_texto
+                        ? `\n\n"${viaje.motivo_sin_foto_texto}"`
+                        : ""
+                    }`,
+                    [{ text: "Entendido" }],
+                  )
+                }
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name="camera-off-outline"
+                  size={12}
+                  color={colors.warning}
+                />
+                <Text style={styles.avisoChipTexto}>Sin foto</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
 
       <View style={styles.viajeMetrics}>
@@ -254,6 +324,10 @@ const ViajesMaterialSection = ({
   onRegistrarViaje,
   puedeRegistrar,
   minutosRestantes,
+  minutosMinimos,
+  origenTiempoMinimo,
+  distanciaEfectivaKm,
+  bancoEfectivoNombre,
   tipoMaterial,
   onCompletar,
   saving,
@@ -287,6 +361,8 @@ const ViajesMaterialSection = ({
   const [valores, setValores] = useState(valorInicialForm);
   const [viajeParaImprimir, setViajeParaImprimir] = useState(null);
   const [viajeParaFoto, setViajeParaFoto] = useState(null);
+  const [pidiendoMotivoAnticipado, setPidiendoMotivoAnticipado] =
+    useState(false);
 
   // ─── Validar formulario antes de registrar ────────────────────────────────
 
@@ -325,6 +401,28 @@ const ViajesMaterialSection = ({
 
   // ─── Manejar registro de viaje ────────────────────────────────────────────
 
+  const ejecutarRegistro = useCallback(
+    async (motivoAnticipado = null) => {
+      const resultado = await onRegistrarViaje({
+        pesoTon: esTipo3 ? null : valores.pesoTon,
+        volumenDirecto: esTipo3 ? valores.volumenDirecto : null,
+        folioValeFisico: valores.folioValeFisico || null,
+        motivoAnticipado,
+      });
+
+      if (resultado) {
+        setValores({
+          pesoTon: "",
+          volumenDirecto: esTipo3 ? capacidadVehiculo : "",
+          folioValeFisico: "",
+        });
+        debugTicketEnConsola(vale, detalle, resultado);
+        setViajeParaFoto(resultado);
+      }
+    },
+    [onRegistrarViaje, esTipo3, valores, capacidadVehiculo, vale, detalle],
+  );
+
   const handleRegistrar = useCallback(async () => {
     if (bloqueadoPlantaAsfaltos) {
       Alert.alert(
@@ -343,33 +441,45 @@ const ViajesMaterialSection = ({
     }
     if (!validarFormulario()) return;
 
-    const resultado = await onRegistrarViaje({
-      pesoTon: esTipo3 ? null : valores.pesoTon,
-      volumenDirecto: esTipo3 ? valores.volumenDirecto : null,
-      folioValeFisico: valores.folioValeFisico || null,
-    });
-
-    if (resultado) {
-      setValores({
-        pesoTon: "",
-        volumenDirecto: esTipo3 ? capacidadVehiculo : "",
-        folioValeFisico: "",
-      });
-      debugTicketEnConsola(vale, detalle, resultado);
-      setViajeParaFoto(resultado);
+    // Antes del tiempo minimo no se aborta: se ofrece registrar dejando un
+    // motivo escrito, que queda guardado con el viaje.
+    if (!puedeRegistrar) {
+      setPidiendoMotivoAnticipado(true);
+      return;
     }
-  }, [validarFormulario, onRegistrarViaje, esTipo3, valores, tieneTicketPendiente, bloqueadoPlantaAsfaltos]);
+
+    await ejecutarRegistro(null);
+  }, [
+    validarFormulario,
+    ejecutarRegistro,
+    puedeRegistrar,
+    tieneTicketPendiente,
+    bloqueadoPlantaAsfaltos,
+  ]);
+
+  const handleConfirmarAnticipado = useCallback(
+    (motivo) => {
+      setPidiendoMotivoAnticipado(false);
+      // Registrar abre enseguida el modal de evidencia. Android no apila dos
+      // <Modal>, hay que dejar que este termine de cerrarse antes.
+      setTimeout(() => ejecutarRegistro(motivo), 300);
+    },
+    [ejecutarRegistro],
+  );
 
   const handleFotoGuardada = useCallback(
-    async (idViaje, fotoUrl, ubicacion, distanciaObra) => {
+    async (idViaje, fotoUrl, ubicacion, distanciaObra, motivoSinFoto = null) => {
       setViajeParaFoto(null);
-      if (fotoUrl && actualizarFotoViaje) {
+      // Se persiste tanto la foto como la ausencia declarada de foto: sin esto
+      // el motivo escrito por el usuario se perderia.
+      if ((fotoUrl || motivoSinFoto) && actualizarFotoViaje) {
         await actualizarFotoViaje(
           idViaje,
           fotoUrl,
           ubicacion?.latitud ?? null,
           ubicacion?.longitud ?? null,
           distanciaObra ?? null,
+          motivoSinFoto,
         );
       }
     },
@@ -513,7 +623,13 @@ const ViajesMaterialSection = ({
             </View>
           ) : (
             (() => {
-              const botonActivo = puedeRegistrar && tieneTicketPendiente && !registrando;
+              // Solo el ticket faltante pinta el boton en gris, porque ese si
+              // es un bloqueo real. Antes del tiempo minimo el boton se queda
+              // en color: el registro SI se puede hacer dejando un motivo, y un
+              // boton gris comunica "no se puede" — el usuario ni lo intenta.
+              const bloqueadoPorTicket = !tieneTicketPendiente;
+              const apresurado = !puedeRegistrar && !bloqueadoPorTicket;
+              const enColor = !bloqueadoPorTicket && !registrando;
               const labelViaje =
                 totalViajes === 0
                   ? "Registrar Primer Viaje"
@@ -522,7 +638,8 @@ const ViajesMaterialSection = ({
                 <TouchableOpacity
                   style={[
                     styles.botonRegistrar,
-                    !botonActivo && styles.botonDeshabilitado,
+                    apresurado && styles.botonApresurado,
+                    bloqueadoPorTicket && styles.botonDeshabilitado,
                   ]}
                   onPress={handleRegistrar}
                   disabled={registrando}
@@ -533,17 +650,17 @@ const ViajesMaterialSection = ({
                   ) : (
                     <>
                       <MaterialCommunityIcons
-                        name="plus-circle"
+                        name={apresurado ? "clock-alert-outline" : "plus-circle"}
                         size={20}
-                        color={botonActivo ? colors.surface : colors.textSecondary}
+                        color={enColor ? colors.surface : colors.textSecondary}
                       />
                       <Text
                         style={[
                           styles.botonTexto,
-                          !botonActivo && { color: colors.textSecondary },
+                          !enColor && { color: colors.textSecondary },
                         ]}
                       >
-                        {labelViaje}
+                        {apresurado ? `${labelViaje} apresurado` : labelViaje}
                       </Text>
                     </>
                   )}
@@ -557,9 +674,19 @@ const ViajesMaterialSection = ({
             </Text>
           )}
           {!bloqueadoPlantaAsfaltos && tieneTicketPendiente && !puedeRegistrar && (
-            <Text style={styles.avisoTicket}>
-              Espera {minutosRestantes} min antes del siguiente viaje
-            </Text>
+            <>
+              <Text style={styles.avisoApresurado}>
+                Faltan {minutosRestantes} min para el tiempo normal
+                {minutosMinimos ? ` de ${minutosMinimos} min` : ""}. Si lo
+                registras ahora se te pedira el motivo.
+              </Text>
+              <Text style={styles.avisoOrigen}>
+                {explicacionOrigen(origenTiempoMinimo, {
+                  distanciaKm: distanciaEfectivaKm,
+                  banco: bancoEfectivoNombre,
+                })}
+              </Text>
+            </>
           )}
           <ValeFormCompletarNormal
             notasAdicionales={notasAdicionales}
@@ -571,7 +698,23 @@ const ViajesMaterialSection = ({
         </>
       )}
 
-      {/* Modal de foto obligatoria por viaje */}
+      {/* Registrar antes del tiempo minimo: se permite, con motivo escrito */}
+      <ModalMotivo
+        visible={pidiendoMotivoAnticipado}
+        titulo="Registro apresurado"
+        mensaje={`Faltan ${minutosRestantes} min para el tiempo normal de este banco. ${explicacionOrigen(
+          origenTiempoMinimo,
+          { distanciaKm: distanciaEfectivaKm, banco: bancoEfectivoNombre },
+        )}. Puedes registrarlo de todos modos, solo indica por que.`}
+        icono="clock-alert-outline"
+        motivos={MOTIVOS_ANTICIPADO}
+        textoConfirmar="Registrar ahora"
+        textoCancelar="Esperar"
+        onConfirmar={handleConfirmarAnticipado}
+        onCancelar={() => setPidiendoMotivoAnticipado(false)}
+      />
+
+      {/* Evidencia del viaje: foto, o motivo por el que no se tomo */}
       <ModalEvidenciaViaje
         visible={!!viajeParaFoto}
         viaje={viajeParaFoto}
@@ -688,6 +831,26 @@ const styles = StyleSheet.create({
     color: colors.secondary,
     marginTop: 2,
   },
+  viajeAvisos: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 4,
+  },
+  avisoChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#FEF5E7",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  avisoChipTexto: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: colors.warning,
+  },
   viajeCostoOverride: {
     color: colors.primary,
   },
@@ -725,6 +888,10 @@ const styles = StyleSheet.create({
   botonDeshabilitado: {
     backgroundColor: "#E8EAF0",
   },
+  // Ambar, no gris: se puede pulsar, solo avisa que sera un registro apresurado
+  botonApresurado: {
+    backgroundColor: colors.warning,
+  },
   botonTexto: {
     fontSize: 14,
     fontWeight: "600",
@@ -751,6 +918,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
     fontStyle: "italic",
+  },
+  avisoApresurado: {
+    fontSize: 12,
+    color: colors.warning,
+    textAlign: "center",
+    marginTop: 8,
+    fontWeight: "500",
+  },
+  avisoOrigen: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginTop: 2,
   },
   avisoBloqueoPlanta: {
     flexDirection: "row",

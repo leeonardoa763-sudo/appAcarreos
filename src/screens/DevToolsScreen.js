@@ -50,6 +50,19 @@ const SECCIONES = [
       },
     ],
   },
+  {
+    titulo: "Tarifas",
+    opciones: [
+      {
+        destino: "GestionTarifas",
+        icono: "cash-multiple",
+        color: colors.primary,
+        label: "Tarifas por obra",
+        descripcion:
+          "Asignar tarifas propias de una obra que sustituyan al default del sindicato",
+      },
+    ],
+  },
 ];
 
 export default function DevToolsScreen({ navigation }) {

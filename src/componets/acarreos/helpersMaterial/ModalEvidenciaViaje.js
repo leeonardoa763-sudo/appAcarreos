@@ -1,5 +1,5 @@
 // 1. React
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 
 // 2. React Native
 import {
@@ -19,22 +19,32 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 // 4. Config
 import { colors } from "../../../config/colors";
 
-// 5. Hooks
+// 5. Hooks y utilidades
 import useEvidenciaVale from "../../../hooks/useEvidenciaVale";
+import { MOTIVOS_SIN_FOTO } from "../../../utils/tiempoEntreViajes";
+
+// 6. Subcomponentes
+import { FormularioMotivo } from "../../vale/ModalMotivo";
 
 /**
  * ModalEvidenciaViaje
  *
  * Modal que aparece automáticamente tras registrar un viaje.
- * Obliga a tomar la foto del camión antes de continuar.
+ * Pide la foto del camión, o el motivo por el que no se toma.
  * También se puede abrir manualmente desde el botón fallback en ViajeItem.
+ *
+ * La foto dejó de ser obligatoria a proposito: cuando el vale se captura
+ * despues y fuera de campo, forzarla producia fotos de la nada guardadas como
+ * evidencia valida. Declarar que no hay foto, con un motivo, es mas honesto y
+ * auditable. El paso de motivo se renderiza DENTRO de este mismo <Modal>
+ * (estado `paso`) porque Android no apila dos modales de forma confiable.
  *
  * PROPS:
  * - visible: boolean
  * - viaje: { id_viaje, numero_viaje }
  * - folioVale: string
  * - obraData: object — datos de la obra (para calcular distancia GPS)
- * - onFotoGuardada: async (idViaje, fotoUrl, ubicacion, distanciaObra) => void
+ * - onFotoGuardada: async (idViaje, fotoUrl, ubicacion, distanciaObra, motivoSinFoto) => void
  */
 const ModalEvidenciaViaje = ({
   visible,
@@ -43,6 +53,8 @@ const ModalEvidenciaViaje = ({
   obraData,
   onFotoGuardada,
 }) => {
+  const [paso, setPaso] = useState("foto");
+  const [guardandoMotivo, setGuardandoMotivo] = useState(false);
   const {
     foto,
     fotoUrl,
@@ -61,6 +73,8 @@ const ModalEvidenciaViaje = ({
 
   useEffect(() => {
     if (visible) {
+      setPaso("foto");
+      setGuardandoMotivo(false);
       capturarUbicacion();
     } else {
       resetEvidencia();
@@ -80,30 +94,67 @@ const ModalEvidenciaViaje = ({
     );
   };
 
+  const handleConfirmarSinFoto = async (motivo) => {
+    setGuardandoMotivo(true);
+    try {
+      // Sin foto no se guarda la ubicacion: el GPS de una captura tardia
+      // apunta a donde esta el usuario ahora, no a donde ocurrio el viaje.
+      await onFotoGuardada(viaje.id_viaje, null, null, null, motivo);
+    } finally {
+      setGuardandoMotivo(false);
+    }
+  };
+
+  // El unico camino de salida sin resolver nada es el boton atras de Android.
+  // Se avisa en vez de dejar el viaje sin foto ni motivo en silencio.
   const handleIntentarCerrar = () => {
+    if (paso === "motivo") {
+      setPaso("foto");
+      return;
+    }
     if (!fotoUrl) {
       Alert.alert(
-        "Foto requerida",
-        "Debes tomar la foto del camion antes de continuar.",
+        "Evidencia pendiente",
+        "Toma la foto del camion o indica por que no se puede tomar.",
         [{ text: "Entendido" }],
       );
       return;
     }
     Alert.alert(
       "Foto sin confirmar",
-      "Tomaste la foto pero no la guardaste. ¿Deseas descartarla?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Descartar",
-          style: "destructive",
-          onPress: () => onFotoGuardada(viaje.id_viaje, null, null, null),
-        },
-      ],
+      "Tomaste la foto pero no la guardaste. Confirmala para registrarla.",
+      [{ text: "Entendido" }],
     );
   };
 
   const cargando = loadingFoto || loadingUbicacion;
+
+  if (paso === "motivo") {
+    return (
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleIntentarCerrar}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <FormularioMotivo
+              titulo={`Viaje ${viaje?.numero_viaje} sin foto`}
+              mensaje="El viaje queda registrado sin evidencia fotografica. Indica por que no se tomo la foto."
+              icono="camera-off-outline"
+              motivos={MOTIVOS_SIN_FOTO}
+              textoConfirmar="Guardar sin foto"
+              textoCancelar="Volver"
+              confirmando={guardandoMotivo}
+              onConfirmar={handleConfirmarSinFoto}
+              onCancelar={() => setPaso("foto")}
+            />
+          </View>
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -127,7 +178,8 @@ const ModalEvidenciaViaje = ({
           </View>
 
           <Text style={styles.subtitulo}>
-            Toma una foto del camion para registrar la evidencia del viaje.
+            Toma una foto del camion para registrar la evidencia del viaje. Si
+            no estas en campo, indica por que no se puede tomar.
           </Text>
 
           {/* Zona de foto */}
@@ -256,6 +308,23 @@ const ModalEvidenciaViaje = ({
               Confirmar foto
             </Text>
           </TouchableOpacity>
+
+          {/* Salida explicita y auditada, en vez de la foto a la nada */}
+          {!fotoUrl && (
+            <TouchableOpacity
+              style={styles.botonSinFoto}
+              onPress={() => setPaso("motivo")}
+              disabled={cargando}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="camera-off-outline"
+                size={16}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.botonSinFotoTexto}>No tomar foto</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </Modal>
@@ -383,6 +452,19 @@ const styles = StyleSheet.create({
   },
   botonConfirmarTextoDeshabilitado: {
     color: colors.textSecondary,
+  },
+  botonSinFoto: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+  },
+  botonSinFotoTexto: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: colors.textSecondary,
+    textDecorationLine: "underline",
   },
 });
 

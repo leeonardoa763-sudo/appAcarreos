@@ -111,6 +111,14 @@ export const VALE_SELECT_COMPLETO = `
       latitud_registro,
       longitud_registro,
       distancia_obra_metros,
+      registro_anticipado,
+      minutos_minimos_calculados,
+      minutos_faltantes_anticipado,
+      motivo_anticipado_codigo,
+      motivo_anticipado_texto,
+      foto_omitida,
+      motivo_sin_foto_codigo,
+      motivo_sin_foto_texto,
       bancos_override:id_banco_override (
         id_banco,
         banco

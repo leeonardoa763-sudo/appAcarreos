@@ -35,6 +35,9 @@ export function ModalObra({
   const [empresaSelId, setEmpresaSelId] = useState(null);
   const [radioValidacion, setRadioValidacion] = useState("");
   const [minMinutos, setMinMinutos] = useState("");
+  const [velocidadKmh, setVelocidadKmh] = useState("");
+  const [minutosCargaDescarga, setMinutosCargaDescarga] = useState("");
+  const [factorTolerancia, setFactorTolerancia] = useState("");
   const [latitud, setLatitud] = useState("");
   const [longitud, setLongitud] = useState("");
   const [errMsg, setErrMsg] = useState("");
@@ -53,6 +56,21 @@ export function ModalObra({
       setMinMinutos(
         obra?.min_minutos_entre_viajes != null
           ? String(obra.min_minutos_entre_viajes)
+          : "",
+      );
+      setVelocidadKmh(
+        obra?.velocidad_promedio_kmh != null
+          ? String(obra.velocidad_promedio_kmh)
+          : "",
+      );
+      setMinutosCargaDescarga(
+        obra?.minutos_carga_descarga != null
+          ? String(obra.minutos_carga_descarga)
+          : "",
+      );
+      setFactorTolerancia(
+        obra?.factor_tolerancia_tiempo != null
+          ? String(obra.factor_tolerancia_tiempo)
           : "",
       );
       setLatitud(obra?.latitud != null ? String(obra.latitud) : "");
@@ -99,6 +117,21 @@ export function ModalObra({
     if (minMinutos.trim() && !esEnteroValido(minMinutos))
       return "Los minutos minimos deben ser un numero entero";
 
+    if (velocidadKmh.trim()) {
+      const kmh = parseFloat(velocidadKmh);
+      if (Number.isNaN(kmh) || kmh <= 0)
+        return "La velocidad promedio debe ser mayor a 0";
+    }
+
+    if (minutosCargaDescarga.trim() && !esEnteroValido(minutosCargaDescarga))
+      return "Los minutos de carga y descarga deben ser un numero entero";
+
+    if (factorTolerancia.trim()) {
+      const factor = parseFloat(factorTolerancia);
+      if (Number.isNaN(factor) || factor <= 0 || factor > 1)
+        return "La tolerancia debe estar entre 0 y 1 (ej: 0.8)";
+    }
+
     const tieneLat = !!latitud.trim();
     const tieneLon = !!longitud.trim();
     if (tieneLat !== tieneLon)
@@ -132,6 +165,15 @@ export function ModalObra({
         : null,
       min_minutos_entre_viajes: minMinutos.trim()
         ? parseInt(minMinutos, 10)
+        : null,
+      velocidad_promedio_kmh: velocidadKmh.trim()
+        ? parseFloat(velocidadKmh)
+        : null,
+      minutos_carga_descarga: minutosCargaDescarga.trim()
+        ? parseInt(minutosCargaDescarga, 10)
+        : null,
+      factor_tolerancia_tiempo: factorTolerancia.trim()
+        ? parseFloat(factorTolerancia)
         : null,
       latitud: latitud.trim() ? parseFloat(latitud) : null,
       longitud: longitud.trim() ? parseFloat(longitud) : null,
@@ -295,7 +337,50 @@ export function ModalObra({
               keyboardType="number-pad"
             />
             <Text style={estilos.ayudaTexto}>
-              Tiempo minimo que debe pasar entre dos viajes del mismo camion.
+              Solo se usa cuando el vale no tiene distancia al banco. En vales de
+              material el tiempo se calcula por distancia (ver abajo).
+            </Text>
+
+            <Text style={[estilos.inputLabel, { marginTop: 14 }]}>
+              Velocidad promedio del camion (km/h)
+            </Text>
+            <TextInput
+              style={estilos.input}
+              value={velocidadKmh}
+              onChangeText={limpiarError(setVelocidadKmh)}
+              placeholder="30"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType={TECLADO_DECIMAL}
+            />
+
+            <View style={estilos.filaDoble}>
+              <View style={estilos.mitad}>
+                <Text style={estilos.inputLabel}>Carga y descarga (min)</Text>
+                <TextInput
+                  style={estilos.input}
+                  value={minutosCargaDescarga}
+                  onChangeText={limpiarError(setMinutosCargaDescarga)}
+                  placeholder="19"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="number-pad"
+                />
+              </View>
+              <View style={estilos.mitad}>
+                <Text style={estilos.inputLabel}>Tolerancia (0 a 1)</Text>
+                <TextInput
+                  style={estilos.input}
+                  value={factorTolerancia}
+                  onChangeText={limpiarError(setFactorTolerancia)}
+                  placeholder="0.55"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType={TECLADO_DECIMAL}
+                />
+              </View>
+            </View>
+            <Text style={estilos.ayudaTexto}>
+              Tiempo minimo = (distancia ida y vuelta / velocidad + carga y
+              descarga) x tolerancia. Si el historial del banco muestra que es
+              aun mas lento, se usa ese valor mayor.
             </Text>
 
             <View style={estilos.filaDoble}>

@@ -12,6 +12,49 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { supabase } from "../config/supabase";
 
+/**
+ * Cruza las tarifas por defecto del sindicato con las tarifas propias de las
+ * obras del usuario y marca cada fila con su origen.
+ *
+ * Es lo que evita que este modal diga un precio que no coincide con el del vale:
+ * si la obra tiene tarifa propia, es esa la que se cotiza (ver
+ * utils/preciosMaterial.js y utils/preciosRenta.js), no el default.
+ *
+ * Cada fila queda con:
+ *   _obraNombre    nombre de la obra si es tarifa de obra; null si es el default
+ *   _sustituidaEn  obras donde este default NO aplica por tener tarifa propia
+ *
+ * @param {Array} defaults - Filas de precios_material / precios_renta
+ * @param {Array} deObra - Filas de precios_material_obra / precios_renta_obra
+ * @param {Function} claveDe - Identifica la combinacion que ambas comparten
+ */
+const anotarOrigen = (defaults, deObra, claveDe) => {
+  const obrasPorClave = new Map();
+  (deObra || []).forEach((t) => {
+    const clave = claveDe(t);
+    const nombre = t.obras?.obra ?? `Obra ${t.id_obra}`;
+    obrasPorClave.set(clave, [...(obrasPorClave.get(clave) ?? []), nombre]);
+  });
+
+  const filasDeObra = (deObra || []).map((t) => ({
+    ...t,
+    _obraNombre: t.obras?.obra ?? `Obra ${t.id_obra}`,
+    _sustituidaEn: [],
+  }));
+
+  const filasDefault = (defaults || []).map((t) => ({
+    ...t,
+    _obraNombre: null,
+    _sustituidaEn: obrasPorClave.get(claveDe(t)) ?? [],
+  }));
+
+  // Las de obra primero: son las que realmente aplican
+  return [...filasDeObra, ...filasDefault];
+};
+
+const claveMaterial = (t) => `${t.id_tipo_de_material}-${t.id_sindicato}`;
+const claveRenta = (t) => String(t.id_sindicato);
+
 const TarifasModal = ({ visible, onClose, userObras }) => {
   const [activeTab, setActiveTab] = useState("renta");
   const [loading, setLoading] = useState(false);
@@ -32,7 +75,8 @@ const TarifasModal = ({ visible, onClose, userObras }) => {
 
       const obraIds = userObras.map((o) => o.id);
 
-      // Fetch Tarifas de Renta (agrupadas por sindicato)
+      // Tarifas por defecto del sindicato + las propias de las obras del
+      // usuario. El cruce lo hace anotarOrigen (ver arriba).
       const { data: rentaData, error: rentaError } = await supabase
         .from("precios_renta")
         .select(
@@ -44,7 +88,23 @@ const TarifasModal = ({ visible, onClose, userObras }) => {
         .order("id_sindicato");
 
       if (rentaError) throw rentaError;
-      setTarifasRenta(rentaData || []);
+
+      const { data: rentaObraData, error: rentaObraError } = await supabase
+        .from("precios_renta_obra")
+        .select(
+          `
+          *,
+          sindicatos:id_sindicato(sindicato),
+          obras:id_obra(obra)
+        `,
+        )
+        .in("id_obra", obraIds)
+        .eq("activo", true)
+        .order("id_sindicato");
+
+      if (rentaObraError) throw rentaObraError;
+
+      setTarifasRenta(anotarOrigen(rentaData, rentaObraData, claveRenta));
 
       // Fetch Tarifas de Material
       const { data: materialData, error: materialError } = await supabase
@@ -59,7 +119,27 @@ const TarifasModal = ({ visible, onClose, userObras }) => {
         .order("id_sindicato");
 
       if (materialError) throw materialError;
-      setTarifasMaterial(materialData || []);
+
+      const { data: materialObraData, error: materialObraError } =
+        await supabase
+          .from("precios_material_obra")
+          .select(
+            `
+          *,
+          sindicatos:id_sindicato(sindicato),
+          tipo_de_material:id_tipo_de_material(tipo_de_material),
+          obras:id_obra(obra)
+        `,
+          )
+          .in("id_obra", obraIds)
+          .eq("activo", true)
+          .order("id_sindicato");
+
+      if (materialObraError) throw materialObraError;
+
+      setTarifasMaterial(
+        anotarOrigen(materialData, materialObraData, claveMaterial),
+      );
 
       // Fetch Bancos con distancias (filtrados por obras del usuario)
       const { data: distanciasData, error: distanciasError } = await supabase
@@ -272,6 +352,57 @@ const TarifasModal = ({ visible, onClose, userObras }) => {
 };
 
 // ============================================
+// COMPONENTE: ETIQUETA DE ORIGEN DE LA TARIFA
+// ============================================
+// Naranja  = tarifa propia de una obra; es la que se cotiza ahi.
+// Gris      = default del sindicato. Si ademas hay obras que lo sustituyen, se
+//             listan para que nadie use este precio en una obra donde no aplica.
+const EtiquetaOrigen = ({ tarifa }) => {
+  if (tarifa._obraNombre) {
+    return (
+      <View style={styles.badgeObra}>
+        <MaterialCommunityIcons
+          name="office-building-marker-outline"
+          size={12}
+          color={colors.primary}
+        />
+        <Text style={styles.badgeObraTexto}>
+          Tarifa especial de {tarifa._obraNombre}
+        </Text>
+      </View>
+    );
+  }
+
+  const sustituidaEn = tarifa._sustituidaEn ?? [];
+
+  return (
+    <View style={styles.badgeFila}>
+      <View style={styles.badgeDefault}>
+        <MaterialCommunityIcons
+          name="account-group-outline"
+          size={12}
+          color={colors.textSecondary}
+        />
+        <Text style={styles.badgeDefaultTexto}>Tarifa general</Text>
+      </View>
+
+      {sustituidaEn.length > 0 && (
+        <View style={styles.badgeSustituida}>
+          <MaterialCommunityIcons
+            name="alert-outline"
+            size={12}
+            color={colors.warning}
+          />
+          <Text style={styles.badgeSustituidaTexto}>
+            No aplica en {sustituidaEn.join(", ")}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// ============================================
 // COMPONENTE: TAB DE RENTA
 // ============================================
 const RentaTab = ({ data }) => {
@@ -305,6 +436,7 @@ const RentaTab = ({ data }) => {
           {tarifas.map((tarifa, index) => (
             <View key={index} style={styles.card}>
               <Text style={styles.cardTitle}>{tarifa.equipo}</Text>
+              <EtiquetaOrigen tarifa={tarifa} />
               <View style={styles.cardRow}>
                 <View style={styles.cardItem}>
                   <Text style={styles.cardLabel}>Por hora</Text>
@@ -364,6 +496,7 @@ const MaterialTab = ({ data }) => {
               <Text style={styles.cardTitle}>
                 {tarifa.tipo_de_material?.tipo_de_material || "Sin tipo"}
               </Text>
+              <EtiquetaOrigen tarifa={tarifa} />
               <View style={styles.cardRow}>
                 <View style={styles.cardItem}>
                   <Text style={styles.cardLabel}>Primer kilómetro</Text>
@@ -577,6 +710,67 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: 12,
+  },
+  badgeFila: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 6,
+    marginTop: -6,
+    marginBottom: 12,
+  },
+  badgeObra: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: "#FDEEE7",
+    borderWidth: 1,
+    borderColor: colors.primary,
+    marginTop: -6,
+    marginBottom: 12,
+  },
+  badgeObraTexto: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  badgeDefault: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  badgeDefaultTexto: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.textSecondary,
+  },
+  badgeSustituida: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexShrink: 1,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: "#FDF3E3",
+    borderWidth: 1,
+    borderColor: colors.warning,
+  },
+  badgeSustituidaTexto: {
+    flexShrink: 1,
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.warning,
   },
   cardRow: {
     flexDirection: "row",

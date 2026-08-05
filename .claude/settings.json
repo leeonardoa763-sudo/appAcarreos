@@ -17,7 +17,10 @@
       "Bash(grep -o 'version\\\\\\\\\":\\\\\\\\\"[0-9.]*' dist/_expo/static/js/web/*.js)",
       "Bash(cp dist/.vercel/project.json __TRACKED_VAR__/vercel-project.json.bak)",
       "Bash(cp dist/.vercel/project.json /c/Users/PC/AppData/Local/Temp/claude/vercel-project.json.bak)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npx --yes esbuild --loader=jsx --bundle=false --outdir=/dev/null --log-level=warning src/utils/preciosMaterial.js src/utils/preciosRenta.js src/hooks/useGestionTarifas.js src/hooks/useCatalogos.js src/hooks/useValeMaterialLogic.js src/hooks/useViajesMaterial.js src/hooks/useTicketsMaterial.js src/screens/GestionTarifasScreen.js src/screens/ValeRentaScreen.js src/screens/DevToolsScreen.js src/componets/tarifas/GestionTarifasFilas.js src/componets/tarifas/GestionTarifasModales.js src/componets/tarifas/gestionTarifasStyles.js src/componets/TarifasModal.js src/componets/acarreos/ValeDetalleRenta.js src/services/pdfRentaGenerator.js src/services/pdfRentaGeneratorRecibo.js src/hooks/exportHelpers/csvConverter.js src/hooks/exportHelpers/historialConverter.js src/navigation/BottomTabNavigator.js)",
+      "Bash(npx --yes esbuild --loader:.js=jsx --outdir=/tmp/esbuild-check --log-level=warning src/utils/preciosMaterial.js src/utils/preciosRenta.js src/hooks/useGestionTarifas.js src/hooks/useCatalogos.js src/hooks/useValeMaterialLogic.js src/hooks/useViajesMaterial.js src/hooks/useTicketsMaterial.js src/screens/GestionTarifasScreen.js src/screens/ValeRentaScreen.js src/screens/DevToolsScreen.js src/componets/tarifas/GestionTarifasFilas.js src/componets/tarifas/GestionTarifasModales.js src/componets/tarifas/gestionTarifasStyles.js src/componets/TarifasModal.js src/componets/acarreos/ValeDetalleRenta.js src/services/pdfRentaGenerator.js src/services/pdfRentaGeneratorRecibo.js src/hooks/exportHelpers/csvConverter.js src/hooks/exportHelpers/historialConverter.js src/navigation/BottomTabNavigator.js)",
+      "Bash(echo \"exit=$?\")"
     ]
   }
 }

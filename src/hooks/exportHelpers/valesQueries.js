@@ -144,6 +144,8 @@ export const fetchValesRenta = async (weekNumber, year, obrasIds) => {
         es_renta_por_dia,
         costo_total,
         notas_adicionales,
+        costo_hr_aplicado,
+        costo_dia_aplicado,
         precios_renta!vale_renta_detalle_id_precios_renta_fkey(costo_hr, costo_dia)
       )
     `,

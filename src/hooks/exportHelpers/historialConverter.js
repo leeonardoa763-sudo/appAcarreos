@@ -22,6 +22,12 @@ import {
   resolverBancoNombre,
   resolverSindicatoNombre,
 } from "./historialQueries";
+import { tarifaRentaEfectiva } from "../../utils/preciosRenta";
+import {
+  MOTIVOS_ANTICIPADO,
+  MOTIVOS_SIN_FOTO,
+  etiquetaMotivo,
+} from "../../utils/tiempoEntreViajes";
 
 /** Texto: "-" cuando no hay dato. */
 const txt = (valor) =>
@@ -30,6 +36,13 @@ const txt = (valor) =>
 /** Numerico: "0" cuando no hay dato. Un 0 real se conserva. */
 const num = (valor) =>
   valor === null || valor === undefined || valor === "" ? "0" : String(valor);
+
+/** Motivo de excepcion en una sola celda: etiqueta del codigo + texto libre. */
+const motivoLegible = (motivos, codigo, texto) => {
+  if (!codigo) return "-";
+  const label = etiquetaMotivo(motivos, codigo);
+  return texto ? `${label}: ${texto}` : label;
+};
 
 const ETIQUETA_TIPO = {
   [TIPOS_HISTORIAL.MATERIAL]: "Material",
@@ -89,6 +102,13 @@ export const HISTORIAL_HEADERS = [
   { key: "precio_m3", label: "Precio por m3" },
   { key: "costo_viaje", label: "Costo Viaje" },
   { key: "folio_vale_fisico_viaje", label: "Vale Fisico (Viaje)" },
+  // Excepciones (solo material: la restriccion de tiempo no aplica a renta)
+  { key: "registro_anticipado", label: "Registro Anticipado" },
+  { key: "minutos_minimos", label: "Min. Minimos Calculados" },
+  { key: "minutos_faltantes", label: "Min. Faltantes al Registrar" },
+  { key: "motivo_anticipado", label: "Motivo Registro Anticipado" },
+  { key: "sin_foto", label: "Sin Foto Evidencia" },
+  { key: "motivo_sin_foto", label: "Motivo Sin Foto" },
   // Renta
   { key: "tipo_renta", label: "Tipo Renta" },
   { key: "hora_inicio", label: "Hora Inicio" },
@@ -181,6 +201,33 @@ export const transformHistorialData = (filas) => {
         ? txt(viaje.folio_vale_fisico)
         : "-",
 
+      // La restriccion de tiempo solo existe en material; en renta y pipas
+      // estas columnas quedan en "-" / "0" por diseno, no por falta de dato.
+      registro_anticipado:
+        esMaterial && viaje.registro_anticipado ? "Si" : "No",
+      minutos_minimos: esMaterial ? num(viaje.minutos_minimos_calculados) : "0",
+      minutos_faltantes: esMaterial
+        ? num(viaje.minutos_faltantes_anticipado)
+        : "0",
+      motivo_anticipado: esMaterial
+        ? motivoLegible(
+            MOTIVOS_ANTICIPADO,
+            viaje.motivo_anticipado_codigo,
+            viaje.motivo_anticipado_texto,
+          )
+        : "-",
+      // La foto es por viaje en material y por vale en renta/pipas
+      sin_foto: (esMaterial ? viaje.foto_omitida : detalle.foto_omitida)
+        ? "Si"
+        : "No",
+      motivo_sin_foto: motivoLegible(
+        MOTIVOS_SIN_FOTO,
+        esMaterial
+          ? viaje.motivo_sin_foto_codigo
+          : detalle.motivo_sin_foto_codigo,
+        esMaterial ? viaje.motivo_sin_foto_texto : detalle.motivo_sin_foto_texto,
+      ),
+
       tipo_renta: esMaterial
         ? "-"
         : detalle.es_renta_por_dia
@@ -190,8 +237,8 @@ export const transformHistorialData = (filas) => {
       hora_fin: esMaterial ? "-" : formatFechaHoraCompleta(detalle.hora_fin),
       total_horas: esMaterial ? "0" : num(detalle.total_horas),
       total_dias: esMaterial ? "0" : num(detalle.total_dias),
-      tarifa_hora: esMaterial ? "0" : num(detalle.precios_renta?.costo_hr),
-      tarifa_dia: esMaterial ? "0" : num(detalle.precios_renta?.costo_dia),
+      tarifa_hora: esMaterial ? "0" : num(tarifaRentaEfectiva(detalle).costo_hr),
+      tarifa_dia: esMaterial ? "0" : num(tarifaRentaEfectiva(detalle).costo_dia),
 
       costo_total_vale: num(detalle.costo_total),
       notas: txt(detalle.notas_adicionales),

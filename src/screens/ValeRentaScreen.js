@@ -49,6 +49,7 @@ import {
   filtrarMaterialesPorModo,
   filtrarSindicatosPorModo,
 } from "../utils/pipasAgua";
+import { resolverTarifaRenta } from "../utils/preciosRenta";
 
 const ValeRentaScreen = () => {
   const navigation = useNavigation();
@@ -63,14 +64,16 @@ const ValeRentaScreen = () => {
 
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
 
+  // preciosRenta ya no se pide aqui: la tarifa se resuelve contra la BD al crear
+  // el vale (resolverTarifaRenta), porque una tarifa por obra recien capturada
+  // debe aplicar de inmediato y el catalogo tiene un TTL de 4 h.
   const {
     materiales,
     sindicatos,
-    preciosRenta,
     loading: loadingCatalogos,
     refrescando: refrescandoCatalogos,
     refrescarCatalogos,
-  } = useCatalogos(["materiales", "sindicatos", "preciosRenta"]);
+  } = useCatalogos(["materiales", "sindicatos"]);
 
   // Particion bidireccional segun el modo: en modo pipa SOLO existe el material
   // Agua y el sindicato Pipas; en modo renta normal ninguno de los dos aparece.
@@ -238,11 +241,15 @@ const ValeRentaScreen = () => {
 
       if (valeError) throw valeError;
 
-      const precioRenta = preciosRenta.find(
-        (p) => p.id_sindicato === formData.sindicatoId,
+      // Tarifa propia de la obra si la tiene; si no, la del sindicato.
+      // Se consulta a la BD (no al catalogo cacheado) para que una tarifa recien
+      // capturada aplique de inmediato.
+      const tarifa = await resolverTarifaRenta(
+        formData.sindicatoId,
+        obraDataParaFolio.id_obra,
       );
 
-      if (!precioRenta) {
+      if (!tarifa) {
         throw new Error("No se encontró precio para el sindicato seleccionado");
       }
 
@@ -256,7 +263,11 @@ const ValeRentaScreen = () => {
           numero_viajes: 1,
           hora_inicio: formData.horaInicio.toISOString(),
           hora_fin: null,
-          id_precios_renta: precioRenta.id_precios_renta,
+          id_precios_renta: tarifa.idPreciosRenta,
+          id_precios_renta_obra: tarifa.idPreciosRentaObra,
+          // Congelada: un cambio posterior de tarifa no reprecia este vale
+          costo_hr_aplicado: tarifa.costoHr,
+          costo_dia_aplicado: tarifa.costoDia,
           notas_adicionales: formData.notasAdicionales.trim() || null,
           es_turno_nocturno: esTurnoNocturno,
         });
@@ -300,7 +311,10 @@ const ValeRentaScreen = () => {
             total_horas: null,
             total_dias: null,
             notas_adicionales: formData.notasAdicionales.trim() || null,
-            precios_renta: precioRenta || {},
+            // Congelada, igual que en el insert: el recibo termico inmediato
+            // debe mostrar la misma tarifa que quedo guardada en el vale
+            costo_hr_aplicado: tarifa.costoHr,
+            costo_dia_aplicado: tarifa.costoDia,
           },
         ],
       };

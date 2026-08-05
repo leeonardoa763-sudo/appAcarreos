@@ -1,5 +1,5 @@
 // 1. React y hooks
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 
 // 2. React Native
 import {
@@ -17,21 +17,36 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 // 4. Local - Config
 import { colors } from "../../config/colors";
 
+// 5. Local - Utilidades
+import {
+  MOTIVOS_SIN_FOTO,
+  etiquetaMotivo,
+} from "../../utils/tiempoEntreViajes";
+
+// 6. Subcomponentes
+import ModalMotivo from "./ModalMotivo";
+
 /**
  * EvidenciaCaptura
  *
  * Componente visual para capturar foto y ubicación GPS como evidencia
- * al completar un vale de renta.
+ * al completar un vale.
  *
  * FUNCIONALIDAD:
- * - Botón para tomar foto (obligatorio)
+ * - Botón para tomar foto
+ * - Alternativa explícita: declarar por qué no se toma, con motivo escrito
  * - Preview de foto tomada con opción de retomar
  * - Captura automática de GPS al tomar la foto
  * - Indicador de proximidad a la obra
  * - Estados de loading y error claros
  *
+ * La foto dejó de ser obligatoria a propósito: cuando el vale se captura
+ * después y fuera de campo, forzarla producía fotos de la nada guardadas como
+ * evidencia válida.
+ *
  * USADO EN:
- * - ValeDetalleRenta (sección "Completar Vale")
+ * - ValeDetalleRenta (sección "Completar Vale") — renta y pipas
+ * - ValeMaterialAsfalticoScreen (antes de compartir el PDF)
  */
 const EvidenciaCaptura = ({
   folioVale,
@@ -48,7 +63,12 @@ const EvidenciaCaptura = ({
   onTomarFoto,
   onCapturarUbicacion,
   radioConfigurado,
+  motivoSinFoto = null,
+  onOmitirFoto,
+  onDeshacerOmision,
 }) => {
+  const [pidiendoMotivo, setPidiendoMotivo] = useState(false);
+
   // Maneja la acción principal: tomar foto y capturar GPS en paralelo
   const handleCapturarEvidencia = useCallback(async () => {
     await Promise.all([onTomarFoto(folioVale), onCapturarUbicacion()]);
@@ -58,7 +78,17 @@ const EvidenciaCaptura = ({
     await onTomarFoto(folioVale);
   }, [folioVale, onTomarFoto]);
 
+  const handleConfirmarMotivo = useCallback(
+    (motivo) => {
+      setPidiendoMotivo(false);
+      onOmitirFoto?.(motivo);
+    },
+    [onOmitirFoto],
+  );
+
   const loading = loadingFoto || loadingUbicacion;
+  // Solo se ofrece omitir si el padre sabe qué hacer con el motivo.
+  const puedeOmitir = typeof onOmitirFoto === "function";
 
   return (
     <View style={styles.container}>
@@ -69,29 +99,82 @@ const EvidenciaCaptura = ({
           size={20}
           color={colors.secondary}
         />
-        <Text style={styles.titulo}>Evidencia obligatoria</Text>
+        <Text style={styles.titulo}>Evidencia</Text>
       </View>
       <Text style={styles.subtitulo}>
-        Toma una foto donde se vea el equipo rentado y el material movido.
+        Toma una foto donde se vea el equipo rentado y el material movido. Si no
+        estas en campo, indica por que no se puede tomar.
       </Text>
 
-      {/* Estado: sin foto todavía */}
-      {!foto && !loading && (
-        <TouchableOpacity
-          style={styles.botonCamara}
-          onPress={handleCapturarEvidencia}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons
-            name="camera-plus"
-            size={40}
-            color={colors.primary}
-          />
-          <Text style={styles.botonCamaraTexto}>Tomar foto de evidencia</Text>
-          <Text style={styles.botonCamaraSubtexto}>
-            Asegúrate de que se vea el camión y el material
+      {/* Estado: se declaró que no habrá foto */}
+      {motivoSinFoto && !foto && (
+        <View style={styles.omitidaContainer}>
+          <View style={styles.estadoRow}>
+            <MaterialCommunityIcons
+              name="camera-off-outline"
+              size={16}
+              color={colors.warning}
+            />
+            <Text style={styles.omitidaTitulo}>Sin foto de evidencia</Text>
+          </View>
+          <Text style={styles.omitidaMotivo}>
+            {etiquetaMotivo(MOTIVOS_SIN_FOTO, motivoSinFoto.codigo)}
           </Text>
-        </TouchableOpacity>
+          {motivoSinFoto.texto ? (
+            <Text style={styles.omitidaTexto}>"{motivoSinFoto.texto}"</Text>
+          ) : null}
+          <TouchableOpacity
+            style={styles.botonRetomar}
+            onPress={() => {
+              onDeshacerOmision?.();
+              handleCapturarEvidencia();
+            }}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="camera-plus"
+              size={14}
+              color={colors.secondary}
+            />
+            <Text style={styles.botonRetomartexto}>Tomar foto</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Estado: sin foto todavía */}
+      {!foto && !loading && !motivoSinFoto && (
+        <>
+          <TouchableOpacity
+            style={styles.botonCamara}
+            onPress={handleCapturarEvidencia}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="camera-plus"
+              size={40}
+              color={colors.primary}
+            />
+            <Text style={styles.botonCamaraTexto}>Tomar foto de evidencia</Text>
+            <Text style={styles.botonCamaraSubtexto}>
+              Asegúrate de que se vea el camión y el material
+            </Text>
+          </TouchableOpacity>
+
+          {puedeOmitir && (
+            <TouchableOpacity
+              style={styles.botonSinFoto}
+              onPress={() => setPidiendoMotivo(true)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="camera-off-outline"
+                size={16}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.botonSinFotoTexto}>No tomar foto</Text>
+            </TouchableOpacity>
+          )}
+        </>
       )}
 
       {/* Estado: cargando */}
@@ -210,6 +293,18 @@ const EvidenciaCaptura = ({
           <Text style={styles.errorTexto}>{errorFoto}</Text>
         </View>
       )}
+
+      <ModalMotivo
+        visible={pidiendoMotivo}
+        titulo="Completar sin foto"
+        mensaje="El vale queda registrado sin evidencia fotografica. Indica por que no se tomo la foto."
+        icono="camera-off-outline"
+        motivos={MOTIVOS_SIN_FOTO}
+        textoConfirmar="Guardar sin foto"
+        textoCancelar="Volver"
+        onConfirmar={handleConfirmarMotivo}
+        onCancelar={() => setPidiendoMotivo(false)}
+      />
     </View>
   );
 };
@@ -312,6 +407,42 @@ const styles = StyleSheet.create({
   botonCamaraSubtexto: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+
+  // Sin foto, declarado con motivo
+  botonSinFoto: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  botonSinFotoTexto: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: colors.textSecondary,
+    textDecorationLine: "underline",
+  },
+  omitidaContainer: {
+    backgroundColor: "#FEF5E7",
+    borderRadius: 10,
+    padding: 12,
+    gap: 4,
+  },
+  omitidaTitulo: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.warning,
+  },
+  omitidaMotivo: {
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
+  omitidaTexto: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: "italic",
   },
 
   // Loading

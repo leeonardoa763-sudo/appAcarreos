@@ -17,6 +17,11 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../../config/colors";
+import {
+  MOTIVOS_ANTICIPADO,
+  MOTIVOS_SIN_FOTO,
+  etiquetaMotivo,
+} from "../../../utils/tiempoEntreViajes";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -118,9 +123,35 @@ const ViajeRow = ({ viaje, esTipo3, esUltimo, bancoDefault, esChecador }) => {
         </View>
       )}
 
-      {/* Hora */}
+      {/* Hora — con las marcas de excepcion, que es donde el residente
+          las va a buscar al revisar el vale despues */}
       <View style={styles.colHora}>
-        <Text style={styles.horaTexto}>{formatHora(viaje.hora_registro)}</Text>
+        <Text
+          style={[
+            styles.horaTexto,
+            viaje.registro_anticipado && styles.horaApresurada,
+          ]}
+        >
+          {formatHora(viaje.hora_registro)}
+        </Text>
+        {(viaje.registro_anticipado || viaje.foto_omitida) && (
+          <View style={styles.marcasRow}>
+            {viaje.registro_anticipado && (
+              <MaterialCommunityIcons
+                name="clock-alert-outline"
+                size={13}
+                color={colors.warning}
+              />
+            )}
+            {viaje.foto_omitida && (
+              <MaterialCommunityIcons
+                name="camera-off-outline"
+                size={13}
+                color={colors.warning}
+              />
+            )}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -186,6 +217,9 @@ const SeccionViajesMaterialCompletado = ({
   if (!viajes || viajes.length === 0) return null;
 
   const hayOverrides = viajes.some((v) => !!v.id_banco_override);
+  const apresurados = viajes.filter((v) => v.registro_anticipado);
+  const sinFoto = viajes.filter((v) => v.foto_omitida);
+  const hayExcepciones = apresurados.length > 0 || sinFoto.length > 0;
 
   return (
     <View style={styles.container}>
@@ -197,10 +231,61 @@ const SeccionViajesMaterialCompletado = ({
           color={colors.secondary}
         />
         <Text style={styles.titulo}>Viajes Registrados</Text>
+        {hayExcepciones && (
+          <View style={styles.badgeExcepcion}>
+            <MaterialCommunityIcons
+              name="alert-outline"
+              size={12}
+              color={colors.surface}
+            />
+            <Text style={styles.badgeExcepcionTexto}>
+              {apresurados.length + sinFoto.length}
+            </Text>
+          </View>
+        )}
         <View style={styles.badge}>
           <Text style={styles.badgeTexto}>{totalViajes}</Text>
         </View>
       </View>
+
+      {/* Excepciones del vale. Se listan con motivo y no solo con un icono:
+          el residente revisa el vale dias despues y necesita reconstruir que
+          paso sin tener que preguntarle al checador. */}
+      {hayExcepciones && (
+        <View style={styles.notaExcepcion}>
+          <View style={styles.notaExcepcionHeader}>
+            <MaterialCommunityIcons
+              name="alert-outline"
+              size={15}
+              color={colors.warning}
+            />
+            <Text style={styles.notaExcepcionTitulo}>
+              Este vale tiene registros fuera de lo normal
+            </Text>
+          </View>
+
+          {apresurados.map((v) => (
+            <Text key={`ap-${v.id_viaje}`} style={styles.notaExcepcionLinea}>
+              {"•"} Viaje {v.numero_viaje}: registro apresurado
+              {v.minutos_faltantes_anticipado
+                ? `, ${v.minutos_faltantes_anticipado} min antes de los ${v.minutos_minimos_calculados ?? "?"} min normales`
+                : ""}
+              {" — "}
+              {etiquetaMotivo(MOTIVOS_ANTICIPADO, v.motivo_anticipado_codigo)}
+              {v.motivo_anticipado_texto ? ` (${v.motivo_anticipado_texto})` : ""}
+            </Text>
+          ))}
+
+          {sinFoto.map((v) => (
+            <Text key={`sf-${v.id_viaje}`} style={styles.notaExcepcionLinea}>
+              {"•"} Viaje {v.numero_viaje}: sin foto de evidencia
+              {" — "}
+              {etiquetaMotivo(MOTIVOS_SIN_FOTO, v.motivo_sin_foto_codigo)}
+              {v.motivo_sin_foto_texto ? ` (${v.motivo_sin_foto_texto})` : ""}
+            </Text>
+          ))}
+        </View>
+      )}
 
       {/* Nota si hay viajes con banco alternativo */}
       {hayOverrides && (
@@ -305,6 +390,45 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontSize: 12,
     fontWeight: "700",
+  },
+  badgeExcepcion: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: colors.warning,
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  badgeExcepcionTexto: {
+    color: colors.surface,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  notaExcepcion: {
+    backgroundColor: "#FEF5E7",
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.warning,
+    padding: 9,
+    marginBottom: 10,
+    gap: 4,
+  },
+  notaExcepcionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  notaExcepcionTitulo: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.warning,
+  },
+  notaExcepcionLinea: {
+    fontSize: 10,
+    color: colors.textPrimary,
+    lineHeight: 15,
   },
   notaOverride: {
     flexDirection: "row",
@@ -445,6 +569,15 @@ const styles = StyleSheet.create({
   horaTexto: {
     fontSize: 10,
     color: colors.textSecondary,
+  },
+  horaApresurada: {
+    color: colors.warning,
+    fontWeight: "600",
+  },
+  marcasRow: {
+    flexDirection: "row",
+    gap: 2,
+    marginTop: 1,
   },
   totalesLabel: {
     fontSize: 10,

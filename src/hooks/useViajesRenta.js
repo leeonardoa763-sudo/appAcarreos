@@ -1,15 +1,26 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+/**
+ * hooks/useViajesRenta.js
+ *
+ * Registra y carga los viajes de un vale de renta (incluye pipas de agua).
+ *
+ * NO tiene tiempo minimo entre viajes, a proposito: un viaje de renta no es un
+ * ciclo de acarreo obra-banco-obra, asi que no hay una duracion fisica minima
+ * que exigir. Esa regla vive solo en useViajesMaterial (ver
+ * utils/tiempoEntreViajes.js).
+ *
+ * Lo que SI sigue aplicando: la jornada laboral (abajo) y los minimos de 8 h /
+ * 4 h para renta por dia y medio dia (validateTiempoMinimoRenta, aplicado al
+ * completar el vale en ValeDetalleRenta).
+ */
+
+import { useState, useEffect, useCallback } from "react";
 import { Alert } from "react-native";
 import { supabase } from "../config/supabase";
 import { useAuth } from "./useAuth";
 import { esDentroJornada } from "../utils/jornadaLaboral";
 
-const MINUTOS_DEFAULT = 20;
-
 export const useViajesRenta = (
   idValeRentaDetalle,
-  idObra,
-  horaInicioVale = null,
   fechaCreacionVale = null,
 ) => {
   const { userProfile } = useAuth();
@@ -17,28 +28,6 @@ export const useViajesRenta = (
   const [loading, setLoading] = useState(true);
   const [registrando, setRegistrando] = useState(false);
   const [eliminandoViaje, setEliminandoViaje] = useState(false);
-  const [minutosRestantes, setMinutosRestantes] = useState(0);
-  const [minMinutosEntreViajes, setMinMinutosEntreViajes] =
-    useState(MINUTOS_DEFAULT);
-  const intervaloRef = useRef(null);
-
-  const cargarConfiguracion = useCallback(async () => {
-    if (!idObra) return;
-    try {
-      const { data, error } = await supabase
-        .from("obras")
-        .select("min_minutos_entre_viajes")
-        .eq("id_obra", idObra)
-        .single();
-
-      if (error) throw error;
-
-      const valor = data?.min_minutos_entre_viajes ?? MINUTOS_DEFAULT;
-      setMinMinutosEntreViajes(valor);
-    } catch (error) {
-      console.error("[Viajes] Error cargando configuracion:", error);
-    }
-  }, [idObra]);
 
   const cargarViajes = useCallback(async () => {
     if (!idValeRentaDetalle) return;
@@ -69,54 +58,6 @@ export const useViajesRenta = (
     }
   }, [idValeRentaDetalle]);
 
-  const calcularMinutosRestantes = useCallback(
-    (viajesActuales) => {
-      const ahora = new Date();
-
-      // Sin viajes: tiempo de espera desde hora_inicio del vale
-      if (viajesActuales.length === 0) {
-        if (!horaInicioVale) return 0;
-        const horaInicio = new Date(horaInicioVale);
-        const diffMinutos = (ahora - horaInicio) / (1000 * 60);
-        const restantes = minMinutosEntreViajes - diffMinutos;
-        return restantes > 0 ? Math.ceil(restantes) : 0;
-      }
-
-      // Con viajes: tiempo desde el último viaje registrado
-      const ultimoViaje = viajesActuales[viajesActuales.length - 1];
-      const horaUltimo = new Date(ultimoViaje.hora_registro);
-      const diffMinutos = (ahora - horaUltimo) / (1000 * 60);
-      const restantes = minMinutosEntreViajes - diffMinutos;
-      return restantes > 0 ? Math.ceil(restantes) : 0;
-    },
-    [minMinutosEntreViajes, horaInicioVale],
-  );
-
-  const iniciarCuentaRegresiva = useCallback(
-    (viajesActuales) => {
-      if (intervaloRef.current) clearInterval(intervaloRef.current);
-      const restantes = calcularMinutosRestantes(viajesActuales);
-      setMinutosRestantes(restantes);
-
-      if (restantes > 0) {
-        intervaloRef.current = setInterval(() => {
-          const nuevosRestantes = calcularMinutosRestantes(viajesActuales);
-          setMinutosRestantes(nuevosRestantes);
-          if (nuevosRestantes <= 0) {
-            clearInterval(intervaloRef.current);
-            intervaloRef.current = null;
-          }
-        }, 30000);
-      }
-    },
-    [calcularMinutosRestantes],
-  );
-
-  // Siempre verificar minutosRestantes — aplica tanto para viajes vacíos como con viajes
-  const puedeRegistrar = useCallback(() => {
-    return minutosRestantes <= 0;
-  }, [minutosRestantes]);
-
   const registrarViaje = useCallback(async () => {
     const esAdministrador = userProfile?.roles?.role === "Administrador";
 
@@ -125,15 +66,6 @@ export const useViajesRenta = (
         "Vale fuera de jornada",
         "Este vale fue creado en una jornada anterior y ya no puede recibir viajes. Usa un vale del dia de hoy.",
         [{ text: "Entendido" }],
-      );
-      return false;
-    }
-
-    if (!esAdministrador && !puedeRegistrar()) {
-      Alert.alert(
-        "No disponible",
-        "No es posible registrar un viaje en este momento.",
-        [{ text: "OK" }],
       );
       return false;
     }
@@ -172,9 +104,7 @@ export const useViajesRenta = (
                   .single();
 
                 if (error) throw error;
-                const viajesActualizados = [...viajes, data];
-                setViajes(viajesActualizados);
-                iniciarCuentaRegresiva(viajesActualizados);
+                setViajes([...viajes, data]);
                 resolve(true);
               } catch (error) {
                 console.error(
@@ -195,14 +125,7 @@ export const useViajesRenta = (
         ],
       );
     });
-  }, [
-    puedeRegistrar,
-    viajes,
-    idValeRentaDetalle,
-    userProfile,
-    iniciarCuentaRegresiva,
-    fechaCreacionVale,
-  ]);
+  }, [viajes, idValeRentaDetalle, userProfile, fechaCreacionVale]);
 
   const eliminarUltimoViaje = useCallback(
     async (idViaje) => {
@@ -232,33 +155,14 @@ export const useViajesRenta = (
   );
 
   useEffect(() => {
-    cargarConfiguracion();
-  }, [cargarConfiguracion]);
-
-  useEffect(() => {
     cargarViajes();
   }, [cargarViajes]);
-
-  // Iniciar cuenta regresiva siempre al terminar de cargar,
-  // sin importar si hay viajes o no
-  useEffect(() => {
-    if (!loading) {
-      iniciarCuentaRegresiva(viajes);
-    }
-  }, [loading]);
-
-  useEffect(() => {
-    return () => {
-      if (intervaloRef.current) clearInterval(intervaloRef.current);
-    };
-  }, []);
 
   return {
     viajes,
     loading,
     registrando,
     eliminandoViaje,
-    puedeRegistrar: puedeRegistrar(),
     totalViajes: viajes.length,
     registrarViaje,
     eliminarUltimoViaje,

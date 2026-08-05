@@ -98,7 +98,11 @@ export const useValeMaterialLogic = (materiales) => {
       );
 
       if (requiereTarifa) {
-        await verificarTarifaMaterial(tipoMaterial, formData.sindicatoId);
+        await verificarTarifaMaterial(
+          tipoMaterial,
+          formData.sindicatoId,
+          obraData.id_obra,
+        );
       }
 
       const { data: valeNuevo, error: errorVale } = await supabase
@@ -136,6 +140,7 @@ export const useValeMaterialLogic = (materiales) => {
       let precioM3 = null;
       let costoTotal = null;
       let idPreciosMaterial = null;
+      let idPreciosMaterialObra = null;
       let tarifaPrimerKm = null;
       let tarifaSubsecuente = null;
 
@@ -145,11 +150,13 @@ export const useValeMaterialLogic = (materiales) => {
           formData.sindicatoId,
           parseFloat(formData.distancia),
           cantidadPedida,
+          obraData.id_obra,
         );
 
         precioM3 = precioData.precioM3;
         costoTotal = precioData.costoTotal;
         idPreciosMaterial = precioData.idPreciosMaterial;
+        idPreciosMaterialObra = precioData.idPreciosMaterialObra;
         tarifaPrimerKm = precioData.tarifaPrimerKm;
         tarifaSubsecuente = precioData.tarifaSubsecuente;
       }
@@ -166,6 +173,7 @@ export const useValeMaterialLogic = (materiales) => {
         precio_m3: precioM3,
         costo_total: costoTotal,
         id_precios_material: idPreciosMaterial,
+        id_precios_material_obra: idPreciosMaterialObra,
         tarifa_primer_km: tarifaPrimerKm,
         tarifa_subsecuente: tarifaSubsecuente,
         peso_ton: null,

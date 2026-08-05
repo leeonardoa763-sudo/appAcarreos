@@ -33,6 +33,7 @@ import PresupuestosObraScreen from "../screens/PresupuestosObraScreen";
 import GestionMaterialesScreen from "../screens/GestionMaterialesScreen";
 import GestionBancosScreen from "../screens/GestionBancosScreen";
 import GestionObrasScreen from "../screens/GestionObrasScreen";
+import GestionTarifasScreen from "../screens/GestionTarifasScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -207,6 +208,18 @@ function DevStack() {
         options={{
           headerShown: true,
           headerTitle: "Gestion de Obras",
+          headerStyle: { backgroundColor: colors.surface, elevation: 2 },
+          headerTintColor: colors.primary,
+          headerTitleStyle: { fontWeight: "bold", fontSize: 18, color: colors.textPrimary },
+          headerBackTitleVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="GestionTarifas"
+        component={GestionTarifasScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Tarifas por Obra",
           headerStyle: { backgroundColor: colors.surface, elevation: 2 },
           headerTintColor: colors.primary,
           headerTitleStyle: { fontWeight: "bold", fontSize: 18, color: colors.textPrimary },

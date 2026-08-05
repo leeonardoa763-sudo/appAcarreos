@@ -10,6 +10,9 @@ const OBRAS_ADMIN_SELECT = `
   longitud,
   radio_validacion_metros,
   min_minutos_entre_viajes,
+  velocidad_promedio_kmh,
+  minutos_carga_descarga,
+  factor_tolerancia_tiempo,
   activo,
   empresas:id_empresa (
     id_empresa,
@@ -49,6 +52,9 @@ export function useGestionObras() {
         longitud: datos.longitud,
         radio_validacion_metros: datos.radio_validacion_metros,
         min_minutos_entre_viajes: datos.min_minutos_entre_viajes,
+        velocidad_promedio_kmh: datos.velocidad_promedio_kmh,
+        minutos_carga_descarga: datos.minutos_carga_descarga,
+        factor_tolerancia_tiempo: datos.factor_tolerancia_tiempo,
       });
       if (err) throw err;
       await fetchObras();
@@ -68,6 +74,9 @@ export function useGestionObras() {
           longitud: datos.longitud,
           radio_validacion_metros: datos.radio_validacion_metros,
           min_minutos_entre_viajes: datos.min_minutos_entre_viajes,
+          velocidad_promedio_kmh: datos.velocidad_promedio_kmh,
+          minutos_carga_descarga: datos.minutos_carga_descarga,
+          factor_tolerancia_tiempo: datos.factor_tolerancia_tiempo,
         })
         .eq("id_obra", idObra);
       if (err) throw err;

@@ -125,6 +125,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
     totalViajes,
     puedeRegistrar,
     minutosRestantes,
+    minutosMinimos,
+    origenTiempoMinimo,
+    distanciaEfectivaKm,
+    bancoEfectivoNombre,
     registrarViaje,
     completarVale,
     actualizarFotoViaje,
@@ -343,6 +347,10 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
             onRegistrarViaje={registrarViaje}
             puedeRegistrar={puedeRegistrar}
             minutosRestantes={minutosRestantes}
+            minutosMinimos={minutosMinimos}
+            origenTiempoMinimo={origenTiempoMinimo}
+            distanciaEfectivaKm={distanciaEfectivaKm}
+            bancoEfectivoNombre={bancoEfectivoNombre}
             tipoMaterial={tipoMaterial}
             onCompletar={handleCompletar}
             saving={saving}

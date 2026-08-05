@@ -30,7 +30,6 @@ const CATALOG_TTL = {
   materiales: 10 * 60 * 1000,
   sindicatos: 24 * 3600 * 1000,
   bancos: 24 * 3600 * 1000,
-  preciosRenta: 4 * 3600 * 1000,
   operadores: 3600 * 1000,
   vehiculos: 3600 * 1000,
 };
@@ -48,7 +47,6 @@ export const useCatalogos = (catalogosRequeridos = []) => {
   const [materiales, setMateriales] = useState([]);
   const [sindicatos, setSindicatos] = useState([]);
   const [bancos, setBancos] = useState([]);
-  const [preciosRenta, setPreciosRenta] = useState([]);
   const [operadores, setOperadores] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
 
@@ -77,7 +75,6 @@ export const useCatalogos = (catalogosRequeridos = []) => {
             .order("sindicato"),
         bancos: () =>
           supabase.from("bancos").select("id_banco, banco").order("banco"),
-        preciosRenta: () => supabase.from("precios_renta").select("*"),
         operadores: () =>
           supabase
             .from("operadores")
@@ -96,7 +93,6 @@ export const useCatalogos = (catalogosRequeridos = []) => {
         materiales: setMateriales,
         sindicatos: setSindicatos,
         bancos: setBancos,
-        preciosRenta: setPreciosRenta,
         operadores: setOperadores,
         vehiculos: setVehiculos,
       };
@@ -157,7 +153,6 @@ export const useCatalogos = (catalogosRequeridos = []) => {
     materiales,
     sindicatos,
     bancos,
-    preciosRenta,
     operadores,
     vehiculos,
     loading,

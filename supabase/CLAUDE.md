@@ -9,6 +9,51 @@ intención de las migraciones). Falta solo `storage.objects` (bucket
 
 ---
 
+## QUÉ HAY EN ESTA CARPETA
+
+| Archivo | Qué es |
+|---|---|
+| `schema.sql` | Snapshot de **tablas**. Del 2026-04-19 y **desactualizado** — le faltan tablas y columnas, ver hallazgo #8 del archivo de abajo |
+| `funciones_triggers_vistas.sql` | Snapshot de **funciones, triggers, vistas y matviews** (2026-08-04) |
+| `migrations/` | Cambios versionados. Solo cubren una parte de lo que existe en la BD |
+
+**Los dos `.sql` de snapshot son para leer, no para correr.** Un cambio se hace
+con una migración nueva en `migrations/` que toque solo ese objeto.
+
+### Mucho de lo que corre en la BD nunca tuvo migración
+
+Antes del 2026-08-04 el repo tenía el cuerpo de **3 funciones y 0 triggers**, y
+en la BD hay **26 funciones y 14 triggers**. Todo lo demás se creó a mano en el
+SQL Editor.
+
+Eso costó caro una vez: al aplicar tarifas por obra, el trigger
+`calcular_totales_vale_renta` revertía en silencio el `costo_total` de los vales
+de renta, y su cuerpo no estaba en ninguna parte del repo — solo aparecía en unos
+`GRANT`/`REVOKE`. Por eso existe `funciones_triggers_vistas.sql`.
+
+**Antes de diagnosticar cualquier cosa donde un valor guardado no coincide con lo
+que escribió la app, revisa los triggers de esa tabla en ese archivo.** Un
+`BEFORE` puede estar reescribiendo la fila.
+
+Su sección **HALLAZGOS** lista 8 problemas reales encontrados al volcarlo
+(notificaciones que nunca se crean por casing, funciones muertas, `SECURITY
+DEFINER` sin `search_path`, sobrecargas ambiguas). No están corregidos.
+
+Para re-volcar el estado real:
+
+```sql
+SELECT p.proname, pg_get_functiondef(p.oid) FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.prokind = 'f' ORDER BY p.proname;
+
+SELECT c.relname, t.tgname, pg_get_triggerdef(t.oid) FROM pg_trigger t
+JOIN pg_class c ON c.oid = t.tgrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND NOT t.tgisinternal ORDER BY 1, 2;
+```
+
+---
+
 ## 🟢 BUG CORREGIDO (fix preparado, pendiente de aplicar en Supabase) — casing de rol Administrador
 
 El código de la app compara siempre `role === "Administrador"` (PascalCase) —
