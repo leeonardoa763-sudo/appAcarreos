@@ -15,12 +15,13 @@ import { colors } from "../../config/colors";
 
 // ─── Modal para crear / editar un material ────────────────────────────────────
 
-export function ModalMaterial({ visible, material, tipos, onGuardar, onCerrar }) {
+export function ModalMaterial({ visible, material, tipos, categoriasRenta = [], onGuardar, onCerrar }) {
   const esEdicion = !!material;
 
   const [nombre, setNombre] = useState("");
   const [idTipo, setIdTipo] = useState(null);
   const [esDescarga, setEsDescarga] = useState(false);
+  const [idCategoriaRenta, setIdCategoriaRenta] = useState(null);
   const [activo, setActivo] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [errorNombre, setErrorNombre] = useState("");
@@ -30,6 +31,7 @@ export function ModalMaterial({ visible, material, tipos, onGuardar, onCerrar })
       setNombre(material?.material ?? "");
       setIdTipo(material?.id_tipo_de_material ?? (tipos[0]?.id_tipo_de_material ?? null));
       setEsDescarga(material?.es_material_descarga ?? false);
+      setIdCategoriaRenta(material?.id_categoria_material_renta ?? null);
       setActivo(material?.activo ?? true);
       setErrorNombre("");
     }
@@ -52,6 +54,7 @@ export function ModalMaterial({ visible, material, tipos, onGuardar, onCerrar })
         material: nombreTrimmed,
         id_tipo_de_material: idTipo,
         es_material_descarga: esDescarga,
+        id_categoria_material_renta: idCategoriaRenta,
         activo,
       });
       onCerrar();
@@ -101,6 +104,40 @@ export function ModalMaterial({ visible, material, tipos, onGuardar, onCerrar })
                   >
                     <Text style={[estilos.chipTexto, seleccionado && estilos.chipTextoActivo]}>
                       {t.tipo_de_material}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Categoría de renta — opcional, solo si este material se usa en Renta */}
+            <Text style={[estilos.label, { marginTop: 14 }]}>
+              Categoría de renta (opcional)
+            </Text>
+            <View style={estilos.chipRow}>
+              <TouchableOpacity
+                style={[estilos.chip, idCategoriaRenta === null && estilos.chipActivo]}
+                onPress={() => setIdCategoriaRenta(null)}
+              >
+                <Text
+                  style={[
+                    estilos.chipTexto,
+                    idCategoriaRenta === null && estilos.chipTextoActivo,
+                  ]}
+                >
+                  Ninguna
+                </Text>
+              </TouchableOpacity>
+              {categoriasRenta.map((c) => {
+                const seleccionado = c.id_categoria_material_renta === idCategoriaRenta;
+                return (
+                  <TouchableOpacity
+                    key={c.id_categoria_material_renta}
+                    style={[estilos.chip, seleccionado && estilos.chipActivo]}
+                    onPress={() => setIdCategoriaRenta(c.id_categoria_material_renta)}
+                  >
+                    <Text style={[estilos.chipTexto, seleccionado && estilos.chipTextoActivo]}>
+                      {c.categoria}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -240,6 +277,214 @@ export function ModalTipo({ visible, tipo, onGuardar, onCerrar }) {
   );
 }
 
+// ─── Modal para crear / editar una categoría de material de renta ─────────────
+
+export function ModalCategoriaRenta({ visible, categoria, onGuardar, onCerrar }) {
+  const esEdicion = !!categoria;
+
+  const [nombre, setNombre] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [errorNombre, setErrorNombre] = useState("");
+
+  useEffect(() => {
+    if (visible) {
+      setNombre(categoria?.categoria ?? "");
+      setDescripcion(categoria?.descripcion ?? "");
+      setErrorNombre("");
+    }
+  }, [visible, categoria]);
+
+  const handleGuardar = async () => {
+    const nombreTrimmed = nombre.trim();
+    if (!nombreTrimmed) {
+      setErrorNombre("El nombre es obligatorio");
+      return;
+    }
+    setErrorNombre("");
+    setGuardando(true);
+    try {
+      await onGuardar({ categoria: nombreTrimmed, descripcion });
+      onCerrar();
+    } catch (err) {
+      setErrorNombre("Error al guardar: " + err.message);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCerrar}>
+      <View style={estilos.overlay}>
+        <View style={estilos.contenedor}>
+          <View style={estilos.header}>
+            <Text style={estilos.titulo}>
+              {esEdicion ? "Editar categoría de renta" : "Nueva categoría de renta"}
+            </Text>
+            <TouchableOpacity onPress={onCerrar} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={estilos.cuerpo}>
+            <Text style={estilos.label}>Nombre de la categoría</Text>
+            <TextInput
+              style={[estilos.input, errorNombre ? estilos.inputError : null]}
+              value={nombre}
+              onChangeText={(t) => { setNombre(t); setErrorNombre(""); }}
+              placeholder="Ej. Producto de Excavación, Fresado..."
+              placeholderTextColor={colors.textSecondary}
+              autoCapitalize="words"
+            />
+            {!!errorNombre && <Text style={estilos.textoError}>{errorNombre}</Text>}
+
+            <Text style={[estilos.label, { marginTop: 14 }]}>
+              Descripción breve (la ve el checador al elegir)
+            </Text>
+            <TextInput
+              style={[estilos.input, { minHeight: 70, textAlignVertical: "top" }]}
+              value={descripcion}
+              onChangeText={setDescripcion}
+              placeholder="Ej. Tepetate, desperdicio, escombro o base retirados al excavar..."
+              placeholderTextColor={colors.textSecondary}
+              multiline
+            />
+          </View>
+
+          <View style={estilos.pie}>
+            <TouchableOpacity style={estilos.btnCancelar} onPress={onCerrar}>
+              <Text style={estilos.btnCancelarTexto}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[estilos.btnGuardar, guardando && { opacity: 0.6 }]}
+              onPress={handleGuardar}
+              disabled={guardando}
+            >
+              {guardando
+                ? <ActivityIndicator size="small" color={colors.surface} />
+                : <Text style={estilos.btnGuardarTexto}>Guardar</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Modal para crear / editar un sub-material dentro de una categoría de renta ─
+//
+// A diferencia de ModalMaterial, este material no pertenece a un tipo_de_material
+// (esa jerarquía es para el pricing por km de vale de material/bancos — irrelevante
+// en renta, que se cobra por sindicato via precios_renta) ni puede marcarse
+// es_material_descarga (esa bandera quedó exclusiva de pipas de agua, ver
+// 20260904_categorias_material_renta.sql). Por eso no reusa ModalMaterial: solo
+// pide el nombre, y guarda id_tipo_de_material=null / es_material_descarga=false
+// fijos, con la categoría ya resuelta por el padre.
+
+export function ModalMaterialRenta({ visible, material, categoria, onGuardar, onCerrar }) {
+  const esEdicion = !!material;
+
+  const [nombre, setNombre] = useState("");
+  const [activo, setActivo] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [errorNombre, setErrorNombre] = useState("");
+
+  useEffect(() => {
+    if (visible) {
+      setNombre(material?.material ?? "");
+      setActivo(material?.activo ?? true);
+      setErrorNombre("");
+    }
+  }, [visible, material]);
+
+  const handleGuardar = async () => {
+    const nombreTrimmed = nombre.trim();
+    if (!nombreTrimmed) {
+      setErrorNombre("El nombre es obligatorio");
+      return;
+    }
+    setErrorNombre("");
+    setGuardando(true);
+    try {
+      await onGuardar({ material: nombreTrimmed, activo });
+      onCerrar();
+    } catch (err) {
+      setErrorNombre("Error al guardar: " + err.message);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCerrar}>
+      <View style={estilos.overlay}>
+        <View style={[estilos.contenedor, { maxHeight: 320 }]}>
+          <View style={estilos.header}>
+            <Text style={estilos.titulo}>
+              {esEdicion ? "Editar material" : "Nuevo material"}
+            </Text>
+            <TouchableOpacity onPress={onCerrar} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={estilos.cuerpo}>
+            {!!categoria && (
+              <Text style={estilos.subCategoriaLabel}>
+                Categoría: <Text style={{ fontWeight: "700", color: colors.textPrimary }}>{categoria.categoria}</Text>
+              </Text>
+            )}
+
+            <Text style={[estilos.label, { marginTop: 10 }]}>Nombre del material</Text>
+            <TextInput
+              style={[estilos.input, errorNombre ? estilos.inputError : null]}
+              value={nombre}
+              onChangeText={(t) => { setNombre(t); setErrorNombre(""); }}
+              placeholder="Ej. Escombro, Base hidráulica..."
+              placeholderTextColor={colors.textSecondary}
+              autoCapitalize="words"
+              autoFocus
+            />
+            {!!errorNombre && <Text style={estilos.textoError}>{errorNombre}</Text>}
+
+            {esEdicion && (
+              <View style={[estilos.switchRow, { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 4 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={estilos.switchLabel}>Material activo</Text>
+                  <Text style={estilos.switchDesc}>Desactivar lo oculta al registrar viajes</Text>
+                </View>
+                <Switch
+                  value={activo}
+                  onValueChange={setActivo}
+                  trackColor={{ false: colors.border, true: colors.accent }}
+                  thumbColor={colors.surface}
+                />
+              </View>
+            )}
+          </View>
+
+          <View style={estilos.pie}>
+            <TouchableOpacity style={estilos.btnCancelar} onPress={onCerrar}>
+              <Text style={estilos.btnCancelarTexto}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[estilos.btnGuardar, guardando && { opacity: 0.6 }]}
+              onPress={handleGuardar}
+              disabled={guardando}
+            >
+              {guardando
+                ? <ActivityIndicator size="small" color={colors.surface} />
+                : <Text style={estilos.btnGuardarTexto}>Guardar</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Estilos compartidos ──────────────────────────────────────────────────────
 
 const estilos = StyleSheet.create({
@@ -275,6 +520,10 @@ const estilos = StyleSheet.create({
     fontWeight: "600",
     color: colors.textSecondary,
     marginBottom: 6,
+  },
+  subCategoriaLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   input: {
     borderWidth: 1,

@@ -32,6 +32,8 @@ const CATALOG_TTL = {
   bancos: 24 * 3600 * 1000,
   operadores: 3600 * 1000,
   vehiculos: 3600 * 1000,
+  materialesRenta: 10 * 60 * 1000,
+  categoriasMaterialRenta: 10 * 60 * 1000,
 };
 
 // Prefijo de las llaves de caché local. Subir la versión invalida toda la caché
@@ -49,6 +51,8 @@ export const useCatalogos = (catalogosRequeridos = []) => {
   const [bancos, setBancos] = useState([]);
   const [operadores, setOperadores] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
+  const [materialesRenta, setMaterialesRenta] = useState([]);
+  const [categoriasMaterialRenta, setCategoriasMaterialRenta] = useState([]);
 
   // Estados para manejar el estado de carga y errores
   const [loading, setLoading] = useState(true);
@@ -87,6 +91,19 @@ export const useCatalogos = (catalogosRequeridos = []) => {
             .select("id_vehiculo, placas, id_sindicato, capacidad_m3")
             .eq("activo", true)
             .order("placas"),
+        materialesRenta: () =>
+          supabase
+            .from("material")
+            .select("id_material, material, id_categoria_material_renta")
+            .not("id_categoria_material_renta", "is", null)
+            .eq("activo", true)
+            .order("material"),
+        categoriasMaterialRenta: () =>
+          supabase
+            .from("categoria_material_renta")
+            .select("id_categoria_material_renta, categoria, descripcion, orden")
+            .eq("activo", true)
+            .order("orden"),
       };
 
       const setters = {
@@ -95,6 +112,8 @@ export const useCatalogos = (catalogosRequeridos = []) => {
         bancos: setBancos,
         operadores: setOperadores,
         vehiculos: setVehiculos,
+        materialesRenta: setMaterialesRenta,
+        categoriasMaterialRenta: setCategoriasMaterialRenta,
       };
 
       try {
@@ -155,6 +174,8 @@ export const useCatalogos = (catalogosRequeridos = []) => {
     bancos,
     operadores,
     vehiculos,
+    materialesRenta,
+    categoriasMaterialRenta,
     loading,
     error,
     refrescando,

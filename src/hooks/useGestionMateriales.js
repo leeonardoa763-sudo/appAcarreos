@@ -6,6 +6,7 @@ import { catCacheKey } from "./useCatalogos";
 export const useGestionMateriales = () => {
   const [materiales, setMateriales] = useState([]);
   const [tipos, setTipos] = useState([]);
+  const [categoriasRenta, setCategoriasRenta] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -17,7 +18,9 @@ export const useGestionMateriales = () => {
         .from("material")
         .select(
           `id_material, material, id_tipo_de_material, es_material_descarga, activo,
-          tipo_de_material:id_tipo_de_material (id_tipo_de_material, tipo_de_material)`
+          id_categoria_material_renta,
+          tipo_de_material:id_tipo_de_material (id_tipo_de_material, tipo_de_material),
+          categoria_material_renta:id_categoria_material_renta (id_categoria_material_renta, categoria)`
         )
         .order("material");
       if (err) throw err;
@@ -50,9 +53,34 @@ export const useGestionMateriales = () => {
     }
   }, []);
 
+  const fetchCategoriasRenta = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data, error: err } = await supabase
+        .from("categoria_material_renta")
+        .select("id_categoria_material_renta, categoria, descripcion, orden, activo")
+        .order("orden");
+      if (err) throw err;
+      console.log("[GestionMat] categorias renta cargadas:", data?.length);
+      setCategoriasRenta(data || []);
+    } catch (err) {
+      console.error("[GestionMat] Error cargando categorias renta:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const invalidarCacheMateriales = async () => {
     await clearStorageKey(catCacheKey("materiales"));
+    await clearStorageKey(catCacheKey("materialesRenta"));
     console.log("[GestionMat] cache invalidado");
+  };
+
+  const invalidarCacheCategoriasRenta = async () => {
+    await clearStorageKey(catCacheKey("categoriasMaterialRenta"));
+    console.log("[GestionMat] cache de categorias renta invalidado");
   };
 
   const crearMaterial = useCallback(async (datos) => {
@@ -61,6 +89,7 @@ export const useGestionMateriales = () => {
       material: datos.material.trim(),
       id_tipo_de_material: datos.id_tipo_de_material,
       es_material_descarga: datos.es_material_descarga ?? false,
+      id_categoria_material_renta: datos.id_categoria_material_renta ?? null,
       activo: true,
     });
     if (err) throw err;
@@ -76,6 +105,7 @@ export const useGestionMateriales = () => {
         material: datos.material.trim(),
         id_tipo_de_material: datos.id_tipo_de_material,
         es_material_descarga: datos.es_material_descarga ?? false,
+        id_categoria_material_renta: datos.id_categoria_material_renta ?? null,
         activo: datos.activo ?? true,
       })
       .eq("id_material", id);
@@ -83,6 +113,31 @@ export const useGestionMateriales = () => {
     await invalidarCacheMateriales();
     await fetchMateriales();
   }, [fetchMateriales]);
+
+  const crearCategoriaRenta = useCallback(async (datos) => {
+    console.log("[GestionMat] crearCategoriaRenta:", datos);
+    const { error: err } = await supabase.from("categoria_material_renta").insert({
+      categoria: datos.categoria.trim(),
+      descripcion: datos.descripcion?.trim() || null,
+    });
+    if (err) throw err;
+    await invalidarCacheCategoriasRenta();
+    await fetchCategoriasRenta();
+  }, [fetchCategoriasRenta]);
+
+  const editarCategoriaRenta = useCallback(async (id, datos) => {
+    console.log("[GestionMat] editarCategoriaRenta id:", id, datos);
+    const { error: err } = await supabase
+      .from("categoria_material_renta")
+      .update({
+        categoria: datos.categoria.trim(),
+        descripcion: datos.descripcion?.trim() || null,
+      })
+      .eq("id_categoria_material_renta", id);
+    if (err) throw err;
+    await invalidarCacheCategoriasRenta();
+    await fetchCategoriasRenta();
+  }, [fetchCategoriasRenta]);
 
   const crearTipo = useCallback(async (datos) => {
     console.log("[GestionMat] crearTipo:", datos);
@@ -106,13 +161,17 @@ export const useGestionMateriales = () => {
   return {
     materiales,
     tipos,
+    categoriasRenta,
     loading,
     error,
     fetchMateriales,
     fetchTipos,
+    fetchCategoriasRenta,
     crearMaterial,
     editarMaterial,
     crearTipo,
     editarTipo,
+    crearCategoriaRenta,
+    editarCategoriaRenta,
   };
 };

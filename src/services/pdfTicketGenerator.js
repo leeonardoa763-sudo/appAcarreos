@@ -378,7 +378,12 @@ const generarHTMLTicketRenta = (valeData) => {
   const operador = valeData.operadores?.nombre_completo || "N/A";
   const placas = valeData.vehiculos?.placas || "N/A";
   const sindicato = valeData.vehiculos?.sindicatos?.sindicato || "N/A";
-  const material = detalle.material?.material || "N/A";
+  // Renta normal ya no fija material al crear el vale — cae a la categoria
+  // planeada por el residente; vales viejos (o pipas) siguen mostrando el
+  // material como siempre.
+  const materialLabel = detalle.material?.material ? "Material" : "Categoria planeada";
+  const material =
+    detalle.material?.material || detalle.categoria_planeada?.categoria || "N/A";
   const capacidadRaw =
     valeData.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3;
   const capacidad = capacidadRaw ? `${capacidadRaw} m3` : "N/A";
@@ -445,7 +450,7 @@ const generarHTMLTicketRenta = (valeData) => {
       <div class="separador"></div>
 
       <div class="fila">
-        <span class="fila-label">MATERIAL:</span>
+        <span class="fila-label">${materialLabel.toUpperCase()}:</span>
         <span class="fila-valor">${material}</span>
       </div>
       <div class="fila">

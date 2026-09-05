@@ -300,7 +300,12 @@ export const generarTicketRenta = (vale) => {
   const operador = vale.operadores?.nombre_completo || "N/A";
   const placas = vale.vehiculos?.placas || "N/A";
   const sindicato = vale.vehiculos?.sindicatos?.sindicato || "N/A";
-  const material = detalle.material?.material || "N/A";
+  // Renta normal ya no fija material al crear el vale — cae a la categoria
+  // planeada por el residente; vales viejos (o pipas) siguen mostrando el
+  // material como siempre.
+  const materialLabel = detalle.material?.material ? "MATERIAL" : "CATEGORIA PLANEADA";
+  const material =
+    detalle.material?.material || detalle.categoria_planeada?.categoria || "N/A";
   const capacidadRaw = vale.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3;
   const capacidad = capacidadRaw ? `${capacidadRaw} m3` : "N/A";
   const notas = detalle.notas_adicionales || null;
@@ -379,7 +384,7 @@ export const generarTicketRenta = (vale) => {
     { tipo: "separador" },
     {
       tipo: "texto",
-      contenido: `MATERIAL: ${material}\n`,
+      contenido: `${materialLabel}: ${material}\n`,
       opciones: { align: ALINEACION.IZQUIERDA, bold: true },
     },
     {

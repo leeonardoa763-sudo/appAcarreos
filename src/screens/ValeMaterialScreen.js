@@ -37,6 +37,7 @@ import CustomModalPicker from "../componets/forms/CustomModalPicker";
 import SelectorCantidadVales from "../componets/vale/SelectorCantidadVales";
 import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScrollView";
 import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
+import { diasPermitidosProgramado } from "../utils/jornadaLaboral";
 import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
 import RefrescarCatalogoButton from "../componets/common/RefrescarCatalogoButton";
 
@@ -50,8 +51,11 @@ const ValeMaterialScreen = () => {
 
   const [cantidadVales, setCantidadVales] = useState(1);
   // Vale entregado hoy para que el camión llegue directo al banco mañana:
-  // admite viajes en su jornada y en la siguiente (ver utils/jornadaLaboral.js)
+  // admite viajes en su jornada y en la(s) siguiente(s) (ver utils/jornadaLaboral.js)
   const [esProgramado, setEsProgramado] = useState(false);
+  // Si hoy es sábado, la jornada objetivo del vale programado es el lunes
+  // (no el domingo), así que se permiten 2 jornadas de diferencia en vez de 1.
+  const esSabadoHoy = diasPermitidosProgramado(new Date()) === 2;
 
   // Datos de obra
   const { obras, loading: loadingObras } = useObras(userProfile?.id_persona);
@@ -525,10 +529,13 @@ const ValeMaterialScreen = () => {
               color={colors.secondary}
             />
             <View style={styles.programadoTexto}>
-              <Text style={styles.programadoTitulo}>Programar para mañana</Text>
+              <Text style={styles.programadoTitulo}>
+                {esSabadoHoy ? "Programar para el lunes" : "Programar para mañana"}
+              </Text>
               <Text style={styles.programadoSubtitulo}>
-                El camión recibe el ticket hoy y llega directo al banco mañana.
-                El vale acepta viajes hoy y mañana.
+                {esSabadoHoy
+                  ? "El camión recibe el ticket hoy y llega directo al banco el lunes. El vale acepta viajes hoy y hasta el lunes."
+                  : "El camión recibe el ticket hoy y llega directo al banco mañana. El vale acepta viajes hoy y mañana."}
               </Text>
             </View>
             <Switch

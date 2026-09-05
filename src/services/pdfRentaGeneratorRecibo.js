@@ -32,7 +32,12 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
 
   // Extraer datos del vale de RENTA
   const detalle = valeData.vale_renta_detalle?.[0] || {};
-  const material = detalle.material?.material || "N/A";
+  // Vales nuevos (renta normal) ya no fijan un material al crear el vale: el
+  // recibo de creacion muestra la categoria planeada por el residente en su
+  // lugar; vales viejos (o pipas) siguen mostrando el material como siempre.
+  const materialLabel = detalle.material?.material ? "Material" : "Categoría planeada";
+  const material =
+    detalle.material?.material || detalle.categoria_planeada?.categoria || "N/A";
   const capacidadRaw = valeData.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3;
   const capacidad = capacidadRaw || "N/A";
   const numeroViajes = detalle.numero_viajes || 1;
@@ -116,10 +121,20 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
         .map((v) => {
           const ticket = ticketMap[v.numero_viaje];
           const hora = v.hora_registro ? formatearHoraRecibo(v.hora_registro) : "--:--";
-          const banco = ticket?.banco_descarga || "—";
-          const matNombre = esMaterialDescarga
-            ? (ticket?.material?.material || detalle.material?.material || "—")
-            : (detalle.material?.material || "—");
+          // Renta normal guarda el banco de descarga en el propio viaje; pipas
+          // lo siguen resolviendo por el ticket de pozo.
+          const banco = v.banco_descarga || ticket?.banco_descarga || "—";
+          // Renta normal declara el material por viaje (v.material); pipas y
+          // vales viejos siguen resolviendo el material como antes.
+          const materialBase =
+            v.material?.material ||
+            (esMaterialDescarga
+              ? (ticket?.material?.material || detalle.material?.material)
+              : detalle.material?.material) ||
+            "—";
+          const matNombre = v.carga_porcentaje
+            ? `${materialBase} (${v.carga_porcentaje}%)`
+            : materialBase;
           return `
             <tr>
               <td style="padding:2px 3px; text-align:center; border-bottom:1px solid #E8EAF0; font-size:5.5px;">${v.numero_viaje}</td>
@@ -208,7 +223,7 @@ const generateValeRentaReciboHTML = (valeData, colorCopia, qrDataUrl) => {
         <div class="receipt-section">
           <div class="section-title">SERVICIO</div>
           <div class="receipt-row">
-            <span class="receipt-row-label">Material:</span>
+            <span class="receipt-row-label">${materialLabel}:</span>
             <span class="receipt-row-value">${material}</span>
           </div>
           <div class="receipt-row">

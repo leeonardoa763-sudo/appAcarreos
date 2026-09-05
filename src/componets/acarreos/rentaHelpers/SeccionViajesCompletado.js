@@ -20,10 +20,20 @@ const formatHora = (isoString) => {
 };
 
 const ViajeRow = ({ viaje, ticket, esMaterialDescarga, materialDefault }) => {
-  const matNombre = esMaterialDescarga
-    ? (ticket?.material?.material || materialDefault || "—")
-    : null;
-  const banco = esMaterialDescarga ? (ticket?.banco_descarga || "—") : null;
+  // Renta normal declara el material (y la carga) por viaje; el flujo viejo de
+  // descarga (pipas) lo resuelve por ticket, y los vales viejos caen al
+  // material fijo del vale completo.
+  const matNombre =
+    viaje.material?.material ||
+    (esMaterialDescarga ? ticket?.material?.material : null) ||
+    materialDefault ||
+    null;
+  const cargaTxt = viaje.carga_porcentaje ? `${viaje.carga_porcentaje}% carga` : null;
+  // Renta normal guarda el banco en el propio viaje; el flujo viejo de
+  // descarga (pipas) lo resuelve por ticket.
+  const banco =
+    viaje.banco_descarga || (esMaterialDescarga ? ticket?.banco_descarga : null) || null;
+  const mostrarFilaSecundaria = !!matNombre || !!banco;
 
   return (
     <View style={styles.viajeRow}>
@@ -47,8 +57,8 @@ const ViajeRow = ({ viaje, ticket, esMaterialDescarga, materialDefault }) => {
           </Text>
         </View>
 
-        {/* Fila secundaria: material y banco — solo si es_material_descarga */}
-        {esMaterialDescarga && (
+        {/* Fila secundaria: material/carga (renta normal) o material/banco (descarga) */}
+        {mostrarFilaSecundaria && (
           <View style={styles.viajeFilaDescarga}>
             <MaterialCommunityIcons
               name="package-variant"
@@ -58,7 +68,15 @@ const ViajeRow = ({ viaje, ticket, esMaterialDescarga, materialDefault }) => {
             <Text style={styles.viajeMaterial} numberOfLines={1}>
               {matNombre}
             </Text>
-            {banco !== "—" && (
+            {!!cargaTxt && (
+              <>
+                <Text style={styles.viajeSeparador}>·</Text>
+                <Text style={styles.viajeBanco} numberOfLines={1}>
+                  {cargaTxt}
+                </Text>
+              </>
+            )}
+            {banco && banco !== "—" && (
               <>
                 <Text style={styles.viajeSeparador}>·</Text>
                 <MaterialCommunityIcons
@@ -97,6 +115,12 @@ const SeccionViajesCompletado = ({
 
   const esMaterialDescarga = detalleRenta?.material?.es_material_descarga === true;
   const materialDefault = detalleRenta?.material?.material || null;
+  // Renta normal declara material por viaje (viaje.material); esMaterialDescarga
+  // solo cubre el flujo viejo de descarga (pipas) — sin esto, la columna de
+  // material no se mostraba nunca en vales de renta normal nuevos.
+  const mostrarColumnaMaterial =
+    esMaterialDescarga ||
+    viajes.some((v) => v.material || v.carga_porcentaje || v.banco_descarga);
 
   // Mapa numero_ticket → ticket para cruzar con viajes
   const ticketMap = {};
@@ -123,9 +147,9 @@ const SeccionViajesCompletado = ({
           <Text style={[styles.tablaHeaderTexto, styles.colNumero]}>#</Text>
           <View style={styles.colContenido}>
             <Text style={styles.tablaHeaderTexto}>Hora · Registrado por</Text>
-            {esMaterialDescarga && (
+            {mostrarColumnaMaterial && (
               <Text style={[styles.tablaHeaderTexto, { marginTop: 1 }]}>
-                Material · Banco
+                Material · Carga{esMaterialDescarga ? " · Banco" : ""}
               </Text>
             )}
           </View>

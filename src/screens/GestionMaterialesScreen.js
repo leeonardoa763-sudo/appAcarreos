@@ -12,22 +12,31 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../config/colors";
 import { useGestionMateriales } from "../hooks/useGestionMateriales";
-import { ModalMaterial, ModalTipo } from "../componets/materiales/GestionMaterialesModales";
+import {
+  ModalMaterial,
+  ModalTipo,
+  ModalCategoriaRenta,
+  ModalMaterialRenta,
+} from "../componets/materiales/GestionMaterialesModales";
 
-const PESTANAS = ["Materiales", "Tipos"];
+const PESTANAS = ["Materiales", "Tipos", "Categorías Renta"];
 
 export default function GestionMaterialesScreen() {
   const {
     materiales,
     tipos,
+    categoriasRenta,
     loading,
     error,
     fetchMateriales,
     fetchTipos,
+    fetchCategoriasRenta,
     crearMaterial,
     editarMaterial,
     crearTipo,
     editarTipo,
+    crearCategoriaRenta,
+    editarCategoriaRenta,
   } = useGestionMateriales();
 
   const [pestanaActiva, setPestanaActiva] = useState("Materiales");
@@ -39,9 +48,18 @@ export default function GestionMaterialesScreen() {
   const [modalTipoVisible, setModalTipoVisible] = useState(false);
   const [tipoSeleccionado, setTipoSeleccionado] = useState(null);
 
+  const [modalCategoriaVisible, setModalCategoriaVisible] = useState(false);
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
+
+  const [categoriaExpandidaId, setCategoriaExpandidaId] = useState(null);
+  const [modalMaterialRentaVisible, setModalMaterialRentaVisible] = useState(false);
+  const [materialRentaSeleccionado, setMaterialRentaSeleccionado] = useState(null);
+  const [categoriaParaMaterial, setCategoriaParaMaterial] = useState(null);
+
   useEffect(() => {
     fetchMateriales();
     fetchTipos();
+    fetchCategoriasRenta();
   }, []);
 
   const materialesFiltrados = useMemo(() => {
@@ -81,6 +99,31 @@ export default function GestionMaterialesScreen() {
     setModalTipoVisible(true);
   };
 
+  const abrirNuevaCategoria = () => {
+    setCategoriaSeleccionada(null);
+    setModalCategoriaVisible(true);
+  };
+
+  const abrirEditarCategoria = (categoria) => {
+    setCategoriaSeleccionada(categoria);
+    setModalCategoriaVisible(true);
+  };
+
+  const materialesPorCategoria = (idCategoria) =>
+    materiales.filter((m) => m.id_categoria_material_renta === idCategoria);
+
+  const abrirNuevoMaterialRenta = (categoria) => {
+    setMaterialRentaSeleccionado(null);
+    setCategoriaParaMaterial(categoria);
+    setModalMaterialRentaVisible(true);
+  };
+
+  const abrirEditarMaterialRenta = (material, categoria) => {
+    setMaterialRentaSeleccionado(material);
+    setCategoriaParaMaterial(categoria);
+    setModalMaterialRentaVisible(true);
+  };
+
   const handleGuardarMaterial = async (datos) => {
     if (materialSeleccionado) {
       await editarMaterial(materialSeleccionado.id_material, datos);
@@ -94,6 +137,36 @@ export default function GestionMaterialesScreen() {
       await editarTipo(tipoSeleccionado.id_tipo_de_material, datos);
     } else {
       await crearTipo(datos);
+    }
+  };
+
+  const handleGuardarCategoria = async (datos) => {
+    if (categoriaSeleccionada) {
+      await editarCategoriaRenta(
+        categoriaSeleccionada.id_categoria_material_renta,
+        datos,
+      );
+    } else {
+      await crearCategoriaRenta(datos);
+    }
+  };
+
+  // Material "hijo" de una categoría de renta: sin tipo_de_material (esa
+  // jerarquía es para el pricing de material/bancos, no aplica en renta) y
+  // sin es_material_descarga (exclusivo de pipas, ver
+  // 20260904_categorias_material_renta.sql).
+  const handleGuardarMaterialRenta = async (datos) => {
+    const payload = {
+      material: datos.material,
+      id_tipo_de_material: null,
+      es_material_descarga: false,
+      id_categoria_material_renta: categoriaParaMaterial.id_categoria_material_renta,
+      activo: datos.activo,
+    };
+    if (materialRentaSeleccionado) {
+      await editarMaterial(materialRentaSeleccionado.id_material, payload);
+    } else {
+      await crearMaterial(payload);
     }
   };
 
@@ -158,6 +231,84 @@ export default function GestionMaterialesScreen() {
     </TouchableOpacity>
   );
 
+  const renderCategoria = ({ item }) => {
+    const expandida = categoriaExpandidaId === item.id_categoria_material_renta;
+    const materialesCategoria = materialesPorCategoria(item.id_categoria_material_renta);
+
+    return (
+      <View style={estilos.categoriaCard}>
+        <View style={estilos.categoriaFilaPrincipal}>
+          <TouchableOpacity
+            style={estilos.filaTocable}
+            onPress={() => abrirEditarCategoria(item)}
+            activeOpacity={0.7}
+          >
+            <View style={estilos.filaIcono}>
+              <MaterialCommunityIcons name="shape-outline" size={22} color={colors.secondary} />
+            </View>
+            <View style={estilos.filaTextos}>
+              <Text style={estilos.filaNombre}>{item.categoria}</Text>
+              {!!item.descripcion && (
+                <Text style={estilos.filaSubtexto} numberOfLines={2}>{item.descripcion}</Text>
+              )}
+              <Text style={estilos.filaSubtextoConteo}>
+                {materialesCategoria.length} {materialesCategoria.length === 1 ? "material" : "materiales"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() =>
+              setCategoriaExpandidaId(expandida ? null : item.id_categoria_material_renta)
+            }
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={estilos.chevronBtn}
+          >
+            <MaterialCommunityIcons
+              name={expandida ? "chevron-up" : "chevron-down"}
+              size={22}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {expandida && (
+          <View style={estilos.subLista}>
+            {materialesCategoria.map((mat) => (
+              <TouchableOpacity
+                key={mat.id_material}
+                style={estilos.subFila}
+                onPress={() => abrirEditarMaterialRenta(mat, item)}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name="circle-small"
+                  size={18}
+                  color={mat.activo ? colors.secondary : colors.textSecondary}
+                />
+                <Text
+                  style={[estilos.subFilaTexto, !mat.activo && estilos.subFilaTextoInactivo]}
+                >
+                  {mat.material}{!mat.activo ? " (inactivo)" : ""}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            {materialesCategoria.length === 0 && (
+              <Text style={estilos.subVacioTexto}>Sin materiales en esta categoría</Text>
+            )}
+            <TouchableOpacity
+              style={estilos.btnAgregarSub}
+              onPress={() => abrirNuevoMaterialRenta(item)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="plus-circle-outline" size={18} color={colors.primary} />
+              <Text style={estilos.btnAgregarSubTexto}>Agregar material</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   if (error) {
     return (
       <View style={estilos.centrado}>
@@ -165,7 +316,7 @@ export default function GestionMaterialesScreen() {
         <Text style={estilos.errorTexto}>Error al cargar datos</Text>
         <TouchableOpacity
           style={estilos.btnReintentar}
-          onPress={() => { fetchMateriales(); fetchTipos(); }}
+          onPress={() => { fetchMateriales(); fetchTipos(); fetchCategoriasRenta(); }}
         >
           <Text style={estilos.btnReintentarTexto}>Reintentar</Text>
         </TouchableOpacity>
@@ -266,11 +417,42 @@ export default function GestionMaterialesScreen() {
         </>
       )}
 
+      {/* Pestaña Categorías Renta */}
+      {pestanaActiva === "Categorías Renta" && (
+        <>
+          <View style={estilos.tiposHeader}>
+            <Text style={estilos.tiposTitulo}>Categorías de material (Renta)</Text>
+            <TouchableOpacity style={estilos.btnAgregar} onPress={abrirNuevaCategoria}>
+              <MaterialCommunityIcons name="plus" size={22} color={colors.surface} />
+            </TouchableOpacity>
+          </View>
+
+          {loading ? (
+            <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.primary} />
+          ) : (
+            <FlatList
+              data={categoriasRenta}
+              keyExtractor={(item) => String(item.id_categoria_material_renta)}
+              renderItem={renderCategoria}
+              contentContainerStyle={{ padding: 14, paddingBottom: 40 }}
+              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+              ListEmptyComponent={
+                <View style={estilos.vacio}>
+                  <MaterialCommunityIcons name="shape-off-outline" size={36} color={colors.textSecondary} />
+                  <Text style={estilos.vacioTexto}>No hay categorías registradas</Text>
+                </View>
+              }
+            />
+          )}
+        </>
+      )}
+
       {/* Modales */}
       <ModalMaterial
         visible={modalMaterialVisible}
         material={materialSeleccionado}
         tipos={tipos}
+        categoriasRenta={categoriasRenta}
         onGuardar={handleGuardarMaterial}
         onCerrar={() => setModalMaterialVisible(false)}
       />
@@ -279,6 +461,19 @@ export default function GestionMaterialesScreen() {
         tipo={tipoSeleccionado}
         onGuardar={handleGuardarTipo}
         onCerrar={() => setModalTipoVisible(false)}
+      />
+      <ModalCategoriaRenta
+        visible={modalCategoriaVisible}
+        categoria={categoriaSeleccionada}
+        onGuardar={handleGuardarCategoria}
+        onCerrar={() => setModalCategoriaVisible(false)}
+      />
+      <ModalMaterialRenta
+        visible={modalMaterialRentaVisible}
+        material={materialRentaSeleccionado}
+        categoria={categoriaParaMaterial}
+        onGuardar={handleGuardarMaterialRenta}
+        onCerrar={() => setModalMaterialRentaVisible(false)}
       />
     </View>
   );
@@ -397,6 +592,75 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     gap: 12,
+  },
+
+  // Categorías de renta — card con fila principal + sub-lista de materiales
+  categoriaCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+  },
+  categoriaFilaPrincipal: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    gap: 12,
+  },
+  filaTocable: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  chevronBtn: {
+    padding: 4,
+  },
+  filaSubtextoConteo: {
+    fontSize: 11,
+    color: colors.secondary,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  subLista: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
+    paddingVertical: 6,
+  },
+  subFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    gap: 4,
+  },
+  subFilaTexto: {
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
+  subFilaTextoInactivo: {
+    color: colors.textSecondary,
+  },
+  subVacioTexto: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    fontStyle: "italic",
+  },
+  btnAgregarSub: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  btnAgregarSubTexto: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.primary,
   },
   filaInactiva: {
     opacity: 0.65,

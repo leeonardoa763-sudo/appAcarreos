@@ -44,7 +44,12 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
 
   // Extraer datos del vale de RENTA
   const detalle = valeData.vale_renta_detalle?.[0] || {};
-  const material = detalle.material?.material || "N/A";
+  // Vales nuevos (renta normal) ya no fijan un material al crear el vale: el
+  // PDF de creacion muestra la categoria planeada por el residente en su
+  // lugar; vales viejos (o pipas) siguen mostrando el material como siempre.
+  const materialLabel = detalle.material?.material ? "Material Movido" : "Categoría planeada";
+  const material =
+    detalle.material?.material || detalle.categoria_planeada?.categoria || "N/A";
   const sindicato = detalle.sindicatos?.sindicato || "N/A";
   const capacidad =
     valeData.vehiculos?.capacidad_m3 ?? detalle.capacidad_m3 ?? "Pendiente";
@@ -132,10 +137,20 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
           const hora = v.hora_registro
             ? formatearHora(v.hora_registro)
             : "--:--";
-          const banco = ticket?.banco_descarga || "—";
-          const matNombre = esMaterialDescarga
-            ? (ticket?.material?.material || detalle.material?.material || "—")
-            : (detalle.material?.material || "—");
+          // Renta normal guarda el banco de descarga en el propio viaje; pipas
+          // lo siguen resolviendo por el ticket de pozo.
+          const banco = v.banco_descarga || ticket?.banco_descarga || "—";
+          // Renta normal declara el material por viaje (v.material); pipas y
+          // vales viejos siguen resolviendo el material como antes.
+          const materialBase =
+            v.material?.material ||
+            (esMaterialDescarga
+              ? (ticket?.material?.material || detalle.material?.material)
+              : detalle.material?.material) ||
+            "—";
+          const matNombre = v.carga_porcentaje
+            ? `${materialBase} (${v.carga_porcentaje}%)`
+            : materialBase;
           return `
             <tr>
               <td style="padding:3px 4px; text-align:center; border-bottom:1px solid #E8EAF0;">${v.numero_viaje}</td>
@@ -229,7 +244,7 @@ const generateValeRentaHTML = (valeData, colorCopia, qrDataUrl) => {
         <div class="section-title">SERVICIO DE RENTA</div>
         <div class="info-section">
           <div class="info-row">
-            <span class="info-label">Material Movido</span>
+            <span class="info-label">${materialLabel}</span>
             <span class="info-value">${material}</span>
           </div>
           <div class="info-row">

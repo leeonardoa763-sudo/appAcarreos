@@ -47,6 +47,7 @@ import { useReimprimirPDF } from "../../hooks/useReimprimirPDF";
 
 import { useCancelarVale } from "../../hooks/useCancelarVale";
 import { tarifaRentaEfectiva } from "../../utils/preciosRenta";
+import { esValePipa } from "../../utils/pipasAgua";
 import ModalCancelarVale from "../common/ModalCancelarVale";
 import ModalImprimirTicketRenta from "./rentaHelpers/ModalImprimirTicketRenta";
 
@@ -57,8 +58,9 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
   const esResidente = userRole === "Residente";
   const esChecador = userRole === "CHECADOR";
   const esPlantaAsfaltos = userRole === "Planta de Asfaltos";
-  // Planta de Asfaltos gestiona viajes/tickets igual que Residente
-  const puedeEliminar = esResidente || esPlantaAsfaltos;
+  const esAdministrador = userRole === "Administrador";
+  // Planta de Asfaltos y Administrador gestionan viajes/tickets igual que Residente
+  const puedeEliminar = esResidente || esPlantaAsfaltos || esAdministrador;
   const {
     modalVisible: modalCancelarVisible,
     motivo,
@@ -75,6 +77,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     onClose();
   });
   const detalleRenta = vale?.vale_renta_detalle?.[0];
+  const esPipa = esValePipa(vale);
 
   const {
     yaReimprimio,
@@ -166,6 +169,7 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
     eliminandoViaje,
     totalViajes,
     registrarViaje,
+    marcarTicketImpreso,
     eliminarUltimoViaje,
   } = useViajesRenta(
     detalleRenta?.id_vale_renta_detalle,
@@ -645,6 +649,9 @@ const ValeDetalleRenta = ({ vale, onClose, onRefresh }) => {
             onEliminarUltimoViaje={eliminarUltimoViaje}
             eliminandoViaje={eliminandoViaje}
             esMaterialDescarga={esMaterialDescarga}
+            esPipa={esPipa}
+            idCategoriaPlaneada={detalleRentaLocal?.id_categoria_planeada}
+            onMarcarTicketImpreso={marcarTicketImpreso}
           />
         )}
 

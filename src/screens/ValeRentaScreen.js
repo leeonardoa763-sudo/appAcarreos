@@ -27,6 +27,7 @@ import { useObras } from "../hooks/useObras";
 import {
   validateHoraInicioNoFutura,
   validateMaterialId,
+  validateCategoriaPlaneada,
   validateSindicatoId,
 } from "../utils/validations";
 
@@ -41,6 +42,7 @@ import KeyboardAvoidingScrollView from "../componets/common/KeyboardAvoidingScro
 import { usePresupuestoObra } from "../hooks/usePresupuestoObra";
 import PresupuestoIndicator from "../componets/common/PresupuestoIndicator";
 import RefrescarCatalogoButton from "../componets/common/RefrescarCatalogoButton";
+import SelectorCategoriaMaterial from "../componets/materiales/SelectorCategoriaMaterial";
 
 // Utils
 import { generateVerificationUrl } from "../utils/qrGenerator";
@@ -70,10 +72,11 @@ const ValeRentaScreen = () => {
   const {
     materiales,
     sindicatos,
+    categoriasMaterialRenta,
     loading: loadingCatalogos,
     refrescando: refrescandoCatalogos,
     refrescarCatalogos,
-  } = useCatalogos(["materiales", "sindicatos"]);
+  } = useCatalogos(["materiales", "sindicatos", "categoriasMaterialRenta"]);
 
   // Particion bidireccional segun el modo: en modo pipa SOLO existe el material
   // Agua y el sindicato Pipas; en modo renta normal ninguno de los dos aparece.
@@ -92,6 +95,7 @@ const ValeRentaScreen = () => {
 
   const [formData, setFormData] = useState({
     materialId: null,
+    idCategoriaPlaneada: null,
     sindicatoId: null,
     horaInicio: null,
     notasAdicionales: "",
@@ -156,8 +160,15 @@ const ValeRentaScreen = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    const errorMaterial = validateMaterialId(formData.materialId);
-    if (errorMaterial) newErrors.materialId = errorMaterial;
+    if (esModoPipa) {
+      const errorMaterial = validateMaterialId(formData.materialId);
+      if (errorMaterial) newErrors.materialId = errorMaterial;
+    } else {
+      const errorCategoria = validateCategoriaPlaneada(
+        formData.idCategoriaPlaneada,
+      );
+      if (errorCategoria) newErrors.idCategoriaPlaneada = errorCategoria;
+    }
 
     const errorSindicato = validateSindicatoId(formData.sindicatoId);
     if (errorSindicato) newErrors.sindicatoId = errorSindicato;
@@ -183,10 +194,11 @@ const ValeRentaScreen = () => {
       return;
     }
 
-    // Guard defensivo contra cache stale: el material y el sindicato elegidos
-    // deben corresponder al modo (pipa o renta normal). Si la cache local aun no
-    // tenia las marcas es_agua_pipa/es_pipas, el picker pudo mostrar opciones
-    // que no debia; se pide refrescar antes de crear un vale mal clasificado.
+    // Guard defensivo contra cache stale: el sindicato elegido debe corresponder
+    // al modo (pipa o renta normal); en pipa, ademas, el material. Si la cache
+    // local aun no tenia las marcas es_agua_pipa/es_pipas, el picker pudo mostrar
+    // opciones que no debia; se pide refrescar antes de crear un vale mal
+    // clasificado.
     const materialSel = materiales.find(
       (m) => m.id_material === formData.materialId,
     );
@@ -194,7 +206,7 @@ const ValeRentaScreen = () => {
       (s) => s.id_sindicato === formData.sindicatoId,
     );
     if (
-      !!materialSel?.es_agua_pipa !== esModoPipa ||
+      (esModoPipa && !!materialSel?.es_agua_pipa !== esModoPipa) ||
       !!sindicatoSel?.es_pipas !== esModoPipa
     ) {
       Alert.alert(
@@ -257,7 +269,11 @@ const ValeRentaScreen = () => {
         .from("vale_renta_detalle")
         .insert({
           id_vale: valeData.id_vale,
-          id_material: formData.materialId,
+          // Renta normal ya no fija material al crear el vale — el checador lo
+          // declara por viaje. Pipa sigue fijándolo aquí (siempre es Agua).
+          ...(esModoPipa
+            ? { id_material: formData.materialId }
+            : { id_categoria_planeada: formData.idCategoriaPlaneada }),
           id_sindicato: formData.sindicatoId,
 
           numero_viajes: 1,
@@ -294,11 +310,25 @@ const ValeRentaScreen = () => {
         },
         vale_renta_detalle: [
           {
-            material: {
-              material:
-                materiales.find((m) => m.id_material === formData.materialId)
-                  ?.material || "N/A",
-            },
+            ...(esModoPipa
+              ? {
+                  material: {
+                    material:
+                      materiales.find(
+                        (m) => m.id_material === formData.materialId,
+                      )?.material || "N/A",
+                  },
+                }
+              : {
+                  categoria_planeada: {
+                    categoria:
+                      categoriasMaterialRenta.find(
+                        (c) =>
+                          c.id_categoria_material_renta ===
+                          formData.idCategoriaPlaneada,
+                      )?.categoria || "N/A",
+                  },
+                }),
             sindicatos: {
               sindicato:
                 sindicatos.find((s) => s.id_sindicato === formData.sindicatoId)
@@ -445,19 +475,47 @@ const ValeRentaScreen = () => {
             refrescando={refrescandoCatalogos}
           />
 
-          <CustomModalPicker
-            label="Material"
-            value={formData.materialId}
-            onValueChange={(value) =>
-              setFormData({ ...formData, materialId: value })
-            }
-            items={materialesVisibles.map((m) => ({
-              id: m.id_material,
-              label: m.material,
-            }))}
-            placeholder="Selecciona el material movido"
-            error={errors.materialId}
-          />
+          {esModoPipa ? (
+            <CustomModalPicker
+              label="Material"
+              value={formData.materialId}
+              onValueChange={(value) =>
+                setFormData({ ...formData, materialId: value })
+              }
+              items={materialesVisibles.map((m) => ({
+                id: m.id_material,
+                label: m.material,
+              }))}
+              placeholder="Selecciona el material movido"
+              error={errors.materialId}
+            />
+          ) : (
+            <View style={styles.categoriaPlaneadaContainer}>
+              <Text style={styles.categoriaPlaneadaLabel}>
+                ¿Qué tipo de material se tiene planeado mover?
+              </Text>
+              <Text style={styles.categoriaPlaneadaSubtitulo}>
+                Es orientativo — el checador confirma el material exacto en
+                cada viaje que registre.
+              </Text>
+              <SelectorCategoriaMaterial
+                items={categoriasMaterialRenta.map((c) => ({
+                  id: c.id_categoria_material_renta,
+                  nombre: c.categoria,
+                  descripcion: c.descripcion,
+                }))}
+                value={formData.idCategoriaPlaneada}
+                onSelect={(value) =>
+                  setFormData({ ...formData, idCategoriaPlaneada: value })
+                }
+              />
+              {errors.idCategoriaPlaneada && (
+                <Text style={styles.categoriaPlaneadaError}>
+                  {errors.idCategoriaPlaneada}
+                </Text>
+              )}
+            </View>
+          )}
 
           <CustomModalPicker
             label="Sindicato"
@@ -558,6 +616,25 @@ export default ValeRentaScreen;
 
 const styles = {
   ...commonStyles,
+  categoriaPlaneadaContainer: {
+    marginBottom: 16,
+  },
+  categoriaPlaneadaLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  categoriaPlaneadaSubtitulo: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 10,
+  },
+  categoriaPlaneadaError: {
+    fontSize: 12,
+    color: colors.danger,
+    marginTop: 4,
+  },
   checkboxRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -73,6 +73,9 @@ const SeccionCompletarVale = ({
   onEliminarUltimoViaje,
   eliminandoViaje = false,
   esMaterialDescarga = false,
+  esPipa = false,
+  idCategoriaPlaneada = null,
+  onMarcarTicketImpreso,
 }) => {
   const ticketsViajesDesbalanceados =
     totalTickets > 0 && totalViajes !== totalTickets;
@@ -104,6 +107,7 @@ const SeccionCompletarVale = ({
       </Text>
 
       <ViajesRentaSection
+        vale={vale}
         ayudaUrl={urlAyudaVale(vale, "registrar")}
         viajes={viajes}
         loading={loadingViajes}
@@ -116,6 +120,9 @@ const SeccionCompletarVale = ({
         eliminandoViaje={eliminandoViaje}
         totalTickets={totalTickets}
         esMaterialDescarga={esMaterialDescarga}
+        esPipa={esPipa}
+        idCategoriaPlaneada={idCategoriaPlaneada}
+        onMarcarTicketImpreso={onMarcarTicketImpreso}
       />
 
       {/* Completar vale — fuera de alcance en web */}

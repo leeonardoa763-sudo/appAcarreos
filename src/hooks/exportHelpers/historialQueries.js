@@ -146,6 +146,10 @@ const HISTORIAL_SELECT = `
       id_viaje,
       numero_viaje,
       hora_registro,
+      id_material,
+      carga_porcentaje,
+      banco_descarga,
+      material:id_material ( material ),
       persona:id_persona_registro (
         nombre,
         primer_apellido,
@@ -335,7 +339,9 @@ const aplicarFiltrosDeFila = (filas, { materialId, sindicatoId, bancoId }) => {
 
   if (materialId) {
     resultado = resultado.filter(
-      (f) => f.detalle?.id_material === materialId,
+      // Renta normal declara el material por viaje; material/pipas/vales viejos
+      // lo tienen en el detalle.
+      (f) => f.viaje?.id_material === materialId || f.detalle?.id_material === materialId,
     );
   }
 

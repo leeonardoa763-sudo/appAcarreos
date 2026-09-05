@@ -131,6 +131,9 @@ export const VALE_SELECT_COMPLETO = `
       material,
       es_material_descarga
     ),
+    categoria_planeada:id_categoria_planeada (
+      categoria
+    ),
     sindicatos:id_sindicato (
       sindicato
     ),
@@ -141,7 +144,13 @@ export const VALE_SELECT_COMPLETO = `
     vale_renta_viajes (
       id_viaje,
       numero_viaje,
-      hora_registro
+      hora_registro,
+      carga_porcentaje,
+      banco_descarga,
+      ticket_impreso,
+      material:id_material (
+        material
+      )
     )
   ),
   tickets_descarga (

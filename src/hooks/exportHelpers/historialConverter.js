@@ -117,6 +117,7 @@ export const HISTORIAL_HEADERS = [
   { key: "total_dias", label: "Total Dias" },
   { key: "tarifa_hora", label: "Tarifa por Hora" },
   { key: "tarifa_dia", label: "Tarifa por Dia" },
+  { key: "carga_porcentaje", label: "Carga Viaje (%)" },
   // Cierre
   { key: "costo_total_vale", label: "Costo Total Vale" },
   { key: "notas", label: "Notas" },
@@ -187,8 +188,17 @@ export const transformHistorialData = (filas) => {
       sindicato: txt(resolverSindicatoNombre(vale, detalle)),
       capacidad_m3: num(detalle.capacidad_m3 ?? vale.vehiculos?.capacidad_m3),
 
-      material: txt(detalle.material?.material),
-      banco: esMaterial ? txt(resolverBancoNombre(detalle, viaje)) : "-",
+      // Renta normal declara el material por viaje; material/pipas/vales viejos
+      // lo siguen resolviendo desde el detalle.
+      material: txt(viaje.material?.material ?? detalle.material?.material),
+      // Renta normal captura banco de descarga por viaje (las 4 categorias
+      // nuevas lo piden); pipas no tienen este concepto (usan pozo, en otra
+      // tabla que este select no trae).
+      banco: esMaterial
+        ? txt(resolverBancoNombre(detalle, viaje))
+        : tipo === TIPOS_HISTORIAL.RENTA
+          ? txt(viaje.banco_descarga)
+          : "-",
       distancia_km: esMaterial ? num(distanciaKm) : "0",
 
       hora_registro: formatFechaHoraCompleta(viaje.hora_registro),
@@ -239,6 +249,7 @@ export const transformHistorialData = (filas) => {
       total_dias: esMaterial ? "0" : num(detalle.total_dias),
       tarifa_hora: esMaterial ? "0" : num(tarifaRentaEfectiva(detalle).costo_hr),
       tarifa_dia: esMaterial ? "0" : num(tarifaRentaEfectiva(detalle).costo_dia),
+      carga_porcentaje: esMaterial ? "0" : num(viaje.carga_porcentaje),
 
       costo_total_vale: num(detalle.costo_total),
       notas: txt(detalle.notas_adicionales),

@@ -47,8 +47,9 @@ const ValeDetalleMaterial = ({ vale, onClose, onRefresh }) => {
   const esChecador = userRole === "CHECADOR";
   const esResidente = userRole === "Residente";
   const esPlantaAsfaltos = userRole === "Planta de Asfaltos";
-  // Planta de Asfaltos gestiona viajes/tickets igual que Residente
-  const puedeEliminar = esResidente || esPlantaAsfaltos;
+  const esAdministrador = userRole === "Administrador";
+  // Planta de Asfaltos y Administrador gestionan viajes/tickets igual que Residente
+  const puedeEliminar = esResidente || esPlantaAsfaltos || esAdministrador;
 
   const {
     yaReimprimio,

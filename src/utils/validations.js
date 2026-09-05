@@ -57,6 +57,17 @@ export const validateMaterialId = (materialId) => {
   return null;
 };
 
+/**
+ * Valida que se haya elegido la categoría planeada al crear un vale de renta
+ * (no pipa). Es orientativa para el checador, pero es obligatoria al crear.
+ */
+export const validateCategoriaPlaneada = (idCategoriaPlaneada) => {
+  if (!idCategoriaPlaneada) {
+    return "Debes seleccionar qué tipo de material se tiene planeado mover";
+  }
+  return null;
+};
+
 // ============================================
 // VALIDACIONES ESPECÍFICAS PARA RENTA
 // ============================================
